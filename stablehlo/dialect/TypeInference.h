@@ -103,6 +103,16 @@ namespace mlir::hlo
         ValueRange startIndices,
         SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes);
 
+    LogicalResult inferGatherOp(std::optional<Location> location, Value operand,
+                                Value startIndices, ArrayRef<int64_t> offsetDims,
+                                ArrayRef<int64_t> collapsedSliceDims,
+                                ArrayRef<int64_t> operandBatchingDims,
+                                ArrayRef<int64_t> startIndicesBatchingDims,
+                                ArrayRef<int64_t> startIndexMap,
+                                int64_t indexVectorDim,
+                                ArrayRef<int64_t> sliceSizes,
+                                SmallVectorImpl<Type> &inferredReturnTypes);
+
     LogicalResult inferGetDimensionSizeOp(
         std::optional<Location> location, Type operandType, int64_t dimension,
         SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes);
@@ -214,6 +224,15 @@ namespace mlir::hlo
     LogicalResult verifyDynamicReshapeOp(std::optional<Location> location,
                                          Value operand, Value outputShape,
                                          Value result);
+
+    LogicalResult verifyGatherOp(std::optional<Location> location, Value operand,
+                                 Value startIndices, ArrayRef<int64_t> offsetDims,
+                                 ArrayRef<int64_t> collapsedSliceDims,
+                                 ArrayRef<int64_t> operandBatchingDims,
+                                 ArrayRef<int64_t> startIndicesBatchingDims,
+                                 ArrayRef<int64_t> startIndexMap,
+                                 int64_t indexVectorDim,
+                                 ArrayRef<int64_t> sliceSizes);
 
     LogicalResult verifyIotaOp(std::optional<Location> location,
                                int64_t iotaDimension, Value result);
