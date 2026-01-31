@@ -121,11 +121,11 @@ namespace mlir::hlo
                ArrayRef<int64_t> dimensions, Region &computation,
                SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes);
 
-    // TODO(chokobole): Do we need this? Dependency: interior_padding
     LogicalResult inferPadOp(std::optional<Location> location, Type operandType,
                              Type paddingValueType,
                              ArrayRef<int64_t> edgePaddingLow,
                              ArrayRef<int64_t> edgePaddingHigh,
+                             ArrayRef<int64_t> interiorPadding,
                              SmallVectorImpl<Type> &inferredReturnTypes);
 
     LogicalResult

@@ -608,6 +608,7 @@ namespace mlir::hlo
                            Type paddingValueType,
                            ArrayRef<int64_t> edgePaddingLow,
                            ArrayRef<int64_t> edgePaddingHigh,
+                           ArrayRef<int64_t> interiorPadding,
                            SmallVectorImpl<Type> &inferredReturnTypes)
   {
     auto inputType = cast<RankedTensorType>(operandType);
@@ -628,6 +629,8 @@ namespace mlir::hlo
     {
       int64_t paddingLowVal = edgePaddingLow[i];
       int64_t paddingHighVal = edgePaddingHigh[i];
+      int64_t interiorPaddingVal =
+          interiorPadding.empty() ? 0 : interiorPadding[i];
 
       bool isStaticDim = !isDynamicDimSize(inputShape[i]);
       bool isStaticBound =
@@ -636,7 +639,8 @@ namespace mlir::hlo
       {
         int64_t operandSizeOrBound = isStaticDim ? inputShape[i] : inputBounds[i];
         int64_t resultSizeOrBound =
-            operandSizeOrBound + paddingLowVal + paddingHighVal;
+            operandSizeOrBound + paddingLowVal + paddingHighVal +
+            std::max<int64_t>(operandSizeOrBound - 1, 0) * interiorPaddingVal;
 
         // pad_c4
         if (resultSizeOrBound < 0)

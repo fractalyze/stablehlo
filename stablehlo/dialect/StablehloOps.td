@@ -1568,12 +1568,11 @@ def StableHLO_ReverseOp: StableHLO_ShapedInterfaceOp<"reverse",
   }];
 }
 
-// TODO(chokobole): Do we need this? Dependency: interior_padding
 def StableHLO_PadOp: StableHLO_ShapedInterfaceOp<"pad",
       [HLO_SpeculatableIfStaticDimInOutputIsStaticInInput, NoMemoryEffect,
       SameOperandsAndResultElementType /*pad_c1*/,
       /*pad_c2, pad_i3, pad_i4, pad_i5*/
-      AllMatchSameOperatorTrait<["edge_padding_low", "edge_padding_high"], "$_self.size()", "size">,
+      AllMatchSameOperatorTrait<["edge_padding_low", "edge_padding_high", "interior_padding"], "$_self.size()", "size">,
       DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
   let summary = "Pad operation";
   let description = [{
@@ -1585,7 +1584,7 @@ def StableHLO_PadOp: StableHLO_ShapedInterfaceOp<"pad",
 
     Example:
     ```mlir
-    %0 = stablehlo.pad %arg0, %arg1, low = [0, 1], high = [2, 1]
+    %0 = stablehlo.pad %arg0, %arg1, low = [0, 1], high = [2, 1], interior = [0, 0]
       : (tensor<2x3xi32>, tensor<i32>) -> tensor<5x9xi32>
     ```
   }];
@@ -1593,7 +1592,8 @@ def StableHLO_PadOp: StableHLO_ShapedInterfaceOp<"pad",
     HLO_Tensor:$operand /*pad_i1*/,
     HLO_ScalarTensor:$padding_value /*pad_i2*/,
     DenseI64ArrayAttr:$edge_padding_low /*pad_i3*/,
-    DenseI64ArrayAttr:$edge_padding_high /*pad_i4*/
+    DenseI64ArrayAttr:$edge_padding_high /*pad_i4*/,
+    DenseI64ArrayAttr:$interior_padding /*pad_i5*/
   );
 
   let results = (outs HLO_Tensor);
@@ -1601,7 +1601,8 @@ def StableHLO_PadOp: StableHLO_ShapedInterfaceOp<"pad",
   let assemblyFormat = [{
     $operand `,` $padding_value `,`
       `low` `=` $edge_padding_low `,`
-      `high` `=` $edge_padding_high
+      `high` `=` $edge_padding_high `,`
+      `interior` `=` $interior_padding
       attr-dict `:` functional-type(operands, results)
   }];
 }

@@ -1166,7 +1166,6 @@ namespace mlir::stablehlo
   // PadOp
   //===----------------------------------------------------------------------===//
 
-  // TODO(chokobole): Do we need this? Dependency: interior_padding
   LogicalResult
   PadOp::inferReturnTypes(MLIRContext *, std::optional<Location> location,
                           ValueRange operands, DictionaryAttr attributes,
@@ -1177,10 +1176,9 @@ namespace mlir::stablehlo
     return hlo::inferPadOp(location, adaptor.getOperand().getType(),
                            adaptor.getPaddingValue().getType(),
                            adaptor.getEdgePaddingLow(),
-                           adaptor.getEdgePaddingHigh(), inferredReturnTypes);
+                           adaptor.getEdgePaddingHigh(),
+                           adaptor.getInteriorPadding(), inferredReturnTypes);
   }
-
-  // TODO(chokobole): Do we need this? Dependency: interior_padding
   LogicalResult
   PadOp::reifyReturnTypeShapes(OpBuilder &builder, ValueRange operands,
                                SmallVectorImpl<Value> &reifiedReturnShapes)
@@ -1193,6 +1191,7 @@ namespace mlir::stablehlo
 
     ArrayRef<int64_t> padHigh = adaptor.getEdgePaddingHigh();
     ArrayRef<int64_t> padLow = adaptor.getEdgePaddingLow();
+    ArrayRef<int64_t> padInterior = adaptor.getInteriorPadding();
 
     llvm::SmallVector<Value> dimensions;
     dimensions.reserve(operandTy.getRank());
@@ -1203,6 +1202,19 @@ namespace mlir::stablehlo
 
       // First we grab the initial interior size.
       Value dim = builder.create<tensor::DimOp>(loc, operand, i).getResult();
+
+      // Account for interior padding: (dim - 1) * interior_padding[i]
+      if (padInterior[i] > 0) {
+        Value one = builder.create<arith::ConstantIndexOp>(loc, 1);
+        Value dimMinusOne =
+            builder.create<arith::SubIOp>(loc, dim, one).getResult();
+        Value interiorPad =
+            builder.create<arith::ConstantIndexOp>(loc, padInterior[i]);
+        Value interiorTotal =
+            builder.create<arith::MulIOp>(loc, dimMinusOne, interiorPad)
+                .getResult();
+        dim = builder.create<arith::AddIOp>(loc, dim, interiorTotal).getResult();
+      }
 
       // Then we add the padding on the edge of the tensor.
       dim = builder.create<arith::AddIOp>(loc, dim, padEdge).getResult();
