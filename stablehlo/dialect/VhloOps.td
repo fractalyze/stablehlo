@@ -378,6 +378,21 @@ def VHLO_ReduceOpV1 : VHLO_Op<"reduce_v1", "0.0.1", "current",
   let results = (outs Variadic<VHLO_AnyType>:$results);
 }
 
+def VHLO_ReduceWindowOpV1 : VHLO_Op<"reduce_window_v1", "0.0.1", "current",
+    [SameVariadicOperandSize]> {
+  let arguments = (ins
+    Variadic<VHLO_AnyType>:$inputs,
+    Variadic<VHLO_AnyType>:$init_values,
+    VHLO_AnyAttr:$window_dimensions,
+    VHLO_AnyAttr:$window_strides,
+    VHLO_AnyAttr:$base_dilations,
+    VHLO_AnyAttr:$window_dilations,
+    VHLO_AnyAttr:$padding
+  );
+  let regions = (region VHLO_AnyRegion:$body);
+  let results = (outs Variadic<VHLO_AnyType>:$results);
+}
+
 def VHLO_RemOpV1 : VHLO_Op<"remainder_v1", "0.0.1", "current"> {
   let arguments = (ins VHLO_AnyType:$lhs, VHLO_AnyType:$rhs);
   let results = (outs VHLO_AnyType:$result);
