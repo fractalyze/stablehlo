@@ -133,6 +133,15 @@ namespace mlir::hlo
                   ArrayRef<int64_t> dimensions, Region &body,
                   SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes);
 
+    LogicalResult inferReduceWindowOp(
+        std::optional<Location> location, ValueRange inputs, ValueRange initValues,
+        ArrayRef<int64_t> windowDimensions,
+        std::optional<ArrayRef<int64_t>> windowStrides,
+        std::optional<ArrayRef<int64_t>> baseDilations,
+        std::optional<ArrayRef<int64_t>> windowDilations,
+        std::optional<DenseIntElementsAttr> padding, Region &body,
+        SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes);
+
     LogicalResult inferReverseOp(std::optional<Location> location, Type operandType,
                                  SmallVectorImpl<Type> &inferredReturnTypes);
 
@@ -221,6 +230,14 @@ namespace mlir::hlo
         std::optional<Location> location, SmallVector<ShapedType> inputTypes,
         ArrayRef<int64_t> dimensions, SmallVector<int64_t> &newDimensions,
         Attribute &encoding);
+
+    LogicalResult
+    verifyReduceWindowOp(std::optional<Location> location, ValueRange inputs,
+                         ValueRange initValues, ArrayRef<int64_t> windowDimensions,
+                         std::optional<ArrayRef<int64_t>> windowStrides,
+                         std::optional<ArrayRef<int64_t>> baseDilations,
+                         std::optional<ArrayRef<int64_t>> windowDilations,
+                         std::optional<DenseIntElementsAttr> padding, Region &body);
 
     LogicalResult verifyReshapeOp(std::optional<Location> location, Value operand,
                                   Value result);
