@@ -1375,6 +1375,26 @@ CompareOp::reifyReturnTypeShapes(OpBuilder &builder, ValueRange operands,
 }
 
 //===----------------------------------------------------------------------===//
+// GatherOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult GatherOp::inferReturnTypeComponents(
+    MLIRContext *, std::optional<Location> location, ValueShapeRange operands,
+    DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
+    SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
+  GatherOp::Adaptor adaptor(operands, attributes, properties, regions);
+  return hlo::inferGatherOp(
+      location, adaptor.getOperand(), adaptor.getStartIndices(),
+      adaptor.getDimensionNumbers().getOffsetDims(),
+      adaptor.getDimensionNumbers().getCollapsedSliceDims(),
+      adaptor.getDimensionNumbers().getOperandBatchingDims(),
+      adaptor.getDimensionNumbers().getStartIndicesBatchingDims(),
+      adaptor.getDimensionNumbers().getStartIndexMap(),
+      adaptor.getDimensionNumbers().getIndexVectorDim(),
+      adaptor.getSliceSizes(), inferredReturnShapes);
+}
+
+//===----------------------------------------------------------------------===//
 // ScatterOp
 //===----------------------------------------------------------------------===//
 
@@ -1716,6 +1736,48 @@ Attribute ScatterDimensionNumbersAttr::parse(AsmParser &parser, Type type) {
       parser.getContext(), updateWindowDims, insertedWindowDims,
       inputBatchingDims, scatterIndicesBatchingDims, scatterDimsToOperandDims,
       indexVectorDim);
+}
+
+// Custom printer and parser for GatherDimensionNumbersAttr.
+void GatherDimensionNumbersAttr::print(AsmPrinter &printer) const {
+  printStruct(printer, "gather", std::make_pair("offset_dims", getOffsetDims()),
+              std::make_pair("collapsed_slice_dims", getCollapsedSliceDims()),
+              std::make_pair("operand_batching_dims", getOperandBatchingDims()),
+              std::make_pair("start_indices_batching_dims",
+                             getStartIndicesBatchingDims()),
+              std::make_pair("start_index_map", getStartIndexMap()),
+              std::make_pair("index_vector_dim", getIndexVectorDim()));
+}
+
+Attribute GatherDimensionNumbersAttr::parse(AsmParser &parser, Type type) {
+  if (failed(parser.parseLess()))
+    return {};
+  SmallVector<int64_t> offsetDims;
+  SmallVector<int64_t> collapsedSliceDims;
+  SmallVector<int64_t> operandBatchingDims;
+  SmallVector<int64_t> startIndicesBatchingDims;
+  SmallVector<int64_t> startIndexMap;
+  int64_t indexVectorDim = 0;
+
+  if (failed(parseStruct(
+          parser,
+          {"offset_dims", "collapsed_slice_dims", "operand_batching_dims",
+           "start_indices_batching_dims", "start_index_map",
+           "index_vector_dim"},
+          {[&]() { return parseDims(parser, offsetDims); },
+           [&]() { return parseDims(parser, collapsedSliceDims); },
+           [&]() { return parseDims(parser, operandBatchingDims); },
+           [&]() { return parseDims(parser, startIndicesBatchingDims); },
+           [&]() { return parseDims(parser, startIndexMap); },
+           [&]() { return parser.parseInteger(indexVectorDim); }}))) {
+    parser.emitError(parser.getCurrentLocation())
+        << "failed parsing gather dimension numbers attribute";
+    return {};
+  }
+
+  return GatherDimensionNumbersAttr::get(
+      parser.getContext(), offsetDims, collapsedSliceDims, operandBatchingDims,
+      startIndicesBatchingDims, startIndexMap, indexVectorDim);
 }
 
 //===----------------------------------------------------------------------===//

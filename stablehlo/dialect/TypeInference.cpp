@@ -20,8 +20,10 @@ limitations under the License.
 #include <algorithm>
 #include <numeric>
 
+#include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Support/MathExtras.h"
@@ -858,6 +860,391 @@ LogicalResult inferReverseOp(std::optional<Location> location, Type operandType,
   return success();
 }
 
+namespace {
+
+// Checks if the vector `nums` has duplicates.
+bool isUnique(ArrayRef<int64_t> nums) {
+  llvm::SmallDenseSet<int64_t> dimSet;
+  dimSet.reserve(nums.size());
+  for (auto dim : nums) {
+    if (!dimSet.insert(dim).second)
+      return false;
+  }
+  return true;
+}
+
+// Checks if the `llvm::concat(lhsDims, rhsDims)` has duplicates.
+LogicalResult checkDimsDistinct(std::optional<Location> loc,
+                                ArrayRef<int64_t> lhsDims,
+                                ArrayRef<int64_t> rhsDims, llvm::StringRef lhs,
+                                llvm::StringRef rhs) {
+  llvm::SmallDenseSet<int64_t> dimSet;
+  dimSet.reserve(lhsDims.size() + rhsDims.size());
+  for (auto dim : llvm::concat<const int64_t>(lhsDims, rhsDims)) {
+    if (!dimSet.insert(dim).second)
+      return emitOptionalError(loc, "has duplicated dimension from ", lhs,
+                               " and ", rhs, ": ", dim);
+  }
+  return success();
+}
+
+// Checks that `dim` vector is within range [0, `upperBound`) or
+//  [0, `upperBound`] if `upperBoundInclusive` is true.
+LogicalResult checkDimInBounds(std::optional<Location> loc, int64_t dim,
+                               int64_t upperBound, StringRef dimName,
+                               StringRef upperBoundName,
+                               bool upperBoundInclusive = false) {
+  StringRef rangeEnd = upperBoundInclusive ? "]" : ")";
+  if (dim < 0 || dim >= upperBound + (upperBoundInclusive ? 1 : 0))
+    return emitOptionalError(loc, "Expects ", dimName, " to be in range [0, ",
+                             upperBoundName, rangeEnd, " i.e. [0, ", upperBound,
+                             rangeEnd, ". got: ", dim, ".");
+  return success();
+}
+
+// Checks that `dims` vector is within range [0, `upperBound`).
+LogicalResult checkDimsInBounds(std::optional<Location> loc,
+                                ArrayRef<int64_t> dims, int64_t upperBound,
+                                StringRef dimsName, StringRef upperBoundName) {
+  for (int64_t dim : dims) {
+    if (dim < 0 || dim >= upperBound)
+      return emitOptionalError(loc, "Expects each element of ", dimsName,
+                               " to be in range [0, ", upperBoundName,
+                               ") i.e. [0, ", upperBound, "). got: ", dim, ".");
+  }
+  return success();
+}
+
+LogicalResult
+verifyGather(std::optional<Location> location, ShapeAdaptor operandShape,
+             ShapeAdaptor startIndicesShape, ShapeAdaptor sliceSizesShape,
+             ArrayRef<int64_t> offsetDims, ArrayRef<int64_t> collapsedSliceDims,
+             ArrayRef<int64_t> operandBatchingDims,
+             ArrayRef<int64_t> startIndicesBatchingDims,
+             ArrayRef<int64_t> startIndexMap, int64_t indexVectorDim) {
+  // gather_c1
+  int64_t impliedOperandRank = offsetDims.size() + collapsedSliceDims.size() +
+                               operandBatchingDims.size();
+  if (operandShape.getRank() != impliedOperandRank)
+    return emitOptionalError(
+        location, "offset_dims size (", offsetDims.size(),
+        ") plus collapse_slice_dims size (", collapsedSliceDims.size(),
+        ") plus operand_batching_dims size (", operandBatchingDims.size(),
+        ") is not equal to operand rank (", operandShape.getRank(), ")");
+
+  // gather_c2
+  if (failed(checkDimInBounds(location, indexVectorDim,
+                              startIndicesShape.getRank(), "index_vector_dim",
+                              "rank-of('start_indices')",
+                              /*upperBoundInclusive=*/true)))
+    return failure();
+
+  // gather_c3
+  bool impliedTrailingDim = indexVectorDim == startIndicesShape.getRank();
+  if (impliedTrailingDim || !startIndicesShape.isDynamicDim(indexVectorDim)) {
+    int64_t effectiveDimSize;
+    if (impliedTrailingDim)
+      effectiveDimSize = 1;
+    else
+      effectiveDimSize = startIndicesShape.getDimSize(indexVectorDim);
+    if (effectiveDimSize != static_cast<int64_t>(startIndexMap.size()))
+      return emitOptionalError(
+          location, "start_index_map size (", startIndexMap.size(),
+          ") is not equal to size of index dimension (", indexVectorDim,
+          ") of start_indices (", effectiveDimSize, ")");
+  }
+
+  // gather_c4
+  if (!llvm::is_sorted(offsetDims))
+    return emitOptionalError(
+        location, "expects offset_dims to be sorted, got: [", offsetDims, "]");
+  if (!isUnique(offsetDims))
+    return emitOptionalError(
+        location, "expects offset_dims to not repeat, got: [", offsetDims, "]");
+
+  // gather_c6
+  if (failed(checkDimsDistinct(location, collapsedSliceDims,
+                               operandBatchingDims, "collapsed_slice_dims",
+                               "operand_batching_dims")))
+    return failure();
+
+  // gather_c7
+  if (!llvm::is_sorted(collapsedSliceDims))
+    return emitOptionalError(
+        location, "expects collapsed_slice_dims to be sorted, got: [",
+        collapsedSliceDims, "]");
+
+  // gather_c8
+  if (failed(checkDimsInBounds(location, collapsedSliceDims,
+                               operandShape.getRank(), "collapsed_slice_dims",
+                               "rank-of('operand')")))
+    return failure();
+
+  // gather_c10
+  if (!llvm::is_sorted(operandBatchingDims))
+    return emitOptionalError(
+        location, "expects operand_batching_dims to be sorted, got: [",
+        operandBatchingDims, "]");
+
+  // gather_c11
+  if (failed(checkDimsInBounds(location, operandBatchingDims,
+                               operandShape.getRank(), "operand_batching_dims",
+                               "rank-of('operand')")))
+    return failure();
+
+  // gather_c13
+  if (!isUnique(startIndicesBatchingDims))
+    return emitOptionalError(
+        location, "expects start_indices_batching_dims to not repeat, got: [",
+        startIndicesBatchingDims, "]");
+
+  // gather_c14
+  if (failed(checkDimsInBounds(
+          location, startIndicesBatchingDims, startIndicesShape.getRank(),
+          "start_indices_batching_dims", "rank-of('start_indices')")))
+    return failure();
+
+  // gather_c15
+  if (llvm::is_contained(startIndicesBatchingDims, indexVectorDim))
+    return emitOptionalError(
+        location,
+        "expects start_indices_batching_dims not to include index_vector_dim ",
+        indexVectorDim);
+
+  // gather_c16
+  if (operandBatchingDims.size() != startIndicesBatchingDims.size()) {
+    return emitOptionalError(
+        location, "operand_batching_dims and start_indices_batching_dims "
+                  "should have the same size");
+  }
+
+  // gather_c17
+  for (auto [index, dims] : llvm::enumerate(
+           llvm::zip(operandBatchingDims, startIndicesBatchingDims))) {
+    auto [operandDim, startIndicesDim] = dims;
+    int64_t operandDimSize = operandShape.getDimSize(operandDim);
+    int64_t startIndicesDimSize = startIndicesShape.getDimSize(startIndicesDim);
+    if (!verifyCompatibleDims(operandDimSize, startIndicesDimSize))
+      return emitOptionalError(location, "operand_batching_dims[", index,
+                               "] and start_indices_batching_dims[", index,
+                               "] must have compatible sizes, but got ",
+                               operandDimSize, " and ", startIndicesDimSize);
+  }
+
+  // gather_c18
+  if (failed(checkDimsDistinct(location, startIndexMap, operandBatchingDims,
+                               "start_index_map", "operand_batching_dims")))
+    return failure();
+
+  // gather_c19
+  if (failed(checkDimsInBounds(location, startIndexMap, operandShape.getRank(),
+                               "start_index_map", "rank-of('operand')")))
+    return failure();
+
+  // gather_i9
+  if (sliceSizesShape.getRank() != 1)
+    return emitOptionalError(location, "slice_sizes.rank != 1 (got ",
+                             sliceSizesShape.getRank(), ')');
+  int64_t sliceSize = sliceSizesShape.getNumElements();
+
+  // gather_c20
+  if (sliceSize != operandShape.getRank())
+    return emitOptionalError(location, "slice_sizes size (", sliceSize,
+                             ") not equal to operand rank (",
+                             operandShape.getRank(), ")");
+
+  return success();
+}
+
+template <typename dimTy>
+void inferGatherShape(int64_t resultRank,
+                      llvm::function_ref<dimTy(int64_t)> getStartIndicesDim,
+                      llvm::function_ref<dimTy(int64_t)> getSliceDim,
+                      ArrayRef<int64_t> offsetDims,
+                      ArrayRef<int64_t> collapsedSliceDims,
+                      ArrayRef<int64_t> operandBatchingDims,
+                      int64_t indexVectorDim, SmallVectorImpl<dimTy> &shape) {
+  // We don't necessarily know the rank of sliceSizes, but we do know that it
+  // can't be larger than the highest collapsed/batch dimension. So go through
+  // those and populate the leading dimensions of adjustedSliceSizes. The
+  // trailing dimensions can just be adjusted by an offset.
+  auto collapsedAndBatchDims =
+      llvm::concat<const int64_t>(collapsedSliceDims, operandBatchingDims);
+  auto maxOperandDimIt = std::max_element(collapsedAndBatchDims.begin(),
+                                          collapsedAndBatchDims.end());
+  int64_t maxOperandDim = -1;
+  if (maxOperandDimIt != collapsedAndBatchDims.end())
+    maxOperandDim = *maxOperandDimIt;
+
+  SmallVector<dimTy> adjustedSliceSizePrefix;
+  for (int dimIndex = 0; dimIndex <= maxOperandDim; ++dimIndex) {
+    if (llvm::is_contained(collapsedAndBatchDims, dimIndex))
+      continue;
+    adjustedSliceSizePrefix.push_back(getSliceDim(dimIndex));
+  }
+  auto getAdjustedSliceDim = [&](int64_t index) -> dimTy {
+    if (index < static_cast<int64_t>(adjustedSliceSizePrefix.size()))
+      return adjustedSliceSizePrefix[index];
+    return getSliceDim(index + collapsedSliceDims.size() +
+                       operandBatchingDims.size());
+  };
+
+  // Dimensions in the output that aren't offset dimensions are called batch
+  // dimensions.
+  SmallVector<int64_t> batchDims;
+  for (int dim = 0; dim < resultRank; ++dim)
+    if (!llvm::is_contained(offsetDims, dim))
+      batchDims.push_back(dim);
+
+  for (int i = 0; i < resultRank; ++i) {
+    const auto *offsetDimsIt =
+        std::find(offsetDims.begin(), offsetDims.end(), i);
+    if (offsetDimsIt != offsetDims.end()) {
+      auto index = std::distance(offsetDims.begin(), offsetDimsIt);
+      shape.push_back(getAdjustedSliceDim(index));
+      continue;
+    }
+    auto *batchDimsIt = std::find(batchDims.begin(), batchDims.end(), i);
+    assert(batchDimsIt != batchDims.end());
+    auto index = std::distance(batchDims.begin(), batchDimsIt);
+    // This can never run into the special case where start_indices gets
+    // implicitly expanded with a trailing 1 if
+    // index_vector_dim = start_indices.rank because then index would equal
+    // index_vector_dim, which means we'd be looking at index+1, which would be
+    // out of bounds anyway.
+    if (index >= indexVectorDim)
+      ++index;
+    shape.push_back(getStartIndicesDim(index));
+  }
+}
+
+LogicalResult inferGatherReturnTypeComponents(
+    std::optional<Location> location, ShapeAdaptor operandShape,
+    Value startIndices, llvm::function_ref<int64_t(int64_t)> getSliceDim,
+    ArrayRef<int64_t> offsetDims, ArrayRef<int64_t> collapsedSliceDims,
+    ArrayRef<int64_t> operandBatchingDims, int64_t indexVectorDim,
+    SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
+  Type elementType = operandShape.getElementType();
+  ShapeAdaptor startIndicesShape(startIndices.getType());
+
+  int64_t startIndicesRank = startIndicesShape.getRank();
+  // If index_vector_dim == start_indices.rank, then an implicit trailing 1 is
+  // appended to start_indices shape.
+  if (indexVectorDim == startIndicesRank)
+    ++startIndicesRank;
+  int64_t resultRank = offsetDims.size() + startIndicesRank - 1;
+  // gather_c5
+  if (failed(checkDimsInBounds(location, offsetDims, resultRank, "offset_dims",
+                               "implied-result-rank")))
+    return failure();
+
+  auto getStartIndicesDim = [&](int64_t index) {
+    return startIndicesShape.getDimSize(index);
+  };
+
+  // gather_c22, gather_c23
+  SmallVector<int64_t> shape;
+  inferGatherShape<int64_t>(resultRank, getStartIndicesDim, getSliceDim,
+                            offsetDims, collapsedSliceDims, operandBatchingDims,
+                            indexVectorDim, shape);
+
+  // The dimension sizes of result, corresponding to offset dimensions, depend
+  // on attributes (like `collapsed_slice_dims` and `slice_sizes`) and hence are
+  // always static. Whereas, the dimension sizes of result, corresponding to
+  // batch dimensions, depends on input `start_indices` and could be dynamic.
+  // The corresponding bounds, in that case, are propagated from the
+  // `start_indices`.
+  Attribute encoding =
+      cast<RankedTensorType>(startIndices.getType()).getEncoding();
+  ArrayRef<int64_t> startIndicesBounds = encodingToBounds(encoding);
+  SmallVector<int64_t> inferredBounds(resultRank, ShapedType::kDynamic);
+  if (!startIndicesBounds.empty()) {
+    llvm::BitVector isOffsetDim(resultRank);
+    for (auto offsetDim : offsetDims)
+      isOffsetDim.set(offsetDim);
+
+    int64_t startIndicesDim = 0;
+    for (int resultDim = 0; resultDim < resultRank; ++resultDim) {
+      if (isOffsetDim.test(resultDim))
+        continue;
+
+      if (startIndicesDim == indexVectorDim)
+        ++startIndicesDim;
+      inferredBounds[resultDim] = startIndicesBounds[startIndicesDim++];
+    }
+  }
+
+  inferredReturnShapes.emplace_back(shape, elementType,
+                                    boundsToEncoding(encoding, inferredBounds));
+  return success();
+}
+
+} // namespace
+
+LogicalResult inferGatherOp(
+    std::optional<Location> location, Value operand, Value startIndices,
+    ArrayRef<int64_t> offsetDims, ArrayRef<int64_t> collapsedSliceDims,
+    ArrayRef<int64_t> operandBatchingDims,
+    ArrayRef<int64_t> startIndicesBatchingDims, ArrayRef<int64_t> startIndexMap,
+    int64_t indexVectorDim, ArrayRef<int64_t> sliceSizes,
+    SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
+  ShapeAdaptor operandShape(operand.getType());
+  ShapeAdaptor startIndicesShape(startIndices.getType());
+  SmallVector<int64_t, 1> ssShape{static_cast<int64_t>(sliceSizes.size())};
+  ShapedTypeComponents ssSTC{ssShape};
+  ShapeAdaptor sliceSizesShape(ssSTC);
+
+  // For some reason the getType call is necessary here
+  if (failed(verifyGather(location,
+                          /*operandShape=*/operandShape,
+                          /*startIndicesShape=*/startIndicesShape,
+                          /*sliceSizesShape=*/sliceSizesShape, offsetDims,
+                          collapsedSliceDims, operandBatchingDims,
+                          startIndicesBatchingDims, startIndexMap,
+                          indexVectorDim)))
+    return failure();
+
+  auto checkSliceSizesOne = [&](ArrayRef<int64_t> dims, StringRef name) {
+    for (auto dim : dims) {
+      int64_t sliceDimSize = sliceSizes[dim];
+      if (sliceDimSize > 1)
+        return emitOptionalError(
+            location, "Expects that for each dim in ", name,
+            ", slice_sizes[dim] should be <= 1, but got ", sliceDimSize);
+    }
+    return success();
+  };
+
+  // gather_c9
+  if (failed(checkSliceSizesOne(collapsedSliceDims, "collapsed_slice_dims")))
+    return failure();
+
+  // gather_c12
+  if (failed(checkSliceSizesOne(operandBatchingDims, "operand_batching_dims")))
+    return failure();
+
+  // gather_c21
+  for (auto [index, size] : llvm::enumerate(sliceSizes)) {
+    if (size < 0 || (!operandShape.isDynamicDim(index) &&
+                     size > operandShape.getDimSize(index))) {
+      return emitOptionalError(location, "slice size (", size,
+                               ") is out of bounds for operand dimension (",
+                               operandShape.getDimSize(index), ") at index ",
+                               index);
+    }
+  }
+
+  auto getSliceDim = [&sliceSizes](int64_t index) -> int64_t {
+    return sliceSizes[index];
+  };
+
+  // gather_c5, gather_c22
+  return inferGatherReturnTypeComponents(
+      location, operandShape, startIndices, getSliceDim, offsetDims,
+      collapsedSliceDims, operandBatchingDims, indexVectorDim,
+      inferredReturnShapes);
+}
+
 LogicalResult inferScatterOp(std::optional<Location> location,
                              ValueRange inputs, Region &updateComputation,
                              SmallVectorImpl<Type> &inferredReturnTypes) {
@@ -1074,59 +1461,6 @@ LogicalResult inferWhileOp(std::optional<Location>, ValueRange operand,
 //===----------------------------------------------------------------------===//
 
 namespace {
-
-// Checks if the vector `nums` has duplicates.
-bool isUnique(ArrayRef<int64_t> nums) {
-  llvm::SmallDenseSet<int64_t> dimSet;
-  dimSet.reserve(nums.size());
-  for (auto dim : nums) {
-    if (!dimSet.insert(dim).second)
-      return false;
-  }
-  return true;
-}
-
-// Checks if the `llvm::concat(lhsDims, rhsDims)` has duplicates.
-LogicalResult checkDimsDistinct(std::optional<Location> loc,
-                                ArrayRef<int64_t> lhsDims,
-                                ArrayRef<int64_t> rhsDims, llvm::StringRef lhs,
-                                llvm::StringRef rhs) {
-  llvm::SmallDenseSet<int64_t> dimSet;
-  dimSet.reserve(lhsDims.size() + rhsDims.size());
-  for (auto dim : llvm::concat<const int64_t>(lhsDims, rhsDims)) {
-    if (!dimSet.insert(dim).second)
-      return emitOptionalError(loc, "has duplicated dimension from ", lhs,
-                               " and ", rhs, ": ", dim);
-  }
-  return success();
-}
-
-// Checks that `dim` vector is within range [0, `upperBound`) or
-//  [0, `upperBound`] if `upperBoundInclusive` is true.
-LogicalResult checkDimInBounds(std::optional<Location> loc, int64_t dim,
-                               int64_t upperBound, StringRef dimName,
-                               StringRef upperBoundName,
-                               bool upperBoundInclusive) {
-  StringRef rangeEnd = upperBoundInclusive ? "]" : ")";
-  if (dim < 0 || dim >= upperBound + (upperBoundInclusive ? 1 : 0))
-    return emitOptionalError(loc, "Expects ", dimName, " to be in range [0, ",
-                             upperBoundName, rangeEnd, " i.e. [0, ", upperBound,
-                             rangeEnd, ". got: ", dim, ".");
-  return success();
-}
-
-// Checks that `dims` vector is within range [0, `upperBound`).
-LogicalResult checkDimsInBounds(std::optional<Location> loc,
-                                ArrayRef<int64_t> dims, int64_t upperBound,
-                                StringRef dimsName, StringRef upperBoundName) {
-  for (int64_t dim : dims) {
-    if (dim < 0 || dim >= upperBound)
-      return emitOptionalError(loc, "Expects each element of ", dimsName,
-                               " to be in range [0, ", upperBoundName,
-                               ") i.e. [0, ", upperBound, "). got: ", dim, ".");
-  }
-  return success();
-}
 
 unsigned getBitWidth(Type type) {
   // TODO(chokobole): Handle extension field case.

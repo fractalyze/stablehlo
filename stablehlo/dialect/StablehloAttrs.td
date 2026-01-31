@@ -41,6 +41,20 @@ def StableHLO_ScatterDimensionNumbers : AttrDef<StableHLO_Dialect, "ScatterDimen
   let hasCustomAssemblyFormat = 1;
 }
 
+def StableHLO_GatherDimensionNumbers : AttrDef<StableHLO_Dialect, "GatherDimensionNumbers"> {
+  let mnemonic = "gather";
+  let summary = "Attribute that models the dimension information for gather";
+  let parameters = (ins
+      StableHLO_Dims:$offsetDims,
+      StableHLO_Dims:$collapsedSliceDims,
+      StableHLO_Dims:$operandBatchingDims,
+      StableHLO_Dims:$startIndicesBatchingDims,
+      StableHLO_Dims:$startIndexMap,
+      "int64_t":$indexVectorDim
+  );
+  let hasCustomAssemblyFormat = 1;
+}
+
 def StableHLO_TypeExtensions : AttrDef<StableHLO_Dialect, "TypeExtensions", [
     DeclareAttrInterfaceMethods<VerifiableTensorEncoding>,
     DeclareAttrInterfaceMethods<HLO_BoundedAttrInterface>]> {
