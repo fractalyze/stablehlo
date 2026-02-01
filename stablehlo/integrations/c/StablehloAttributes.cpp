@@ -222,6 +222,84 @@ int64_t stablehloGatherDimensionNumbersGetIndexVectorDim(MlirAttribute attr) {
 }
 
 //===----------------------------------------------------------------------===//
+// DotDimensionNumbers
+//===----------------------------------------------------------------------===//
+
+MlirAttribute stablehloDotDimensionNumbersGet(
+    MlirContext ctx, intptr_t nLhsBatchingDimensions,
+    const int64_t *lhsBatchingDimensions, intptr_t nRhsBatchingDimensions,
+    const int64_t *rhsBatchingDimensions, intptr_t nLhsContractingDimensions,
+    const int64_t *lhsContractingDimensions, intptr_t nRhsContractingDimensions,
+    const int64_t *rhsContractingDimensions) {
+  return wrap(mlir::stablehlo::DotDimensionNumbersAttr::get(
+      unwrap(ctx),
+      llvm::ArrayRef(lhsBatchingDimensions, nLhsBatchingDimensions),
+      llvm::ArrayRef(rhsBatchingDimensions, nRhsBatchingDimensions),
+      llvm::ArrayRef(lhsContractingDimensions, nLhsContractingDimensions),
+      llvm::ArrayRef(rhsContractingDimensions, nRhsContractingDimensions)));
+}
+
+bool stablehloAttributeIsADotDimensionNumbers(MlirAttribute attr) {
+  return llvm::isa<mlir::stablehlo::DotDimensionNumbersAttr>(unwrap(attr));
+}
+
+intptr_t
+stablehloDotDimensionNumbersGetLhsBatchingDimensionsSize(MlirAttribute attr) {
+  return llvm::cast<mlir::stablehlo::DotDimensionNumbersAttr>(unwrap(attr))
+      .getLhsBatchingDimensions()
+      .size();
+}
+
+int64_t
+stablehloDotDimensionNumbersGetLhsBatchingDimensionsElem(MlirAttribute attr,
+                                                         intptr_t pos) {
+  return llvm::cast<mlir::stablehlo::DotDimensionNumbersAttr>(unwrap(attr))
+      .getLhsBatchingDimensions()[pos];
+}
+
+intptr_t
+stablehloDotDimensionNumbersGetRhsBatchingDimensionsSize(MlirAttribute attr) {
+  return llvm::cast<mlir::stablehlo::DotDimensionNumbersAttr>(unwrap(attr))
+      .getRhsBatchingDimensions()
+      .size();
+}
+
+int64_t
+stablehloDotDimensionNumbersGetRhsBatchingDimensionsElem(MlirAttribute attr,
+                                                         intptr_t pos) {
+  return llvm::cast<mlir::stablehlo::DotDimensionNumbersAttr>(unwrap(attr))
+      .getRhsBatchingDimensions()[pos];
+}
+
+intptr_t stablehloDotDimensionNumbersGetLhsContractingDimensionsSize(
+    MlirAttribute attr) {
+  return llvm::cast<mlir::stablehlo::DotDimensionNumbersAttr>(unwrap(attr))
+      .getLhsContractingDimensions()
+      .size();
+}
+
+int64_t
+stablehloDotDimensionNumbersGetLhsContractingDimensionsElem(MlirAttribute attr,
+                                                            intptr_t pos) {
+  return llvm::cast<mlir::stablehlo::DotDimensionNumbersAttr>(unwrap(attr))
+      .getLhsContractingDimensions()[pos];
+}
+
+intptr_t stablehloDotDimensionNumbersGetRhsContractingDimensionsSize(
+    MlirAttribute attr) {
+  return llvm::cast<mlir::stablehlo::DotDimensionNumbersAttr>(unwrap(attr))
+      .getRhsContractingDimensions()
+      .size();
+}
+
+int64_t
+stablehloDotDimensionNumbersGetRhsContractingDimensionsElem(MlirAttribute attr,
+                                                            intptr_t pos) {
+  return llvm::cast<mlir::stablehlo::DotDimensionNumbersAttr>(unwrap(attr))
+      .getRhsContractingDimensions()[pos];
+}
+
+//===----------------------------------------------------------------------===//
 // ComparisonDirectionAttr
 //===----------------------------------------------------------------------===//
 

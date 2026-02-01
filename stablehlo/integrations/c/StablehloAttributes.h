@@ -121,6 +121,42 @@ MLIR_CAPI_EXPORTED int64_t
 stablehloGatherDimensionNumbersGetIndexVectorDim(MlirAttribute attr);
 
 //===----------------------------------------------------------------------===//
+// DotDimensionNumbers
+//===----------------------------------------------------------------------===//
+
+MLIR_CAPI_EXPORTED MlirAttribute stablehloDotDimensionNumbersGet(
+    MlirContext ctx, //
+    intptr_t nLhsBatchingDimensions, const int64_t *lhsBatchingDimensions,
+    intptr_t nRhsBatchingDimensions, const int64_t *rhsBatchingDimensions,
+    intptr_t nLhsContractingDimensions, const int64_t *lhsContractingDimensions,
+    intptr_t nRhsContractingDimensions,
+    const int64_t *rhsContractingDimensions);
+
+MLIR_CAPI_EXPORTED bool
+stablehloAttributeIsADotDimensionNumbers(MlirAttribute attr);
+
+MLIR_CAPI_EXPORTED intptr_t
+stablehloDotDimensionNumbersGetLhsBatchingDimensionsSize(MlirAttribute attr);
+MLIR_CAPI_EXPORTED int64_t
+stablehloDotDimensionNumbersGetLhsBatchingDimensionsElem(MlirAttribute attr,
+                                                         intptr_t pos);
+MLIR_CAPI_EXPORTED intptr_t
+stablehloDotDimensionNumbersGetRhsBatchingDimensionsSize(MlirAttribute attr);
+MLIR_CAPI_EXPORTED int64_t
+stablehloDotDimensionNumbersGetRhsBatchingDimensionsElem(MlirAttribute attr,
+                                                         intptr_t pos);
+MLIR_CAPI_EXPORTED intptr_t
+stablehloDotDimensionNumbersGetLhsContractingDimensionsSize(MlirAttribute attr);
+MLIR_CAPI_EXPORTED int64_t
+stablehloDotDimensionNumbersGetLhsContractingDimensionsElem(MlirAttribute attr,
+                                                            intptr_t pos);
+MLIR_CAPI_EXPORTED intptr_t
+stablehloDotDimensionNumbersGetRhsContractingDimensionsSize(MlirAttribute attr);
+MLIR_CAPI_EXPORTED int64_t
+stablehloDotDimensionNumbersGetRhsContractingDimensionsElem(MlirAttribute attr,
+                                                            intptr_t pos);
+
+//===----------------------------------------------------------------------===//
 // ComparisonDirectionAttr
 //===----------------------------------------------------------------------===//
 

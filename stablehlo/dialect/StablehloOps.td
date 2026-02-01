@@ -425,6 +425,44 @@ def StableHLO_DivOp : StableHLO_BinaryElementwiseOp<"divide",
   }];
 }
 
+def StableHLO_DotGeneralOp : StableHLO_ShapedInterfaceOp<"dot_general",
+    [ConditionallySpeculatable, NoMemoryEffect]> {
+  let summary = "DotGeneral operation";
+  let description = [{
+    Computes dot products between slices of `lhs` and slices of `rhs` and
+    produces a `result` tensor.
+
+    See:
+    https://github.com/openxla/stablehlo/blob/main/docs/spec.md#dot_general
+
+    Example:
+    ```mlir
+    %result = "stablehlo.dot_general"(%lhs, %rhs) {
+      dot_dimension_numbers = #stablehlo.dot<
+        lhs_batching_dimensions = [0],
+        rhs_batching_dimensions = [0],
+        lhs_contracting_dimensions = [2],
+        rhs_contracting_dimensions = [1]
+      >
+    } : (tensor<2x3x4xi32>, tensor<2x4x5xi32>) -> tensor<2x3x5xi32>
+    ```
+  }];
+  let arguments = (ins
+    HLO_Tensor:$lhs, /*dot_general_i1*/
+    HLO_Tensor:$rhs, /*dot_general_i2*/
+    StableHLO_DotDimensionNumbers:$dot_dimension_numbers /*dot_general_i3...dot_general_i6*/
+    // ZK: precision_config (dot_general_i7), algorithm omitted - hardware hints not needed
+  );
+
+  let results = (outs HLO_Tensor:$result);
+  let hasVerifier = 1;
+
+  let extraClassDeclaration = commonClassDeclaration # [{
+    /// Interface method for ConditionallySpeculatable.
+    mlir::Speculation::Speculatability getSpeculatability();
+  }];
+}
+
 def StableHLO_MaxOp : StableHLO_BinaryElementwiseOp<"maximum",
       [HLO_Commutative, HLO_CompatibleOperandsAndResultType]> {
   let summary = "Max operation";

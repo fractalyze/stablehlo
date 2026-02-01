@@ -306,6 +306,29 @@ LogicalResult verifySortOp(std::optional<Location> location, ValueRange inputs,
 LogicalResult verifyWhileOp(std::optional<Location> location,
                             ValueRange operand, Region &cond, Region &body);
 
+// ZK: Simplified signatures - precision_config/algorithm params omitted
+LogicalResult checkDotGeneralConstraints(
+    std::optional<Location> location, Type lhsType, Type rhsType,
+    ArrayRef<int64_t> lhsBatchingDimensions,
+    ArrayRef<int64_t> rhsBatchingDimensions,
+    ArrayRef<int64_t> lhsContractingDimensions,
+    ArrayRef<int64_t> rhsContractingDimensions);
+
+LogicalResult inferDotGeneralOp(
+    std::optional<Location> location, Type lhsType, Type rhsType,
+    ArrayRef<int64_t> lhsBatchingDimensions,
+    ArrayRef<int64_t> rhsBatchingDimensions,
+    ArrayRef<int64_t> lhsContractingDimensions,
+    ArrayRef<int64_t> rhsContractingDimensions,
+    SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes);
+
+LogicalResult verifyDotGeneralOp(
+    std::optional<Location> location, Value lhs, Value rhs,
+    ArrayRef<int64_t> lhsBatchingDimensions,
+    ArrayRef<int64_t> rhsBatchingDimensions,
+    ArrayRef<int64_t> lhsContractingDimensions,
+    ArrayRef<int64_t> rhsContractingDimensions, Value result);
+
 } // namespace mlir::hlo
 
 #endif // STABLEHLO_DIALECT_TYPEINFERENCE_H_
