@@ -20,11 +20,10 @@ limitations under the License.
 
 #include "mlir/IR/DialectRegistry.h"
 
-namespace mlir::stablehlo
-{
+namespace mlir::stablehlo {
 
-    // Add stablehlo dialects to the provided registry.
-    void registerAllDialects(DialectRegistry &registry);
+// Add stablehlo dialects to the provided registry.
+void registerAllDialects(DialectRegistry &registry);
 
 } // namespace mlir::stablehlo
 

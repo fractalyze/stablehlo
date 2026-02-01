@@ -30,34 +30,29 @@ limitations under the License.
 
 namespace nb = nanobind;
 
-namespace
-{
+namespace {
 
-  // Returns a vector containing integers extracted from an attribute using the
-  // two provided callbacks.
-  std::vector<int64_t> attributePropertyVector(
-      MlirAttribute attr, llvm::function_ref<intptr_t(MlirAttribute)> sizeFn,
-      llvm::function_ref<int64_t(MlirAttribute, intptr_t)> getFn)
-  {
-    std::vector<int64_t> result;
-    intptr_t size = sizeFn(attr);
-    result.reserve(size);
-    for (intptr_t i = 0; i < size; ++i)
-    {
-      result.push_back(getFn(attr, i));
-    }
-    return result;
+// Returns a vector containing integers extracted from an attribute using the
+// two provided callbacks.
+std::vector<int64_t> attributePropertyVector(
+    MlirAttribute attr, llvm::function_ref<intptr_t(MlirAttribute)> sizeFn,
+    llvm::function_ref<int64_t(MlirAttribute, intptr_t)> getFn) {
+  std::vector<int64_t> result;
+  intptr_t size = sizeFn(attr);
+  result.reserve(size);
+  for (intptr_t i = 0; i < size; ++i) {
+    result.push_back(getFn(attr, i));
   }
+  return result;
+}
 
-  auto toPyString(MlirStringRef mlirStringRef)
-  {
-    return nb::str(mlirStringRef.data, mlirStringRef.length);
-  }
+auto toPyString(MlirStringRef mlirStringRef) {
+  return nb::str(mlirStringRef.data, mlirStringRef.length);
+}
 
 } // namespace
 
-NB_MODULE(_stablehlo, m)
-{
+NB_MODULE(_stablehlo, m) {
   m.doc() = "stablehlo main python extension";
 
   //
@@ -66,12 +61,10 @@ NB_MODULE(_stablehlo, m)
 
   m.def(
       "register_dialect",
-      [](MlirContext context, bool load)
-      {
+      [](MlirContext context, bool load) {
         MlirDialectHandle dialect = mlirGetDialectHandle__stablehlo__();
         mlirDialectHandleRegisterDialect(dialect, context);
-        if (load)
-        {
+        if (load) {
           mlirDialectHandleLoadDialect(dialect, context);
         }
       },
@@ -85,8 +78,7 @@ NB_MODULE(_stablehlo, m)
                                                       stablehloTypeIsAToken)
       .def_classmethod(
           "get",
-          [](nb::object cls, MlirContext ctx)
-          {
+          [](nb::object cls, MlirContext ctx) {
             return cls(stablehloTokenTypeGet(ctx));
           },
           nb::arg("cls"), nb::arg("context").none() = nb::none(),
@@ -96,8 +88,7 @@ NB_MODULE(_stablehlo, m)
   // Attributes.
   //
 
-  auto scatteredDimsToOperandDimsFunc = [](MlirAttribute self)
-  {
+  auto scatteredDimsToOperandDimsFunc = [](MlirAttribute self) {
     return attributePropertyVector(
         self, stablehloScatterDimensionNumbersGetScatteredDimsToOperandDimsSize,
         stablehloScatterDimensionNumbersGetScatteredDimsToOperandDimsElem);
@@ -113,8 +104,7 @@ NB_MODULE(_stablehlo, m)
              const std::vector<int64_t> &inputBatchingDims,
              const std::vector<int64_t> &scatterIndicesBatchingDims,
              const std::vector<int64_t> &scatteredDimsToOperandDims,
-             int64_t indexVectorDim, MlirContext ctx)
-          {
+             int64_t indexVectorDim, MlirContext ctx) {
             return cls(stablehloScatterDimensionNumbersGet(
                 ctx, updateWindowDims.size(), updateWindowDims.data(),
                 insertedWindowDims.size(), insertedWindowDims.data(),
@@ -133,73 +123,70 @@ NB_MODULE(_stablehlo, m)
           "configuration.")
       .def_property_readonly(
           "update_window_dims",
-          [](MlirAttribute self)
-          {
+          [](MlirAttribute self) {
             return attributePropertyVector(
                 self, stablehloScatterDimensionNumbersGetUpdateWindowDimsSize,
                 stablehloScatterDimensionNumbersGetUpdateWindowDimsElem);
           })
       .def_property_readonly(
           "inserted_window_dims",
-          [](MlirAttribute self)
-          {
+          [](MlirAttribute self) {
             return attributePropertyVector(
                 self, stablehloScatterDimensionNumbersGetInsertedWindowDimsSize,
                 stablehloScatterDimensionNumbersGetInsertedWindowDimsElem);
           })
       .def_property_readonly(
           "input_batching_dims",
-          [](MlirAttribute self)
-          {
+          [](MlirAttribute self) {
             return attributePropertyVector(
                 self, stablehloScatterDimensionNumbersGetInputBatchingDimsSize,
                 stablehloScatterDimensionNumbersGetInputBatchingDimsElem);
           })
       .def_property_readonly(
           "scatter_indices_batching_dims",
-          [](MlirAttribute self)
-          {
+          [](MlirAttribute self) {
             return attributePropertyVector(
                 self,
-                stablehloScatterDimensionNumbersGetScatterIndicesBatchingDimsSize,  // NOLINT
+                stablehloScatterDimensionNumbersGetScatterIndicesBatchingDimsSize, // NOLINT
                 stablehloScatterDimensionNumbersGetScatterIndicesBatchingDimsElem); // NOLINT
           })
       .def_property_readonly("scattered_dims_to_operand_dims",
                              scatteredDimsToOperandDimsFunc)
-      .def_property_readonly("index_vector_dim", [](MlirAttribute self)
-                             { return stablehloScatterDimensionNumbersGetIndexVectorDim(self); });
+      .def_property_readonly("index_vector_dim", [](MlirAttribute self) {
+        return stablehloScatterDimensionNumbersGetIndexVectorDim(self);
+      });
 
   mlir::python::nanobind_adaptors::mlir_attribute_subclass(
       m, "ComparisonDirectionAttr",
       stablehloAttributeIsAComparisonDirectionAttr)
       .def_classmethod(
           "get",
-          [](nb::object cls, const std::string &value, MlirContext ctx)
-          {
+          [](nb::object cls, const std::string &value, MlirContext ctx) {
             return cls(stablehloComparisonDirectionAttrGet(
                 ctx, mlirStringRefCreate(value.c_str(), value.size())));
           },
           nb::arg("cls"), nb::arg("value"),
           nb::arg("context").none() = nb::none(),
           "Creates a ComparisonDirection attribute with the given value.")
-      .def_property_readonly("value", [](MlirAttribute self)
-                             { return toPyString(stablehloComparisonDirectionAttrGetValue(self)); });
+      .def_property_readonly("value", [](MlirAttribute self) {
+        return toPyString(stablehloComparisonDirectionAttrGetValue(self));
+      });
 
   mlir::python::nanobind_adaptors::mlir_attribute_subclass(
       m, "TypeExtensions", stablehloAttributeIsTypeExtensions)
       .def_classmethod(
           "get",
           [](nb::object cls, const std::vector<int64_t> &bounds,
-             MlirContext ctx)
-          {
+             MlirContext ctx) {
             return cls(
                 stablehloTypeExtensionsGet(ctx, bounds.size(), bounds.data()));
           },
           nb::arg("cls"), nb::arg("bounds"),
           nb::arg("context").none() = nb::none(),
           "Creates a TypeExtensions with the given bounds.")
-      .def_property_readonly("bounds", [](MlirAttribute self)
-                             { return attributePropertyVector(self,
-                                                              stablehloTypeExtensionsGetBoundsSize,
-                                                              stablehloTypeExtensionsGetBoundsElem); });
+      .def_property_readonly("bounds", [](MlirAttribute self) {
+        return attributePropertyVector(self,
+                                       stablehloTypeExtensionsGetBoundsSize,
+                                       stablehloTypeExtensionsGetBoundsElem);
+      });
 }

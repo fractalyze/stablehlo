@@ -21,11 +21,10 @@ limitations under the License.
 #include "mlir-c/IR.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
-    MLIR_DECLARE_CAPI_DIALECT_REGISTRATION(Stablehlo, stablehlo);
+MLIR_DECLARE_CAPI_DIALECT_REGISTRATION(Stablehlo, stablehlo);
 
 #ifdef __cplusplus
 }

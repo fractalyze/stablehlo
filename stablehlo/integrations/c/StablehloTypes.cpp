@@ -22,12 +22,10 @@ limitations under the License.
 
 #include "stablehlo/dialect/StablehloOps.h"
 
-MlirType stablehloTokenTypeGet(MlirContext ctx)
-{
+MlirType stablehloTokenTypeGet(MlirContext ctx) {
   return wrap(mlir::stablehlo::TokenType::get(unwrap(ctx)));
 }
 
-bool stablehloTypeIsAToken(MlirType type)
-{
+bool stablehloTypeIsAToken(MlirType type) {
   return llvm::isa<mlir::stablehlo::TokenType>(unwrap(type));
 }

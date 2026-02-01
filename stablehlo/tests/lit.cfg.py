@@ -1,4 +1,5 @@
 """Lit configuration to drive test in this repo."""
+
 # Copyright 2020 The TensorFlow Authors. All Rights Reserved.
 # Copyright 2022 The StableHLO Authors.
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,9 +24,9 @@ from lit.llvm import llvm_config
 
 # Populate Lit configuration with the minimal required metadata.
 # Some metadata is populated in lit.site.cfg.py.in.
-config.name = 'STABLEHLO_TESTS_SUITE'
+config.name = "STABLEHLO_TESTS_SUITE"
 config.test_format = lit.formats.ShTest(not llvm_config.use_lit_shell)
-config.suffixes = ['.mlir']
+config.suffixes = [".mlir"]
 config.test_source_root = os.path.dirname(__file__)
 
 # Disallow reusing variables across CHECK-LABEL matches.
@@ -34,13 +35,13 @@ config.environment["FILECHECK_OPTS"] = "-enable-var-scope"
 
 # Make LLVM and StableHLO tools available in RUN directives
 tools = [
-  'FileCheck',
-  'stablehlo-opt',
-  'stablehlo-translate',
-  'not',
+    "FileCheck",
+    "stablehlo-opt",
+    "stablehlo-translate",
+    "not",
 ]
 tool_dirs = [
-  config.llvm_tools_dir,
-  config.stablehlo_tools_dir,
+    config.llvm_tools_dir,
+    config.stablehlo_tools_dir,
 ]
 llvm_config.add_tool_substitutions(tools, tool_dirs)

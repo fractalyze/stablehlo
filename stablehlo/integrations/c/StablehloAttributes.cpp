@@ -40,8 +40,7 @@ MlirAttribute stablehloScatterDimensionNumbersGet(
     const int64_t *inputBatchingDims, intptr_t nScatterIndicesBatchingDims,
     const int64_t *scatterIndicesBatchingDims,
     intptr_t nScatteredDimsToOperandDims,
-    const int64_t *scatteredDimsToOperandDims, int64_t indexVectorDim)
-{
+    const int64_t *scatteredDimsToOperandDims, int64_t indexVectorDim) {
   return wrap(mlir::stablehlo::ScatterDimensionNumbersAttr::get(
       unwrap(ctx), llvm::ArrayRef(updateWindowDims, nUpdateWindowDims),
       llvm::ArrayRef(insertedWindowDims, nInsertedWindowDims),
@@ -51,14 +50,12 @@ MlirAttribute stablehloScatterDimensionNumbersGet(
       indexVectorDim));
 }
 
-bool stablehloAttributeIsAScatterDimensionNumbers(MlirAttribute attr)
-{
+bool stablehloAttributeIsAScatterDimensionNumbers(MlirAttribute attr) {
   return llvm::isa<mlir::stablehlo::ScatterDimensionNumbersAttr>(unwrap(attr));
 }
 
 intptr_t
-stablehloScatterDimensionNumbersGetUpdateWindowDimsSize(MlirAttribute attr)
-{
+stablehloScatterDimensionNumbersGetUpdateWindowDimsSize(MlirAttribute attr) {
   return llvm::cast<mlir::stablehlo::ScatterDimensionNumbersAttr>(unwrap(attr))
       .getUpdateWindowDims()
       .size();
@@ -66,15 +63,13 @@ stablehloScatterDimensionNumbersGetUpdateWindowDimsSize(MlirAttribute attr)
 
 int64_t
 stablehloScatterDimensionNumbersGetUpdateWindowDimsElem(MlirAttribute attr,
-                                                        intptr_t pos)
-{
+                                                        intptr_t pos) {
   return llvm::cast<mlir::stablehlo::ScatterDimensionNumbersAttr>(unwrap(attr))
       .getUpdateWindowDims()[pos];
 }
 
 intptr_t
-stablehloScatterDimensionNumbersGetInsertedWindowDimsSize(MlirAttribute attr)
-{
+stablehloScatterDimensionNumbersGetInsertedWindowDimsSize(MlirAttribute attr) {
   return llvm::cast<mlir::stablehlo::ScatterDimensionNumbersAttr>(unwrap(attr))
       .getInsertedWindowDims()
       .size();
@@ -82,15 +77,13 @@ stablehloScatterDimensionNumbersGetInsertedWindowDimsSize(MlirAttribute attr)
 
 int64_t
 stablehloScatterDimensionNumbersGetInsertedWindowDimsElem(MlirAttribute attr,
-                                                          intptr_t pos)
-{
+                                                          intptr_t pos) {
   return llvm::cast<mlir::stablehlo::ScatterDimensionNumbersAttr>(unwrap(attr))
       .getInsertedWindowDims()[pos];
 }
 
 intptr_t
-stablehloScatterDimensionNumbersGetInputBatchingDimsSize(MlirAttribute attr)
-{
+stablehloScatterDimensionNumbersGetInputBatchingDimsSize(MlirAttribute attr) {
   return llvm::cast<mlir::stablehlo::ScatterDimensionNumbersAttr>(unwrap(attr))
       .getInputBatchingDims()
       .size();
@@ -98,44 +91,38 @@ stablehloScatterDimensionNumbersGetInputBatchingDimsSize(MlirAttribute attr)
 
 int64_t
 stablehloScatterDimensionNumbersGetInputBatchingDimsElem(MlirAttribute attr,
-                                                         intptr_t pos)
-{
+                                                         intptr_t pos) {
   return llvm::cast<mlir::stablehlo::ScatterDimensionNumbersAttr>(unwrap(attr))
       .getInputBatchingDims()[pos];
 }
 
 intptr_t stablehloScatterDimensionNumbersGetScatterIndicesBatchingDimsSize(
-    MlirAttribute attr)
-{
+    MlirAttribute attr) {
   return llvm::cast<mlir::stablehlo::ScatterDimensionNumbersAttr>(unwrap(attr))
       .getScatterIndicesBatchingDims()
       .size();
 }
 
 int64_t stablehloScatterDimensionNumbersGetScatterIndicesBatchingDimsElem(
-    MlirAttribute attr, intptr_t pos)
-{
+    MlirAttribute attr, intptr_t pos) {
   return llvm::cast<mlir::stablehlo::ScatterDimensionNumbersAttr>(unwrap(attr))
       .getScatterIndicesBatchingDims()[pos];
 }
 
 intptr_t stablehloScatterDimensionNumbersGetScatteredDimsToOperandDimsSize(
-    MlirAttribute attr)
-{
+    MlirAttribute attr) {
   return llvm::cast<mlir::stablehlo::ScatterDimensionNumbersAttr>(unwrap(attr))
       .getScatterDimsToOperandDims()
       .size();
 }
 
 int64_t stablehloScatterDimensionNumbersGetScatteredDimsToOperandDimsElem(
-    MlirAttribute attr, intptr_t pos)
-{
+    MlirAttribute attr, intptr_t pos) {
   return llvm::cast<mlir::stablehlo::ScatterDimensionNumbersAttr>(unwrap(attr))
       .getScatterDimsToOperandDims()[pos];
 }
 
-int64_t stablehloScatterDimensionNumbersGetIndexVectorDim(MlirAttribute attr)
-{
+int64_t stablehloScatterDimensionNumbersGetIndexVectorDim(MlirAttribute attr) {
   return llvm::cast<mlir::stablehlo::ScatterDimensionNumbersAttr>(unwrap(attr))
       .getIndexVectorDim();
 }
@@ -145,8 +132,7 @@ int64_t stablehloScatterDimensionNumbersGetIndexVectorDim(MlirAttribute attr)
 //===----------------------------------------------------------------------===//
 
 MlirAttribute stablehloComparisonDirectionAttrGet(MlirContext ctx,
-                                                  MlirStringRef value)
-{
+                                                  MlirStringRef value) {
   std::optional<mlir::stablehlo::ComparisonDirection> comparisonDirection =
       mlir::stablehlo::symbolizeComparisonDirection(unwrap(value));
   if (!comparisonDirection)
@@ -155,13 +141,11 @@ MlirAttribute stablehloComparisonDirectionAttrGet(MlirContext ctx,
       unwrap(ctx), comparisonDirection.value()));
 }
 
-bool stablehloAttributeIsAComparisonDirectionAttr(MlirAttribute attr)
-{
+bool stablehloAttributeIsAComparisonDirectionAttr(MlirAttribute attr) {
   return llvm::isa<mlir::stablehlo::ComparisonDirectionAttr>(unwrap(attr));
 }
 
-MlirStringRef stablehloComparisonDirectionAttrGetValue(MlirAttribute attr)
-{
+MlirStringRef stablehloComparisonDirectionAttrGetValue(MlirAttribute attr) {
   return wrap(mlir::stablehlo::stringifyComparisonDirection(
       llvm::cast<mlir::stablehlo::ComparisonDirectionAttr>(unwrap(attr))
           .getValue()));
@@ -172,26 +156,22 @@ MlirStringRef stablehloComparisonDirectionAttrGetValue(MlirAttribute attr)
 //===----------------------------------------------------------------------===//
 
 MlirAttribute stablehloTypeExtensionsGet(MlirContext ctx, intptr_t nBounds,
-                                         const int64_t *bounds)
-{
+                                         const int64_t *bounds) {
   return wrap(mlir::stablehlo::TypeExtensionsAttr::get(
       unwrap(ctx), llvm::ArrayRef(bounds, nBounds)));
 }
 
-bool stablehloAttributeIsTypeExtensions(MlirAttribute attr)
-{
+bool stablehloAttributeIsTypeExtensions(MlirAttribute attr) {
   return llvm::isa<mlir::stablehlo::TypeExtensionsAttr>(unwrap(attr));
 }
 
-intptr_t stablehloTypeExtensionsGetBoundsSize(MlirAttribute attr)
-{
+intptr_t stablehloTypeExtensionsGetBoundsSize(MlirAttribute attr) {
   return llvm::cast<mlir::stablehlo::TypeExtensionsAttr>(unwrap(attr))
       .getBounds()
       .size();
 }
 
-int64_t stablehloTypeExtensionsGetBoundsElem(MlirAttribute attr, intptr_t pos)
-{
+int64_t stablehloTypeExtensionsGetBoundsElem(MlirAttribute attr, intptr_t pos) {
   return llvm::cast<mlir::stablehlo::TypeExtensionsAttr>(unwrap(attr))
       .getBounds()[pos];
 }

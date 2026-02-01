@@ -22,15 +22,14 @@ limitations under the License.
 #include "mlir-c/Support.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
-    // Creates a token type in the given context.
-    MLIR_CAPI_EXPORTED MlirType stablehloTokenTypeGet(MlirContext ctx);
+// Creates a token type in the given context.
+MLIR_CAPI_EXPORTED MlirType stablehloTokenTypeGet(MlirContext ctx);
 
-    // Returns true if the type is a token type.
-    MLIR_CAPI_EXPORTED bool stablehloTypeIsAToken(MlirType type);
+// Returns true if the type is a token type.
+MLIR_CAPI_EXPORTED bool stablehloTypeIsAToken(MlirType type);
 
 #ifdef __cplusplus
 }

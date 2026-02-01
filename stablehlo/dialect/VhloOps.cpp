@@ -45,215 +45,181 @@ limitations under the License.
 #include "stablehlo/dialect/AssemblyFormat.h" // IWYU pragma: keep
 #include "stablehlo/dialect/VhloBytecode.h"
 
-namespace mlir::vhlo
-{
+namespace mlir::vhlo {
 
-  namespace
-  {
+namespace {
 
-    // Helper functions for VHLO verifiers
-    template <typename TypeOrAttr>
-    bool isFromVhlo(TypeOrAttr t)
-    {
-      return t.getDialect().getNamespace() == VhloDialect::getDialectNamespace();
+// Helper functions for VHLO verifiers
+template <typename TypeOrAttr>
+bool isFromVhlo(TypeOrAttr t) {
+  return t.getDialect().getNamespace() == VhloDialect::getDialectNamespace();
+}
+
+template <typename TypeOrAttr>
+bool allFromVhlo(ArrayRef<TypeOrAttr> range) {
+  return llvm::all_of(range, isFromVhlo<TypeOrAttr>);
+}
+
+Type convertTypeToBuiltinForPrint(Type type) {
+  struct VhloToBuiltinPrintConverter : VhloTypeConverter {
+    VhloToBuiltinPrintConverter() : VhloTypeConverter() {
+      addVhloToBuiltinConversions();
     }
+    Attribute convertEncoding(Attribute attr) const override { return attr; }
+  };
+  VhloToBuiltinPrintConverter conv;
+  return conv.convertType(type);
+}
 
-    template <typename TypeOrAttr>
-    bool allFromVhlo(ArrayRef<TypeOrAttr> range)
-    {
-      return llvm::all_of(range, isFromVhlo<TypeOrAttr>);
+Type convertTypeToVhloForParse(Type type) {
+  struct BuiltinToVhloParseConverter : VhloTypeConverter {
+    BuiltinToVhloParseConverter() : VhloTypeConverter() {
+      addBuiltinToVhloConversions();
     }
+    Attribute convertEncoding(Attribute attr) const override { return attr; }
+  };
+  BuiltinToVhloParseConverter conv;
+  return conv.convertType(type);
+}
 
-    Type convertTypeToBuiltinForPrint(Type type)
-    {
-      struct VhloToBuiltinPrintConverter : VhloTypeConverter
-      {
-        VhloToBuiltinPrintConverter() : VhloTypeConverter()
-        {
-          addVhloToBuiltinConversions();
-        }
-        Attribute convertEncoding(Attribute attr) const override { return attr; }
-      };
-      VhloToBuiltinPrintConverter conv;
-      return conv.convertType(type);
-    }
+} // namespace
 
-    Type convertTypeToVhloForParse(Type type)
-    {
-      struct BuiltinToVhloParseConverter : VhloTypeConverter
-      {
-        BuiltinToVhloParseConverter() : VhloTypeConverter()
-        {
-          addBuiltinToVhloConversions();
-        }
-        Attribute convertEncoding(Attribute attr) const override { return attr; }
-      };
-      BuiltinToVhloParseConverter conv;
-      return conv.convertType(type);
-    }
+// Helper functions for VHLO printers and parsers
+static void printAttributeArray(AsmPrinter &os, ArrayRef<Attribute> arrayAttr) {
+  os << '[' << arrayAttr << ']';
+}
 
-  } // namespace
-
-  // Helper functions for VHLO printers and parsers
-  static void printAttributeArray(AsmPrinter &os, ArrayRef<Attribute> arrayAttr)
-  {
-    os << '[' << arrayAttr << ']';
+// Parse attributes in brackets: [#vhlo.attr, #vhlo.attr]
+ParseResult parseAttributeArray(AsmParser &parser,
+                                SmallVector<Attribute> &arrayAttr) {
+  ArrayAttr array;
+  if (failed(parser.parseAttribute(array))) {
+    return failure();
   }
+  arrayAttr.append(array.begin(), array.end());
+  return success();
+}
 
-  // Parse attributes in brackets: [#vhlo.attr, #vhlo.attr]
-  ParseResult parseAttributeArray(AsmParser &parser,
-                                  SmallVector<Attribute> &arrayAttr)
-  {
-    ArrayAttr array;
-    if (failed(parser.parseAttribute(array)))
-    {
+void IntegerV1Attr::print(AsmPrinter &p) const {
+  p << '<'
+    << IntegerAttr::get(convertTypeToBuiltinForPrint(getType()), getValue())
+    << '>';
+}
+
+Attribute IntegerV1Attr::parse(AsmParser &parser, Type) {
+  IntegerAttr attr;
+  if (failed(parser.parseLess()) || failed(parser.parseAttribute(attr)) ||
+      failed(parser.parseGreater())) {
+    return IntegerV1Attr();
+  }
+  return IntegerV1Attr::get(parser.getContext(),
+                            convertTypeToVhloForParse(attr.getType()),
+                            attr.getValue());
+}
+
+namespace {
+
+void printAttributeDictionary(
+    AsmPrinter &os, ArrayRef<std::pair<Attribute, Attribute>> values) {
+  os << '{';
+  llvm::interleaveComma(
+      values, os, [&](auto nvp) { os << nvp.first << " = " << nvp.second; });
+  os << '}';
+}
+
+} // namespace
+
+// Parse array of NVPs in braces: {key = value, key = value}
+ParseResult
+parseAttributeDictionary(AsmParser &parser,
+                         SmallVector<std::pair<Attribute, Attribute>> &values) {
+  auto parseEle = [&]() {
+    Attribute name;
+    Attribute value;
+    if (failed(parser.parseAttribute(name)) || failed(parser.parseEqual()) ||
+        failed(parser.parseAttribute(value))) {
       return failure();
     }
-    arrayAttr.append(array.begin(), array.end());
+    values.push_back({name, value});
     return success();
+  };
+  if (failed(parser.parseCommaSeparatedList(AsmParser::Delimiter::Braces,
+                                            parseEle))) {
+    return failure();
   }
+  return success();
+}
 
-  void IntegerV1Attr::print(AsmPrinter &p) const
-  {
-    p << '<'
-      << IntegerAttr::get(convertTypeToBuiltinForPrint(getType()), getValue())
-      << '>';
+// Print function using: @name(arg : type, ...) -> (res_type...) { body_ops }
+void printFunctionBody(OpAsmPrinter &p, Operation *, Attribute name,
+                       Region &region, Attribute funcType) {
+  p.printSymbolName(cast<StringV1Attr>(name).getValue());
+  p << '(';
+  llvm::interleaveComma(region.getArguments(), p,
+                        [&](auto arg) { p.printRegionArgument(arg); });
+  p << ") -> (";
+  auto fnType = cast<FunctionV1Type>(cast<TypeV1Attr>(funcType).getValue());
+  llvm::interleaveComma(fnType.getOutputs(), p,
+                        [&](auto res) { p.printType(res); });
+  p << ") ";
+  p.printRegion(region, false, true, true);
+}
+
+// Parse function using: @name(arg : type, ...) -> (res_type...) { body_ops }
+ParseResult parseFunctionBody(OpAsmParser &parser, Attribute &name,
+                              Region &region, Attribute &funcType) {
+  StringAttr strName;
+  SmallVector<OpAsmParser::Argument> args;
+  SmallVector<Type> inputTypes;
+  SmallVector<Type> resultTypes;
+  if (failed(parser.parseSymbolName(strName)) ||
+      failed(
+          parser.parseArgumentList(args, AsmParser::Delimiter::Paren, true)) ||
+      failed(parser.parseArrowTypeList(resultTypes)) ||
+      failed(parser.parseRegion(region, args))) {
+    return failure();
   }
-
-  Attribute IntegerV1Attr::parse(AsmParser &parser, Type)
-  {
-    IntegerAttr attr;
-    if (failed(parser.parseLess()) || failed(parser.parseAttribute(attr)) ||
-        failed(parser.parseGreater()))
-    {
-      return IntegerV1Attr();
-    }
-    return IntegerV1Attr::get(parser.getContext(),
-                              convertTypeToVhloForParse(attr.getType()),
-                              attr.getValue());
+  name = StringV1Attr::get(parser.getContext(), strName.getValue());
+  for (OpAsmParser::Argument arg : args) {
+    inputTypes.push_back(arg.type);
   }
+  funcType = TypeV1Attr::get(
+      parser.getContext(),
+      FunctionV1Type::get(parser.getContext(), inputTypes, resultTypes));
 
-  namespace
-  {
+  return success();
+}
 
-    void printAttributeDictionary(
-        AsmPrinter &os, ArrayRef<std::pair<Attribute, Attribute>> values)
-    {
-      os << '{';
-      llvm::interleaveComma(
-          values, os, [&](auto nvp)
-          { os << nvp.first << " = " << nvp.second; });
-      os << '}';
-    }
+void TensorV1Attr::print(AsmPrinter &odsPrinter) const {
+  odsPrinter << '<'
+             << DenseIntOrFPElementsAttr::getFromRawBuffer(
+                    llvm::cast<ShapedType>(
+                        convertTypeToBuiltinForPrint(getType())),
+                    getData())
+             << '>';
+}
 
-  } // namespace
-
-  // Parse array of NVPs in braces: {key = value, key = value}
-  ParseResult
-  parseAttributeDictionary(AsmParser &parser,
-                           SmallVector<std::pair<Attribute, Attribute>> &values)
-  {
-    auto parseEle = [&]()
-    {
-      Attribute name;
-      Attribute value;
-      if (failed(parser.parseAttribute(name)) || failed(parser.parseEqual()) ||
-          failed(parser.parseAttribute(value)))
-      {
-        return failure();
-      }
-      values.push_back({name, value});
-      return success();
-    };
-    if (failed(parser.parseCommaSeparatedList(AsmParser::Delimiter::Braces,
-                                              parseEle)))
-    {
-      return failure();
-    }
-    return success();
+// Parse tensor elements using DenseIntOrFPElementsAttr printing.
+Attribute TensorV1Attr::parse(AsmParser &parser, Type) {
+  DenseIntOrFPElementsAttr attr;
+  if (failed(parser.parseLess()) || failed(parser.parseAttribute(attr)) ||
+      failed(parser.parseGreater())) {
+    return TensorV1Attr();
   }
+  return TensorV1Attr::get(parser.getContext(),
+                           convertTypeToVhloForParse(attr.getType()),
+                           attr.getRawData());
+}
 
-  // Print function using: @name(arg : type, ...) -> (res_type...) { body_ops }
-  void printFunctionBody(OpAsmPrinter &p, Operation *, Attribute name,
-                         Region &region, Attribute funcType)
-  {
-    p.printSymbolName(cast<StringV1Attr>(name).getValue());
-    p << '(';
-    llvm::interleaveComma(region.getArguments(), p,
-                          [&](auto arg)
-                          { p.printRegionArgument(arg); });
-    p << ") -> (";
-    auto fnType = cast<FunctionV1Type>(cast<TypeV1Attr>(funcType).getValue());
-    llvm::interleaveComma(fnType.getOutputs(), p,
-                          [&](auto res)
-                          { p.printType(res); });
-    p << ") ";
-    p.printRegion(region, false, true, true);
-  }
+void printEscapedString(AsmPrinter &p, llvm::StringRef value) {
+  p << "\"";
+  llvm::printEscapedString(value, p.getStream());
+  p << "\"";
+}
 
-  // Parse function using: @name(arg : type, ...) -> (res_type...) { body_ops }
-  ParseResult parseFunctionBody(OpAsmParser &parser, Attribute &name,
-                                Region &region, Attribute &funcType)
-  {
-    StringAttr strName;
-    SmallVector<OpAsmParser::Argument> args;
-    SmallVector<Type> inputTypes;
-    SmallVector<Type> resultTypes;
-    if (failed(parser.parseSymbolName(strName)) ||
-        failed(
-            parser.parseArgumentList(args, AsmParser::Delimiter::Paren, true)) ||
-        failed(parser.parseArrowTypeList(resultTypes)) ||
-        failed(parser.parseRegion(region, args)))
-    {
-      return failure();
-    }
-    name = StringV1Attr::get(parser.getContext(), strName.getValue());
-    for (OpAsmParser::Argument arg : args)
-    {
-      inputTypes.push_back(arg.type);
-    }
-    funcType = TypeV1Attr::get(
-        parser.getContext(),
-        FunctionV1Type::get(parser.getContext(), inputTypes, resultTypes));
-
-    return success();
-  }
-
-  void TensorV1Attr::print(AsmPrinter &odsPrinter) const
-  {
-    odsPrinter << '<'
-               << DenseIntOrFPElementsAttr::getFromRawBuffer(
-                      llvm::cast<ShapedType>(
-                          convertTypeToBuiltinForPrint(getType())),
-                      getData())
-               << '>';
-  }
-
-  // Parse tensor elements using DenseIntOrFPElementsAttr printing.
-  Attribute TensorV1Attr::parse(AsmParser &parser, Type)
-  {
-    DenseIntOrFPElementsAttr attr;
-    if (failed(parser.parseLess()) || failed(parser.parseAttribute(attr)) ||
-        failed(parser.parseGreater()))
-    {
-      return TensorV1Attr();
-    }
-    return TensorV1Attr::get(parser.getContext(),
-                             convertTypeToVhloForParse(attr.getType()),
-                             attr.getRawData());
-  }
-
-  void printEscapedString(AsmPrinter &p, llvm::StringRef value)
-  {
-    p << "\"";
-    llvm::printEscapedString(value, p.getStream());
-    p << "\"";
-  }
-
-  ParseResult parseEscapedString(AsmParser &parser, std::string &value)
-  {
-    return parser.parseString(&value);
-  }
+ParseResult parseEscapedString(AsmParser &parser, std::string &value) {
+  return parser.parseString(&value);
+}
 
 } // namespace mlir::vhlo
 
@@ -266,90 +232,83 @@ namespace mlir::vhlo
 #define GET_OP_CLASSES
 #include "stablehlo/dialect/VhloOps.cpp.inc"
 
-namespace mlir::vhlo
-{
+namespace mlir::vhlo {
 
-  //===----------------------------------------------------------------------===//
-  // StableHLO Dialect Constructor
-  //===----------------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
+// StableHLO Dialect Constructor
+//===----------------------------------------------------------------------===//
 
-  VhloDialect::VhloDialect(MLIRContext *context)
-      : Dialect(getDialectNamespace(), context, TypeID::get<VhloDialect>())
-  {
-    addOperations<
+VhloDialect::VhloDialect(MLIRContext *context)
+    : Dialect(getDialectNamespace(), context, TypeID::get<VhloDialect>()) {
+  addOperations<
 #define GET_OP_LIST
 #include "stablehlo/dialect/VhloOps.cpp.inc" // NOLINT(build/include)
-        >();
-    addBytecodeInterface(this);
-    addVhloTypes();
-    addAttributes<
+      >();
+  addBytecodeInterface(this);
+  addVhloTypes();
+  addAttributes<
 #define GET_ATTRDEF_LIST
 #include "stablehlo/dialect/VhloAttrs.cpp.inc" // NOLINT(build/include)
-        >();
-  }
+      >();
+}
 
-  void VhloDialect::addVhloTypes()
-  {
-    // Idiomatically, this functionality is expressed as shown below:
-    //
-    //     addTypes<
-    //   #define GET_TYPEDEF_LIST
-    //   #include "stablehlo/dialect/VhloTypeDefs.cpp.inc"
-    //         >();
-    //
-    // However, Dialect::addTypes doesn't work for our situation where we want
-    // to decouple the vhlo_ops and vhlo_types targets. VhloTypeDefs.h.inc only
-    // includes forward declarations of TypeStorage structs, and that's not enough
-    // for Dialect::addTypes to compile.
-    //
-    // Therefore, we work around by introducing this function and then
-    // reimplementing Dialect::addTypes as shown below.
-    addTypesWithoutRegistering<
+void VhloDialect::addVhloTypes() {
+  // Idiomatically, this functionality is expressed as shown below:
+  //
+  //     addTypes<
+  //   #define GET_TYPEDEF_LIST
+  //   #include "stablehlo/dialect/VhloTypeDefs.cpp.inc"
+  //         >();
+  //
+  // However, Dialect::addTypes doesn't work for our situation where we want
+  // to decouple the vhlo_ops and vhlo_types targets. VhloTypeDefs.h.inc only
+  // includes forward declarations of TypeStorage structs, and that's not enough
+  // for Dialect::addTypes to compile.
+  //
+  // Therefore, we work around by introducing this function and then
+  // reimplementing Dialect::addTypes as shown below.
+  addTypesWithoutRegistering<
 #define GET_TYPEDEF_LIST
 #include "stablehlo/dialect/VhloTypeDefs.cpp.inc"
-        >();
-    registerVhloTypes(getContext());
-  }
+      >();
+  registerVhloTypes(getContext());
+}
 
-  Type VhloDialect::parseType(DialectAsmParser &parser) const
-  {
-    StringRef dataType;
-    Type type;
-    auto parseResultOpt = parseVhloType(parser, &dataType, type);
-    if (parseResultOpt.has_value() && succeeded(*parseResultOpt))
-      return type;
-    parser.emitError(parser.getNameLoc()) << "unknown vhlo type: " << dataType;
-    return nullptr;
-  }
+Type VhloDialect::parseType(DialectAsmParser &parser) const {
+  StringRef dataType;
+  Type type;
+  auto parseResultOpt = parseVhloType(parser, &dataType, type);
+  if (parseResultOpt.has_value() && succeeded(*parseResultOpt))
+    return type;
+  parser.emitError(parser.getNameLoc()) << "unknown vhlo type: " << dataType;
+  return nullptr;
+}
 
-  void VhloDialect::printType(Type type, DialectAsmPrinter &os) const
-  {
-    if (succeeded(printVhloType(type, os)))
-      return;
-    os << "<unknown vhlo type>";
-  }
+void VhloDialect::printType(Type type, DialectAsmPrinter &os) const {
+  if (succeeded(printVhloType(type, os)))
+    return;
+  os << "<unknown vhlo type>";
+}
 
-  // Entry point for Attribute parsing, TableGen generated code will handle the
-  // dispatch to the individual classes.
-  Attribute VhloDialect::parseAttribute(DialectAsmParser &parser,
-                                        Type type) const
-  {
-    StringRef attrTag;
-    Attribute attr;
-    auto parseResult = generatedAttributeParser(parser, &attrTag, type, attr);
-    if (parseResult.has_value())
-      return attr;
-    parser.emitError(parser.getNameLoc(), "unknown vhlo attribute");
-    return Attribute();
-  }
+// Entry point for Attribute parsing, TableGen generated code will handle the
+// dispatch to the individual classes.
+Attribute VhloDialect::parseAttribute(DialectAsmParser &parser,
+                                      Type type) const {
+  StringRef attrTag;
+  Attribute attr;
+  auto parseResult = generatedAttributeParser(parser, &attrTag, type, attr);
+  if (parseResult.has_value())
+    return attr;
+  parser.emitError(parser.getNameLoc(), "unknown vhlo attribute");
+  return Attribute();
+}
 
-  // Entry point for Attribute printing, TableGen generated code will handle the
-  // dispatch to the individual classes.
-  void VhloDialect::printAttribute(Attribute attr, DialectAsmPrinter &os) const
-  {
-    LogicalResult result = generatedAttributePrinter(attr, os);
-    (void)result;
-    assert(succeeded(result));
-  }
+// Entry point for Attribute printing, TableGen generated code will handle the
+// dispatch to the individual classes.
+void VhloDialect::printAttribute(Attribute attr, DialectAsmPrinter &os) const {
+  LogicalResult result = generatedAttributePrinter(attr, os);
+  (void)result;
+  assert(succeeded(result));
+}
 
 } // namespace mlir::vhlo

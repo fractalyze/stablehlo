@@ -17,14 +17,13 @@ limitations under the License.
 #ifndef STABLEHLO_DIALECT_STABLEHLOBYTECODE_H_
 #define STABLEHLO_DIALECT_STABLEHLOBYTECODE_H_
 
-namespace mlir::stablehlo
-{
+namespace mlir::stablehlo {
 
-    class StablehloDialect;
+class StablehloDialect;
 
-    // Add the interface necessary for encoding and decoding StableHLO dialect
-    // components in bytecode.
-    void addBytecodeInterface(StablehloDialect *dialect);
+// Add the interface necessary for encoding and decoding StableHLO dialect
+// components in bytecode.
+void addBytecodeInterface(StablehloDialect *dialect);
 
 } // namespace mlir::stablehlo
 

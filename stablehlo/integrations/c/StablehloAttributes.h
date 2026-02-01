@@ -25,84 +25,83 @@ limitations under the License.
 #include "mlir-c/Support.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
-    //===----------------------------------------------------------------------===//
-    // ScatterDimensionNumbers
-    //===----------------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
+// ScatterDimensionNumbers
+//===----------------------------------------------------------------------===//
 
-    MLIR_CAPI_EXPORTED MlirAttribute stablehloScatterDimensionNumbersGet(
-        MlirContext ctx,                                                 //
-        intptr_t nUpdateWindowDims, const int64_t *updateWindowDims,     //
-        intptr_t nInsertedWindowDims, const int64_t *insertedWindowDims, //
-        intptr_t nInputBatchingDims, const int64_t *inputBatchingDims,   //
-        intptr_t nScatterIndicesBatchingDims,                            //
-        const int64_t *scatterIndicesBatchingDims,                       //
-        intptr_t nScatteredDimsToOperandDims,                            //
-        const int64_t *scatteredDimsToOperandDims,                       //
-        int64_t indexVectorDim);
+MLIR_CAPI_EXPORTED MlirAttribute stablehloScatterDimensionNumbersGet(
+    MlirContext ctx,                                                 //
+    intptr_t nUpdateWindowDims, const int64_t *updateWindowDims,     //
+    intptr_t nInsertedWindowDims, const int64_t *insertedWindowDims, //
+    intptr_t nInputBatchingDims, const int64_t *inputBatchingDims,   //
+    intptr_t nScatterIndicesBatchingDims,                            //
+    const int64_t *scatterIndicesBatchingDims,                       //
+    intptr_t nScatteredDimsToOperandDims,                            //
+    const int64_t *scatteredDimsToOperandDims,                       //
+    int64_t indexVectorDim);
 
-    MLIR_CAPI_EXPORTED bool
-    stablehloAttributeIsAScatterDimensionNumbers(MlirAttribute attr);
+MLIR_CAPI_EXPORTED bool
+stablehloAttributeIsAScatterDimensionNumbers(MlirAttribute attr);
 
-    MLIR_CAPI_EXPORTED intptr_t
-    stablehloScatterDimensionNumbersGetUpdateWindowDimsSize(MlirAttribute attr);
-    MLIR_CAPI_EXPORTED int64_t
-    stablehloScatterDimensionNumbersGetUpdateWindowDimsElem(MlirAttribute attr,
-                                                            intptr_t pos);
-    MLIR_CAPI_EXPORTED intptr_t
-    stablehloScatterDimensionNumbersGetInsertedWindowDimsSize(MlirAttribute attr);
-    MLIR_CAPI_EXPORTED int64_t
-    stablehloScatterDimensionNumbersGetInsertedWindowDimsElem(MlirAttribute attr,
-                                                              intptr_t pos);
-    MLIR_CAPI_EXPORTED intptr_t
-    stablehloScatterDimensionNumbersGetInputBatchingDimsSize(MlirAttribute attr);
-    MLIR_CAPI_EXPORTED int64_t
-    stablehloScatterDimensionNumbersGetInputBatchingDimsElem(MlirAttribute attr,
-                                                             intptr_t pos);
-    MLIR_CAPI_EXPORTED intptr_t
-    stablehloScatterDimensionNumbersGetScatterIndicesBatchingDimsSize(
-        MlirAttribute attr);
-    MLIR_CAPI_EXPORTED int64_t
-    stablehloScatterDimensionNumbersGetScatterIndicesBatchingDimsElem(
-        MlirAttribute attr, intptr_t pos);
-    MLIR_CAPI_EXPORTED intptr_t
-    stablehloScatterDimensionNumbersGetScatteredDimsToOperandDimsSize(
-        MlirAttribute attr);
-    MLIR_CAPI_EXPORTED int64_t
-    stablehloScatterDimensionNumbersGetScatteredDimsToOperandDimsElem(
-        MlirAttribute attr, intptr_t pos);
-    MLIR_CAPI_EXPORTED int64_t
-    stablehloScatterDimensionNumbersGetIndexVectorDim(MlirAttribute attr);
+MLIR_CAPI_EXPORTED intptr_t
+stablehloScatterDimensionNumbersGetUpdateWindowDimsSize(MlirAttribute attr);
+MLIR_CAPI_EXPORTED int64_t
+stablehloScatterDimensionNumbersGetUpdateWindowDimsElem(MlirAttribute attr,
+                                                        intptr_t pos);
+MLIR_CAPI_EXPORTED intptr_t
+stablehloScatterDimensionNumbersGetInsertedWindowDimsSize(MlirAttribute attr);
+MLIR_CAPI_EXPORTED int64_t
+stablehloScatterDimensionNumbersGetInsertedWindowDimsElem(MlirAttribute attr,
+                                                          intptr_t pos);
+MLIR_CAPI_EXPORTED intptr_t
+stablehloScatterDimensionNumbersGetInputBatchingDimsSize(MlirAttribute attr);
+MLIR_CAPI_EXPORTED int64_t
+stablehloScatterDimensionNumbersGetInputBatchingDimsElem(MlirAttribute attr,
+                                                         intptr_t pos);
+MLIR_CAPI_EXPORTED intptr_t
+stablehloScatterDimensionNumbersGetScatterIndicesBatchingDimsSize(
+    MlirAttribute attr);
+MLIR_CAPI_EXPORTED int64_t
+stablehloScatterDimensionNumbersGetScatterIndicesBatchingDimsElem(
+    MlirAttribute attr, intptr_t pos);
+MLIR_CAPI_EXPORTED intptr_t
+stablehloScatterDimensionNumbersGetScatteredDimsToOperandDimsSize(
+    MlirAttribute attr);
+MLIR_CAPI_EXPORTED int64_t
+stablehloScatterDimensionNumbersGetScatteredDimsToOperandDimsElem(
+    MlirAttribute attr, intptr_t pos);
+MLIR_CAPI_EXPORTED int64_t
+stablehloScatterDimensionNumbersGetIndexVectorDim(MlirAttribute attr);
 
-    //===----------------------------------------------------------------------===//
-    // ComparisonDirectionAttr
-    //===----------------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
+// ComparisonDirectionAttr
+//===----------------------------------------------------------------------===//
 
-    MLIR_CAPI_EXPORTED MlirAttribute
-    stablehloComparisonDirectionAttrGet(MlirContext ctx, MlirStringRef value);
+MLIR_CAPI_EXPORTED MlirAttribute
+stablehloComparisonDirectionAttrGet(MlirContext ctx, MlirStringRef value);
 
-    MLIR_CAPI_EXPORTED bool
-    stablehloAttributeIsAComparisonDirectionAttr(MlirAttribute attr);
+MLIR_CAPI_EXPORTED bool
+stablehloAttributeIsAComparisonDirectionAttr(MlirAttribute attr);
 
-    MLIR_CAPI_EXPORTED MlirStringRef
-    stablehloComparisonDirectionAttrGetValue(MlirAttribute attr);
+MLIR_CAPI_EXPORTED MlirStringRef
+stablehloComparisonDirectionAttrGetValue(MlirAttribute attr);
 
-    //===----------------------------------------------------------------------===//
-    // TypeExtensions
-    //===----------------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
+// TypeExtensions
+//===----------------------------------------------------------------------===//
 
-    MLIR_CAPI_EXPORTED MlirAttribute stablehloTypeExtensionsGet(
-        MlirContext ctx, intptr_t nBounds, const int64_t *bounds);
+MLIR_CAPI_EXPORTED MlirAttribute stablehloTypeExtensionsGet(
+    MlirContext ctx, intptr_t nBounds, const int64_t *bounds);
 
-    MLIR_CAPI_EXPORTED bool stablehloAttributeIsTypeExtensions(MlirAttribute attr);
+MLIR_CAPI_EXPORTED bool stablehloAttributeIsTypeExtensions(MlirAttribute attr);
 
-    MLIR_CAPI_EXPORTED intptr_t
-    stablehloTypeExtensionsGetBoundsSize(MlirAttribute attr);
-    MLIR_CAPI_EXPORTED int64_t
-    stablehloTypeExtensionsGetBoundsElem(MlirAttribute attr, intptr_t pos);
+MLIR_CAPI_EXPORTED intptr_t
+stablehloTypeExtensionsGetBoundsSize(MlirAttribute attr);
+MLIR_CAPI_EXPORTED int64_t
+stablehloTypeExtensionsGetBoundsElem(MlirAttribute attr, intptr_t pos);
 
 #ifdef __cplusplus
 }

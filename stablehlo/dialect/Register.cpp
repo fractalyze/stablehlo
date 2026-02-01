@@ -23,16 +23,14 @@ limitations under the License.
 #include "stablehlo/dialect/StablehloOps.h"
 #include "stablehlo/dialect/VhloOps.h"
 
-namespace mlir::stablehlo
-{
+namespace mlir::stablehlo {
 
-  void registerAllDialects(mlir::DialectRegistry &registry)
-  {
-    // clang-format off
+void registerAllDialects(mlir::DialectRegistry &registry) {
+  // clang-format off
   registry.insert<mlir::func::FuncDialect>();
   registry.insert<mlir::stablehlo::StablehloDialect,
                   mlir::vhlo::VhloDialect>();
-    // clang-format on
-  }
+  // clang-format on
+}
 
 } // namespace mlir::stablehlo

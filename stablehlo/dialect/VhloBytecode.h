@@ -17,14 +17,13 @@ limitations under the License.
 #ifndef STABLEHLO_DIALECT_VHLOBYTECODE_H_
 #define STABLEHLO_DIALECT_VHLOBYTECODE_H_
 
-namespace mlir::vhlo
-{
+namespace mlir::vhlo {
 
-    class VhloDialect;
+class VhloDialect;
 
-    // Add the interface necessary for encoding and decoding VHLO dialect
-    // components in bytecode.
-    void addBytecodeInterface(VhloDialect *dialect);
+// Add the interface necessary for encoding and decoding VHLO dialect
+// components in bytecode.
+void addBytecodeInterface(VhloDialect *dialect);
 
 } // namespace mlir::vhlo
 

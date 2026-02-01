@@ -24,10 +24,9 @@ limitations under the License.
 #include "prime_ir/Dialect/Field/IR/FieldDialect.h"
 #include "stablehlo/dialect/Register.h"
 
-int main(int argc, char **argv)
-{
-    mlir::registerAllPasses();
-    // clang-format off
+int main(int argc, char **argv) {
+  mlir::registerAllPasses();
+  // clang-format off
   // TODO(chokobole): Uncomment this. Dependency: mlir::stablehlo::registerXXX
   // mlir::hlo::registerAllTestPasses();
   // mlir::stablehlo::registerPassPipelines();
@@ -35,24 +34,24 @@ int main(int argc, char **argv)
   // mlir::stablehlo::registerStablehloLinalgTransformsPasses();
   // mlir::stablehlo::registerInterpreterTransformsPasses();
   // mlir::tosa::registerStablehloTOSATransformsPasses();
-    // clang-format on
+  // clang-format on
 
-    mlir::DialectRegistry registry;
-    mlir::registerAllDialects(registry);
-    mlir::registerAllExtensions(registry);
-    mlir::stablehlo::registerAllDialects(registry);
-    registry.insert<mlir::prime_ir::field::FieldDialect>();
-    registry.insert<mlir::prime_ir::elliptic_curve::EllipticCurveDialect>();
+  mlir::DialectRegistry registry;
+  mlir::registerAllDialects(registry);
+  mlir::registerAllExtensions(registry);
+  mlir::stablehlo::registerAllDialects(registry);
+  registry.insert<mlir::prime_ir::field::FieldDialect>();
+  registry.insert<mlir::prime_ir::elliptic_curve::EllipticCurveDialect>();
 
-    // clang-format off
+  // clang-format off
   // TODO(chokobole): Uncomment this. Dependency: zkx::stablehlo::check::CheckDialect
   // registry.insert<mlir::stablehlo::check::CheckDialect>();
-    // clang-format on
-    // clang-format off
+  // clang-format on
+  // clang-format off
   // TODO(chokobole): Uncomment this. Dependency: zkx::stablehlo::interpreter::InterpreterDialect
   // registry.insert<mlir::stablehlo::interpreter::InterpreterDialect>();
-    // clang-format on
+  // clang-format on
 
-    return failed(
-        mlir::MlirOptMain(argc, argv, "StableHLO optimizer driver\n", registry));
+  return failed(
+      mlir::MlirOptMain(argc, argv, "StableHLO optimizer driver\n", registry));
 }

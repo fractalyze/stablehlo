@@ -27,40 +27,37 @@ limitations under the License.
 #include "stablehlo/dialect/Version.h"   // IWYU pragma: keep
 #include "stablehlo/dialect/VhloTypes.h" // IWYU pragma: keep
 
-namespace mlir::vhlo
-{
+namespace mlir::vhlo {
 
-  class VhloDialect : public Dialect
-  {
-  public:
-    explicit VhloDialect(MLIRContext *context);
-    static StringRef getDialectNamespace() { return "vhlo"; }
+class VhloDialect : public Dialect {
+public:
+  explicit VhloDialect(MLIRContext *context);
+  static StringRef getDialectNamespace() { return "vhlo"; }
 
-    // Parses a type registered to this dialect.
-    Type parseType(DialectAsmParser &parser) const override;
+  // Parses a type registered to this dialect.
+  Type parseType(DialectAsmParser &parser) const override;
 
-    // Prints a type registered to this dialect.
-    void printType(Type type, DialectAsmPrinter &os) const override;
+  // Prints a type registered to this dialect.
+  void printType(Type type, DialectAsmPrinter &os) const override;
 
-    // Parses an attribute registered to this dialect.
-    Attribute parseAttribute(DialectAsmParser &parser, Type type) const override;
+  // Parses an attribute registered to this dialect.
+  Attribute parseAttribute(DialectAsmParser &parser, Type type) const override;
 
-    // Prints an attribute registered to this dialect.
-    void printAttribute(Attribute attr, DialectAsmPrinter &os) const override;
+  // Prints an attribute registered to this dialect.
+  void printAttribute(Attribute attr, DialectAsmPrinter &os) const override;
 
-  private:
-    // Adds VHLO types to this dialect.
-    // See implementation comments for additional details.
-    void addVhloTypes();
+private:
+  // Adds VHLO types to this dialect.
+  // See implementation comments for additional details.
+  void addVhloTypes();
 
-    // Does the same this as Dialect::addTypes but without calling registerType.
-    // See comments for `addVhloTypes` for additional details.
-    template <typename... Types>
-    void addTypesWithoutRegistering()
-    {
-      (addType(Types::getTypeID(), AbstractType::get<Types>(*this)), ...);
-    }
-  };
+  // Does the same this as Dialect::addTypes but without calling registerType.
+  // See comments for `addVhloTypes` for additional details.
+  template <typename... Types>
+  void addTypesWithoutRegistering() {
+    (addType(Types::getTypeID(), AbstractType::get<Types>(*this)), ...);
+  }
+};
 
 } // namespace mlir::vhlo
 
