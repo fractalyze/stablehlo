@@ -162,6 +162,182 @@ bool verifyCompatibleDims(int64_t dimSize1, int64_t dimSize2) {
          dimSize1 == dimSize2;
 }
 
+FailureOr<SmallVector<std::pair<int64_t, int64_t>>>
+convertPaddingAttribute(std::optional<DenseIntElementsAttr> optionalAttr,
+                        std::optional<Location> loc) {
+  if (!optionalAttr.has_value())
+    return SmallVector<std::pair<int64_t, int64_t>>{};
+
+  DenseIntElementsAttr attr = *optionalAttr;
+  auto attrType = cast<RankedTensorType>(attr.getType());
+  if (attrType.getRank() != 2 || attrType.getShape()[1] != 2)
+    return emitOptionalError(
+        loc, "expects the shape of padding-attribute to be {N, 2}, but got {",
+        attrType.getShape(), "}.");
+
+  auto it = attr.getValues<int64_t>().begin();
+  SmallVector<std::pair<int64_t, int64_t>> out(attr.getNumElements() / 2);
+  for (auto &item : out) {
+    int64_t first = *it;
+    ++it;
+    int64_t second = *it;
+    ++it;
+    item = {first, second};
+  }
+  return out;
+}
+
+// If a window with the given bound in some dimension is dilated with the given
+// dilation factor in that dimension, then the value returned is the bound for
+// the array in that dimension after dilation.
+//
+// For a 1D array with 3 entries 1, 2, 3, a dilation factor of 2 yields a new
+// window with values 1, x, 2, x, 3, where x indicates holes left by the
+// dilation. So DilatedBound(3, 2) == 5.
+int64_t dilatedBound(int64_t bound, int64_t dilation) {
+  assert(bound >= 0 && "The dimension to dilate must be >= 0");
+  if (bound == 0)
+    return 0;
+
+  // Suppose the array has three entries 123 and the dilation factor is 4. Then
+  // the dilated array has 9 entries 1xxx2xxx3. Here, each original entry except
+  // the last expands into 4 entries, so that is (bound - 1) * dilation. Then we
+  // add 1 to account for the final input element.
+  return (bound - 1) * dilation + 1;
+}
+
+// Returns the number of valid positions of a window with the given size and
+// stride within an array with the given bound. This is the bound of an output
+// array with one element per valid position of the window.
+//
+// For example, for arguments of (bound=5, window_size=2, stride=2), the
+// returned value is 2. There are valid positions at offset 0 and offset 2,
+// while offset 4 is not valid since the window's last entry would be at 5,
+// which is beyond the bound of 5.
+int64_t stridedBound(int64_t bound, int64_t windowSize, int64_t stride) {
+  assert(windowSize >= 0 && "Expected window size to be >= 0");
+  assert(bound >= 0 && "Expected bound to be >= 0");
+
+  if (bound == 0 || windowSize > bound)
+    return 0;
+
+  // Without considering stride, the maximum valid offset is bound -
+  // window_size. Taking stride into account, the valid offsets then have the
+  // form q * stride for q = 0, ..., Q such that q * stride <= bound -
+  // window_size. This implies that Q equals floor(bound - window_size /
+  // stride). There are Q + 1 valid values of q, yielding the formula below.
+  return (bound - windowSize) / stride + 1;
+}
+
+// Verifies various properties of window-attributes (viz., stride, padding,
+// lhs_dilation and rhs_dilation) and collects all the window-attributes for
+// each kernel spatial dimensions.
+FailureOr<SmallVector<WindowDimension>>
+verifyWindowAttributesAndInferWindowDimensions(
+    ArrayRef<int64_t> windowDimensions, ArrayRef<int64_t> windowStrides,
+    ArrayRef<std::pair<int64_t, int64_t>> padding,
+    ArrayRef<int64_t> lhsDilation, ArrayRef<int64_t> rhsDilation,
+    ArrayRef<bool> windowReversal, std::optional<Location> loc) {
+  const auto verifySize = [&](const size_t attrSize,
+                              StringRef attrName) -> LogicalResult {
+    if (attrSize == 0 || attrSize == windowDimensions.size())
+      return success();
+    return emitOptionalError(
+        loc, "expects ", attrName,
+        " to have same dimension-size as size of window dimensions (",
+        windowDimensions.size(), "), but got: ", attrSize, ".");
+  };
+  // reduce_window_c6
+  if (failed(verifySize(windowStrides.size(), "window-strides")))
+    return failure();
+  // reduce_window_c8
+  if (failed(verifySize(lhsDilation.size(), "base-dilation factors")))
+    return failure();
+  // reduce_window_c10
+  if (failed(verifySize(rhsDilation.size(), "window-dilation factors")))
+    return failure();
+  // reduce_window_c12
+  if (failed(verifySize(padding.size(), "padding-entries")))
+    return failure();
+  if (failed(verifySize(windowReversal.size(), "window-reversal")))
+    return failure();
+
+  SmallVector<WindowDimension> window(windowDimensions.size());
+  for (size_t i = 0; i < windowDimensions.size(); i++) {
+    WindowDimension &dim = window[i];
+    dim.size = windowDimensions[i];
+
+    // reduce_window_c5
+    if (!isDynamicDimSize(dim.size) && dim.size <= 0)
+      return emitOptionalError(loc,
+                               "expects window to have positive value for ", i,
+                               "-th window dimension, but got ", dim.size, ".");
+
+    if (!windowStrides.empty())
+      dim.stride = windowStrides[i];
+    // reduce_window_c7
+    if (dim.stride <= 0)
+      return emitOptionalError(
+          loc, "expects window to have positive stride for ", i,
+          "-th window dimension, but got ", dim.stride, ".");
+
+    if (!lhsDilation.empty())
+      dim.baseDilation = lhsDilation[i];
+    // reduce_window_c9
+    if (dim.baseDilation <= 0)
+      return emitOptionalError(
+          loc, "expects window to have positive base dilation factor for ", i,
+          "-th window dimension, but got ", dim.baseDilation, ".");
+
+    if (!rhsDilation.empty())
+      dim.windowDilation = rhsDilation[i];
+    // reduce_window_c11
+    if (dim.windowDilation <= 0)
+      return emitOptionalError(
+          loc, "expects window to have positive window dilation factor for ", i,
+          "-th window dimension, but got ", dim.windowDilation, ".");
+
+    if (!padding.empty()) {
+      dim.paddingLow = padding[i].first;
+      dim.paddingHigh = padding[i].second;
+    }
+  }
+
+  return window;
+}
+
+// Infer the shape of the output window.
+//  Foreach dimension d,
+//    output-window-shape[d] =
+//            stridedBound(padding_low + dilatedBound(base_shape[d]) +
+//            padding_high,
+//                         dilatedBound(window_shape[d]))
+//      where (padding_low, padding_high) is the padding-pair for d.
+SmallVector<int64_t> inferWindowOutputShape(ArrayRef<int64_t> baseShape,
+                                            ArrayRef<WindowDimension> window) {
+  assert(baseShape.size() == window.size() &&
+         "Size of window dimensions must match the size of base shape.");
+
+  SmallVector<int64_t> outputDimensions(window.size());
+  for (int64_t i = 0; i < static_cast<int64_t>(window.size()); ++i) {
+    if (isDynamicDimSize(baseShape[i]) || isDynamicDimSize(window[i].size)) {
+      outputDimensions[i] = ShapedType::kDynamic;
+    } else {
+      const auto &dim = window[i];
+
+      const int64_t dilatedBase = dilatedBound(baseShape[i], dim.baseDilation);
+      const int64_t paddedDilatedBase =
+          dim.paddingLow + dilatedBase + dim.paddingHigh;
+      const int64_t dilatedWindow = dilatedBound(dim.size, dim.windowDilation);
+
+      outputDimensions[i] =
+          stridedBound(paddedDilatedBase, dilatedWindow, dim.stride);
+    }
+  }
+
+  return outputDimensions;
+}
+
 //===----------------------------------------------------------------------===//
 // Shape functions for ops.
 //===----------------------------------------------------------------------===//
@@ -626,6 +802,51 @@ inferReduceOp(std::optional<Location> location, TypeRange inputTypes,
   for (uint64_t inputIdx = 0; inputIdx < inputTypes.size(); ++inputIdx) {
     Type elementType = (*accumulatorTypesOrErr)[inputIdx].getElementType();
     inferredReturnShapes.emplace_back(newDimensions, elementType, encoding);
+  }
+
+  return success();
+}
+
+LogicalResult inferReduceWindowOp(
+    std::optional<Location> location, ValueRange inputs, ValueRange initValues,
+    ArrayRef<int64_t> windowDimensions,
+    std::optional<ArrayRef<int64_t>> windowStrides,
+    std::optional<ArrayRef<int64_t>> baseDilations,
+    std::optional<ArrayRef<int64_t>> windowDilations,
+    std::optional<DenseIntElementsAttr> padding, Region &body,
+    SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
+  auto inputTypes = llvm::map_to_vector(
+      inputs.getTypes(), [](Type t) { return cast<ShapedType>(t); });
+  auto initValueTypes = llvm::map_to_vector(
+      initValues.getTypes(), [](Type t) { return cast<ShapedType>(t); });
+
+  SmallVector<int64_t> windowDims;
+  SmallVector<WindowDimension> inferredWindow;
+  // reduce_window_c1, reduce_window_c2, reduce_window_c4...reduce_window_c12,
+  // reduce_window_i4...reduce_window_i7
+  if (failed(verifyReduceWindowOpInputsAndInferWindow(
+          location, inputTypes, initValueTypes, windowDimensions, windowStrides,
+          baseDilations, windowDilations, padding, windowDims, inferredWindow)))
+    return failure();
+
+  // reduce_window_c1, reduce_window_c14...reduce_window_c16
+  auto accumulatorTypesOrErr = getAccumulatorTypes(location, body);
+  if (failed(accumulatorTypesOrErr))
+    return failure();
+  for (size_t i = 0; i < inputTypes.size(); ++i) {
+    auto inputRankedType = cast<RankedTensorType>(inputs[i].getType());
+    auto resultShape =
+        inferWindowOutputShape(inputTypes[i].getShape(), inferredWindow);
+    auto inputBounds = encodingToBounds(inputRankedType.getEncoding());
+    if (inputBounds.empty()) {
+      inferredReturnShapes.emplace_back(
+          resultShape, (*accumulatorTypesOrErr)[i].getElementType());
+    } else {
+      auto resultBounds = inferWindowOutputShape(inputBounds, inferredWindow);
+      inferredReturnShapes.emplace_back(
+          resultShape, (*accumulatorTypesOrErr)[i].getElementType(),
+          boundsToEncoding(inputRankedType.getEncoding(), resultBounds));
+    }
   }
 
   return success();
@@ -1669,6 +1890,87 @@ LogicalResult verifyReduceOpInputsAndInferShape(
   encoding = nullptr;
   if (!newBounds.empty())
     encoding = boundsToEncoding(witnessType.getEncoding(), newBounds);
+  return success();
+}
+
+LogicalResult verifyReduceWindowOpInputsAndInferWindow(
+    std::optional<Location> location, SmallVector<ShapedType> inputTypes,
+    SmallVector<ShapedType> initValueTypes, ArrayRef<int64_t> windowDimensions,
+    std::optional<ArrayRef<int64_t>> windowStrides,
+    std::optional<ArrayRef<int64_t>> baseDilations,
+    std::optional<ArrayRef<int64_t>> windowDilations,
+    std::optional<DenseIntElementsAttr> padding,
+    SmallVector<int64_t> &windowDims,
+    SmallVector<WindowDimension> &inferredWindow) {
+  // reduce_window_c1
+  if (inputTypes.empty())
+    return emitOptionalError(location, "requires at least 1 input value");
+
+  auto witnessType = cast<RankedTensorType>(inputTypes[0]);
+  // reduce_window_c2
+  for (size_t i = 1; i < inputTypes.size(); i++)
+    if (failed(mlir::verifyCompatibleShape(witnessType, inputTypes[i])))
+      return emitOptionalError(
+          location,
+          "expects all inputs to have compatible shapes. Shape at input-index ",
+          i, " is not compatible with shape at input-index 0");
+
+  // reduce_window_c12, reduce_window_i7
+  auto paddingOrErr = convertPaddingAttribute(padding, location);
+  if (failed(paddingOrErr))
+    return failure();
+
+  // reduce_window_c4
+  for (const auto inputType : inputTypes) {
+    if (inputType.getRank() != static_cast<int64_t>(windowDimensions.size()))
+      return emitOptionalError(
+          location, "expects window-dimensions size == input rank, but got ",
+          "window-dimensions size: ", windowDimensions.size(),
+          " and input: ", inputType, " with rank = ", inputType.getRank(), ".");
+  }
+
+  // reduce_window_c5...reduce_window_c12
+  auto windowOrErr = verifyWindowAttributesAndInferWindowDimensions(
+      windowDimensions, windowStrides.value_or(SmallVector<int64_t, 0>{}),
+      *paddingOrErr,
+      /*lhsDilation=*/baseDilations.value_or(SmallVector<int64_t, 0>{}),
+      /*rhsDilation=*/windowDilations.value_or(SmallVector<int64_t, 0>{}),
+      /*windowReversal=*/{}, location);
+  if (failed(windowOrErr))
+    return failure();
+
+  windowDims.append(windowDimensions.begin(), windowDimensions.end());
+  inferredWindow.append(*windowOrErr);
+  return success();
+}
+
+LogicalResult
+verifyReduceWindowOp(std::optional<Location> location, ValueRange inputs,
+                     ValueRange initValues, ArrayRef<int64_t> windowDimensions,
+                     std::optional<ArrayRef<int64_t>> windowStrides,
+                     std::optional<ArrayRef<int64_t>> baseDilations,
+                     std::optional<ArrayRef<int64_t>> windowDilations,
+                     std::optional<DenseIntElementsAttr> padding,
+                     Region &body) {
+  auto inputTypes = llvm::map_to_vector(
+      inputs.getTypes(), [](Type t) { return cast<ShapedType>(t); });
+  auto initValueTypes = llvm::map_to_vector(
+      initValues.getTypes(), [](Type t) { return cast<ShapedType>(t); });
+
+  SmallVector<int64_t> windowDims;
+  SmallVector<WindowDimension> inferredWindow;
+  // reduce_window_c1, reduce_window_c2, reduce_window_c4...reduce_window_c12,
+  // reduce_window_i4...reduce_window_i7
+  if (failed(verifyReduceWindowOpInputsAndInferWindow(
+          location, inputTypes, initValueTypes, windowDimensions, windowStrides,
+          baseDilations, windowDilations, padding, windowDims, inferredWindow)))
+    return failure();
+
+  // reduce_window_c3, reduce_window_c13, reduce_window_i2
+  if (failed(verifyReducerShape(location, body.front(), inputTypes,
+                                initValueTypes, windowDims)))
+    return failure();
+
   return success();
 }
 
