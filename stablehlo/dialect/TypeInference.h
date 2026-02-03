@@ -107,6 +107,14 @@ LogicalResult
 inferCompareOp(MLIRContext *context, std::optional<Location>, Value lhs,
                SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes);
 
+LogicalResult inferGatherOp(
+    std::optional<Location> location, Value operand, Value startIndices,
+    ArrayRef<int64_t> offsetDims, ArrayRef<int64_t> collapsedSliceDims,
+    ArrayRef<int64_t> operandBatchingDims,
+    ArrayRef<int64_t> startIndicesBatchingDims, ArrayRef<int64_t> startIndexMap,
+    int64_t indexVectorDim, ArrayRef<int64_t> sliceSizes,
+    SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes);
+
 LogicalResult inferConcatenateOp(std::optional<Location> location,
                                  TypeRange inputTypes, int64_t dimension,
                                  SmallVectorImpl<Type> &inferredReturnTypes);

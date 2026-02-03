@@ -157,6 +157,70 @@ NB_MODULE(_stablehlo, m) {
       });
 
   mlir::python::nanobind_adaptors::mlir_attribute_subclass(
+      m, "GatherDimensionNumbers", stablehloAttributeIsAGatherDimensionNumbers)
+      .def_classmethod(
+          "get",
+          [](nb::object cls, const std::vector<int64_t> &offsetDims,
+             const std::vector<int64_t> &collapsedSliceDims,
+             const std::vector<int64_t> &operandBatchingDims,
+             const std::vector<int64_t> &startIndicesBatchingDims,
+             const std::vector<int64_t> &startIndexMap, int64_t indexVectorDim,
+             MlirContext ctx) {
+            return cls(stablehloGatherDimensionNumbersGet(
+                ctx, offsetDims.size(), offsetDims.data(),
+                collapsedSliceDims.size(), collapsedSliceDims.data(),
+                operandBatchingDims.size(), operandBatchingDims.data(),
+                startIndicesBatchingDims.size(),
+                startIndicesBatchingDims.data(), startIndexMap.size(),
+                startIndexMap.data(), indexVectorDim));
+          },
+          nb::arg("cls"), nb::arg("offset_dims"),
+          nb::arg("collapsed_slice_dims"), nb::arg("operand_batching_dims"),
+          nb::arg("start_indices_batching_dims"), nb::arg("start_index_map"),
+          nb::arg("index_vector_dim"), nb::arg("context").none() = nb::none(),
+          "Creates a GatherDimensionNumbers with the given dimension "
+          "configuration.")
+      .def_property_readonly(
+          "offset_dims",
+          [](MlirAttribute self) {
+            return attributePropertyVector(
+                self, stablehloGatherDimensionNumbersGetOffsetDimsSize,
+                stablehloGatherDimensionNumbersGetOffsetDimsElem);
+          })
+      .def_property_readonly(
+          "collapsed_slice_dims",
+          [](MlirAttribute self) {
+            return attributePropertyVector(
+                self, stablehloGatherDimensionNumbersGetCollapsedSliceDimsSize,
+                stablehloGatherDimensionNumbersGetCollapsedSliceDimsElem);
+          })
+      .def_property_readonly(
+          "operand_batching_dims",
+          [](MlirAttribute self) {
+            return attributePropertyVector(
+                self, stablehloGatherDimensionNumbersGetOperandBatchingDimsSize,
+                stablehloGatherDimensionNumbersGetOperandBatchingDimsElem);
+          })
+      .def_property_readonly(
+          "start_indices_batching_dims",
+          [](MlirAttribute self) {
+            return attributePropertyVector(
+                self,
+                stablehloGatherDimensionNumbersGetStartIndicesBatchingDimsSize, // NOLINT
+                stablehloGatherDimensionNumbersGetStartIndicesBatchingDimsElem); // NOLINT
+          })
+      .def_property_readonly(
+          "start_index_map",
+          [](MlirAttribute self) {
+            return attributePropertyVector(
+                self, stablehloGatherDimensionNumbersGetStartIndexMapSize,
+                stablehloGatherDimensionNumbersGetStartIndexMapElem);
+          })
+      .def_property_readonly("index_vector_dim", [](MlirAttribute self) {
+        return stablehloGatherDimensionNumbersGetIndexVectorDim(self);
+      });
+
+  mlir::python::nanobind_adaptors::mlir_attribute_subclass(
       m, "ComparisonDirectionAttr",
       stablehloAttributeIsAComparisonDirectionAttr)
       .def_classmethod(

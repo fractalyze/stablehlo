@@ -128,6 +128,100 @@ int64_t stablehloScatterDimensionNumbersGetIndexVectorDim(MlirAttribute attr) {
 }
 
 //===----------------------------------------------------------------------===//
+// GatherDimensionNumbers
+//===----------------------------------------------------------------------===//
+
+MlirAttribute stablehloGatherDimensionNumbersGet(
+    MlirContext ctx, intptr_t nOffsetDims, const int64_t *offsetDims,
+    intptr_t nCollapsedSliceDims, const int64_t *collapsedSliceDims,
+    intptr_t nOperandBatchingDims, const int64_t *operandBatchingDims,
+    intptr_t nStartIndicesBatchingDims, const int64_t *startIndicesBatchingDims,
+    intptr_t nStartIndexMap, const int64_t *startIndexMap,
+    int64_t indexVectorDim) {
+  return wrap(mlir::stablehlo::GatherDimensionNumbersAttr::get(
+      unwrap(ctx), llvm::ArrayRef(offsetDims, nOffsetDims),
+      llvm::ArrayRef(collapsedSliceDims, nCollapsedSliceDims),
+      llvm::ArrayRef(operandBatchingDims, nOperandBatchingDims),
+      llvm::ArrayRef(startIndicesBatchingDims, nStartIndicesBatchingDims),
+      llvm::ArrayRef(startIndexMap, nStartIndexMap), indexVectorDim));
+}
+
+bool stablehloAttributeIsAGatherDimensionNumbers(MlirAttribute attr) {
+  return llvm::isa<mlir::stablehlo::GatherDimensionNumbersAttr>(unwrap(attr));
+}
+
+intptr_t stablehloGatherDimensionNumbersGetOffsetDimsSize(MlirAttribute attr) {
+  return llvm::cast<mlir::stablehlo::GatherDimensionNumbersAttr>(unwrap(attr))
+      .getOffsetDims()
+      .size();
+}
+
+int64_t stablehloGatherDimensionNumbersGetOffsetDimsElem(MlirAttribute attr,
+                                                         intptr_t pos) {
+  return llvm::cast<mlir::stablehlo::GatherDimensionNumbersAttr>(unwrap(attr))
+      .getOffsetDims()[pos];
+}
+
+intptr_t
+stablehloGatherDimensionNumbersGetCollapsedSliceDimsSize(MlirAttribute attr) {
+  return llvm::cast<mlir::stablehlo::GatherDimensionNumbersAttr>(unwrap(attr))
+      .getCollapsedSliceDims()
+      .size();
+}
+
+int64_t
+stablehloGatherDimensionNumbersGetCollapsedSliceDimsElem(MlirAttribute attr,
+                                                         intptr_t pos) {
+  return llvm::cast<mlir::stablehlo::GatherDimensionNumbersAttr>(unwrap(attr))
+      .getCollapsedSliceDims()[pos];
+}
+
+intptr_t
+stablehloGatherDimensionNumbersGetOperandBatchingDimsSize(MlirAttribute attr) {
+  return llvm::cast<mlir::stablehlo::GatherDimensionNumbersAttr>(unwrap(attr))
+      .getOperandBatchingDims()
+      .size();
+}
+
+int64_t
+stablehloGatherDimensionNumbersGetOperandBatchingDimsElem(MlirAttribute attr,
+                                                          intptr_t pos) {
+  return llvm::cast<mlir::stablehlo::GatherDimensionNumbersAttr>(unwrap(attr))
+      .getOperandBatchingDims()[pos];
+}
+
+intptr_t stablehloGatherDimensionNumbersGetStartIndicesBatchingDimsSize(
+    MlirAttribute attr) {
+  return llvm::cast<mlir::stablehlo::GatherDimensionNumbersAttr>(unwrap(attr))
+      .getStartIndicesBatchingDims()
+      .size();
+}
+
+int64_t stablehloGatherDimensionNumbersGetStartIndicesBatchingDimsElem(
+    MlirAttribute attr, intptr_t pos) {
+  return llvm::cast<mlir::stablehlo::GatherDimensionNumbersAttr>(unwrap(attr))
+      .getStartIndicesBatchingDims()[pos];
+}
+
+intptr_t
+stablehloGatherDimensionNumbersGetStartIndexMapSize(MlirAttribute attr) {
+  return llvm::cast<mlir::stablehlo::GatherDimensionNumbersAttr>(unwrap(attr))
+      .getStartIndexMap()
+      .size();
+}
+
+int64_t stablehloGatherDimensionNumbersGetStartIndexMapElem(MlirAttribute attr,
+                                                            intptr_t pos) {
+  return llvm::cast<mlir::stablehlo::GatherDimensionNumbersAttr>(unwrap(attr))
+      .getStartIndexMap()[pos];
+}
+
+int64_t stablehloGatherDimensionNumbersGetIndexVectorDim(MlirAttribute attr) {
+  return llvm::cast<mlir::stablehlo::GatherDimensionNumbersAttr>(unwrap(attr))
+      .getIndexVectorDim();
+}
+
+//===----------------------------------------------------------------------===//
 // ComparisonDirectionAttr
 //===----------------------------------------------------------------------===//
 

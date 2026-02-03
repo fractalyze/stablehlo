@@ -1375,6 +1375,44 @@ def StableHLO_DynamicReshapeOp: StableHLO_ShapedInterfaceOp<"dynamic_reshape",
   let assemblyFormat = "operands attr-dict `:` functional-type(operands, results)";
 }
 
+def StableHLO_GatherOp: StableHLO_Op<"gather",
+      [HLO_SpeculatableIfAllInputsStatic, NoMemoryEffect,
+      InferTensorTypeWithReify /*gather_c22*/,
+      AllElementTypesMatch<["operand", "result"]> /*gather_c23*/]> {
+  let summary = "Gather operation";
+  let description = [{
+    Gathers slices from `operand` tensor from offsets specified in
+    `start_indices` and produces a `result` tensor.
+
+    See:
+    https://github.com/openxla/stablehlo/blob/main/docs/spec.md#gather
+
+    Example:
+    ```mlir
+    %result = "stablehlo.gather"(%operand, %start_indices) {
+      dimension_numbers = #stablehlo.gather<
+        offset_dims = [2, 3],
+        collapsed_slice_dims = [0],
+        operand_batching_dims = [],
+        start_indices_batching_dims = [],
+        start_index_map = [1, 0],
+        index_vector_dim = 2>,
+      slice_sizes = array<i64: 1, 2, 2>,
+      indices_are_sorted = false
+    } : (tensor<3x4x2xi32>, tensor<2x3x2xi64>) -> tensor<2x3x2x2xi32>
+    ```
+  }];
+  let arguments = (ins
+    HLO_Tensor:$operand, /*gather_i1*/
+    RankedTensorOf<[AnyInteger, Index]>:$start_indices, /*gather_i2*/
+    StableHLO_GatherDimensionNumbers:$dimension_numbers, /*gather_i3...gather_i8*/
+    DenseI64ArrayAttr:$slice_sizes, /*gather_i9*/
+    DefaultValuedOptionalAttr<BoolAttr, "false">:$indices_are_sorted /*gather_i10*/
+  );
+
+  let results = (outs HLO_Tensor:$result);
+}
+
 def StableHLO_ScatterOp: StableHLO_Op<"scatter",
       [ConditionallySpeculatable, RecursiveMemoryEffects,
       SameVariadicOperandSize /*scatter_c5*/,

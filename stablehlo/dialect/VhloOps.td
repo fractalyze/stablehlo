@@ -259,6 +259,22 @@ def VHLO_FuncOpV1 : VHLO_Op<"func_v1", "0.0.1", "current"> {
   let assemblyFormat = "custom<FunctionBody>($sym_name, $body, $function_type) attr-dict";
 }
 
+def VHLO_GatherOpV1 : VHLO_Op<"gather_v1", "0.0.1", "current"> {
+  let arguments = (ins
+    VHLO_AnyType:$operand,
+    VHLO_AnyType:$start_indices,
+    VHLO_AnyAttr:$offset_dims,
+    VHLO_AnyAttr:$collapsed_slice_dims,
+    VHLO_AnyAttr:$operand_batching_dims,
+    VHLO_AnyAttr:$start_indices_batching_dims,
+    VHLO_AnyAttr:$start_index_map,
+    VHLO_AnyAttr:$index_vector_dim,
+    VHLO_AnyAttr:$slice_sizes,
+    VHLO_AnyAttr:$indices_are_sorted
+  );
+  let results = (outs VHLO_AnyType:$result);
+}
+
 def VHLO_GetDimensionSizeOpV1 : VHLO_Op<"get_dimension_size_v1", "0.0.1", "current"> {
   let arguments = (ins
     VHLO_AnyType:$operand,

@@ -77,6 +77,50 @@ MLIR_CAPI_EXPORTED int64_t
 stablehloScatterDimensionNumbersGetIndexVectorDim(MlirAttribute attr);
 
 //===----------------------------------------------------------------------===//
+// GatherDimensionNumbers
+//===----------------------------------------------------------------------===//
+
+MLIR_CAPI_EXPORTED MlirAttribute stablehloGatherDimensionNumbersGet(
+    MlirContext ctx,                                                   //
+    intptr_t nOffsetDims, const int64_t *offsetDims,                   //
+    intptr_t nCollapsedSliceDims, const int64_t *collapsedSliceDims,   //
+    intptr_t nOperandBatchingDims, const int64_t *operandBatchingDims, //
+    intptr_t nStartIndicesBatchingDims,                                //
+    const int64_t *startIndicesBatchingDims,                           //
+    intptr_t nStartIndexMap, const int64_t *startIndexMap,             //
+    int64_t indexVectorDim);
+
+MLIR_CAPI_EXPORTED bool
+stablehloAttributeIsAGatherDimensionNumbers(MlirAttribute attr);
+
+MLIR_CAPI_EXPORTED intptr_t
+stablehloGatherDimensionNumbersGetOffsetDimsSize(MlirAttribute attr);
+MLIR_CAPI_EXPORTED int64_t stablehloGatherDimensionNumbersGetOffsetDimsElem(
+    MlirAttribute attr, intptr_t pos);
+MLIR_CAPI_EXPORTED intptr_t
+stablehloGatherDimensionNumbersGetCollapsedSliceDimsSize(MlirAttribute attr);
+MLIR_CAPI_EXPORTED int64_t
+stablehloGatherDimensionNumbersGetCollapsedSliceDimsElem(MlirAttribute attr,
+                                                         intptr_t pos);
+MLIR_CAPI_EXPORTED intptr_t
+stablehloGatherDimensionNumbersGetOperandBatchingDimsSize(MlirAttribute attr);
+MLIR_CAPI_EXPORTED int64_t
+stablehloGatherDimensionNumbersGetOperandBatchingDimsElem(MlirAttribute attr,
+                                                          intptr_t pos);
+MLIR_CAPI_EXPORTED intptr_t
+stablehloGatherDimensionNumbersGetStartIndicesBatchingDimsSize(
+    MlirAttribute attr);
+MLIR_CAPI_EXPORTED int64_t
+stablehloGatherDimensionNumbersGetStartIndicesBatchingDimsElem(
+    MlirAttribute attr, intptr_t pos);
+MLIR_CAPI_EXPORTED intptr_t
+stablehloGatherDimensionNumbersGetStartIndexMapSize(MlirAttribute attr);
+MLIR_CAPI_EXPORTED int64_t stablehloGatherDimensionNumbersGetStartIndexMapElem(
+    MlirAttribute attr, intptr_t pos);
+MLIR_CAPI_EXPORTED int64_t
+stablehloGatherDimensionNumbersGetIndexVectorDim(MlirAttribute attr);
+
+//===----------------------------------------------------------------------===//
 // ComparisonDirectionAttr
 //===----------------------------------------------------------------------===//
 
