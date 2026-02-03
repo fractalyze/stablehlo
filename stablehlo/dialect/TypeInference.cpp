@@ -1181,6 +1181,19 @@ LogicalResult inferGatherReturnTypeComponents(
 
 } // namespace
 
+void reifyGatherDimSizes(int64_t resultRank,
+                         llvm::function_ref<Value(int64_t)> getStartIndicesDim,
+                         llvm::function_ref<Value(int64_t)> getSliceDim,
+                         ArrayRef<int64_t> offsetDims,
+                         ArrayRef<int64_t> collapsedSliceDims,
+                         ArrayRef<int64_t> operandBatchingDims,
+                         int64_t indexVectorDim,
+                         SmallVectorImpl<Value> &shape) {
+  inferGatherShape<Value>(resultRank, getStartIndicesDim, getSliceDim,
+                          offsetDims, collapsedSliceDims, operandBatchingDims,
+                          indexVectorDim, shape);
+}
+
 LogicalResult inferGatherOp(
     std::optional<Location> location, Value operand, Value startIndices,
     ArrayRef<int64_t> offsetDims, ArrayRef<int64_t> collapsedSliceDims,

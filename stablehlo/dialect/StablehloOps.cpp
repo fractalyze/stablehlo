@@ -86,6 +86,55 @@ Value maybeCastTo(OpBuilder &b, Location loc, Value value, Type type) {
   return b.create<arith::IndexCastOp>(loc, type, value);
 }
 
+void getSliceSizeValues(GatherOp *gather, OpBuilder &builder, Location loc,
+                        ValueRange operands,
+                        SmallVectorImpl<Value> &sliceSizes) {
+  for (int64_t val : gather->getSliceSizes())
+    sliceSizes.push_back(builder.create<arith::ConstantIndexOp>(loc, val));
+}
+
+template <typename Op>
+LogicalResult reifyGatherShape(Op *op, OpBuilder &builder, ValueRange operands,
+                               SmallVectorImpl<Value> &reifiedReturnShapes) {
+  auto resultTy = cast<RankedTensorType>(op->getResult().getType());
+
+  typename Op::Adaptor adaptor(operands);
+  Value startIndices = adaptor.getStartIndices();
+
+  Location loc = op->getLoc();
+  int resultRank = resultTy.getRank();
+  Type shapeElTy = builder.getIndexType();
+  auto toShapeElType = [&](Value v) {
+    return maybeCastTo(builder, loc, v, shapeElTy);
+  };
+
+  SmallVector<Value, 4> sliceSizes;
+  getSliceSizeValues(op, builder, loc, operands, sliceSizes);
+  llvm::transform(sliceSizes, sliceSizes.begin(),
+                  [&](Value v) { return toShapeElType(v); });
+
+  auto getStartIndicesDim = [&](int64_t index) {
+    return toShapeElType(
+        builder.create<tensor::DimOp>(loc, startIndices, index));
+  };
+  SmallVector<Value, 4> shapeValues;
+  auto getSliceDim = [&sliceSizes](int64_t index) -> Value {
+    return sliceSizes[index];
+  };
+  hlo::reifyGatherDimSizes(resultRank, getStartIndicesDim, getSliceDim,
+                           op->getDimensionNumbers().getOffsetDims(),
+                           op->getDimensionNumbers().getCollapsedSliceDims(),
+                           op->getDimensionNumbers().getOperandBatchingDims(),
+                           op->getDimensionNumbers().getIndexVectorDim(),
+                           shapeValues);
+
+  Value outputShape = builder.create<tensor::FromElementsOp>(
+      loc, RankedTensorType::get({resultRank}, shapeElTy), shapeValues);
+  reifiedReturnShapes.push_back(outputShape);
+
+  return success();
+}
+
 } // namespace
 
 LogicalResult TypeExtensionsAttr::verifyEncoding(
@@ -1479,6 +1528,12 @@ LogicalResult GatherOp::inferReturnTypeComponents(
       adaptor.getDimensionNumbers().getStartIndexMap(),
       adaptor.getDimensionNumbers().getIndexVectorDim(),
       adaptor.getSliceSizes(), inferredReturnShapes);
+}
+
+LogicalResult GatherOp::reifyReturnTypeShapes(
+    OpBuilder &builder, ValueRange operands,
+    SmallVectorImpl<Value> &reifiedReturnShapes) {
+  return reifyGatherShape(this, builder, operands, reifiedReturnShapes);
 }
 
 //===----------------------------------------------------------------------===//

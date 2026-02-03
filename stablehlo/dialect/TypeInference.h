@@ -42,6 +42,14 @@ namespace mlir::hlo {
 // Utilities for shape functions
 //===----------------------------------------------------------------------===//
 
+void reifyGatherDimSizes(int64_t resultRank,
+                         llvm::function_ref<Value(int64_t)> getStartIndicesDim,
+                         llvm::function_ref<Value(int64_t)> getSliceDim,
+                         ArrayRef<int64_t> offsetDims,
+                         ArrayRef<int64_t> collapsedSliceDims,
+                         ArrayRef<int64_t> operandBatchingDims,
+                         int64_t indexVectorDim, SmallVectorImpl<Value> &shape);
+
 bool verifyCompatibleDims(int64_t dimSize1, int64_t dimSize2);
 
 FailureOr<SmallVector<std::pair<int64_t, int64_t>>>
