@@ -2615,22 +2615,21 @@ LogicalResult verifyWhileOp(std::optional<Location> location,
 
 // ZK: verifyPrecisionConfig check (dot_general_c11) omitted - precision_config
 // not ported
-LogicalResult checkDotGeneralConstraints(
-    std::optional<Location> location, Type lhsType, Type rhsType,
-    ArrayRef<int64_t> lhsBatchingDimensions,
-    ArrayRef<int64_t> rhsBatchingDimensions,
-    ArrayRef<int64_t> lhsContractingDimensions,
-    ArrayRef<int64_t> rhsContractingDimensions) {
+LogicalResult
+checkDotGeneralConstraints(std::optional<Location> location, Type lhsType,
+                           Type rhsType,
+                           ArrayRef<int64_t> lhsBatchingDimensions,
+                           ArrayRef<int64_t> rhsBatchingDimensions,
+                           ArrayRef<int64_t> lhsContractingDimensions,
+                           ArrayRef<int64_t> rhsContractingDimensions) {
   // dot_general_c1
   if (lhsBatchingDimensions.size() != rhsBatchingDimensions.size())
-    return emitOptionalError(location,
-                             "lhs and rhs should have the same "
-                             "number of batching dimensions");
+    return emitOptionalError(location, "lhs and rhs should have the same "
+                                       "number of batching dimensions");
   // dot_general_c2
   if (lhsContractingDimensions.size() != rhsContractingDimensions.size())
-    return emitOptionalError(location,
-                             "lhs and rhs should have the same "
-                             "number of contracting dimensions");
+    return emitOptionalError(location, "lhs and rhs should have the same "
+                                       "number of contracting dimensions");
   // dot_general_c3
   if (failed(checkDimsDistinct(
           location, lhsBatchingDimensions, lhsContractingDimensions,
@@ -2691,13 +2690,13 @@ LogicalResult checkDotGeneralConstraints(
 
 // ZK: Element type inference and quantization constraints (dot_general_c14~c20)
 // omitted - quantization not ported
-LogicalResult inferDotGeneralOp(
-    std::optional<Location> location, Type lhsType, Type rhsType,
-    ArrayRef<int64_t> lhsBatchingDimensions,
-    ArrayRef<int64_t> rhsBatchingDimensions,
-    ArrayRef<int64_t> lhsContractingDimensions,
-    ArrayRef<int64_t> rhsContractingDimensions,
-    SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
+LogicalResult
+inferDotGeneralOp(std::optional<Location> location, Type lhsType, Type rhsType,
+                  ArrayRef<int64_t> lhsBatchingDimensions,
+                  ArrayRef<int64_t> rhsBatchingDimensions,
+                  ArrayRef<int64_t> lhsContractingDimensions,
+                  ArrayRef<int64_t> rhsContractingDimensions,
+                  SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
   if (failed(checkDotGeneralConstraints(
           location, lhsType, rhsType, lhsBatchingDimensions,
           rhsBatchingDimensions, lhsContractingDimensions,
@@ -2728,28 +2727,29 @@ LogicalResult inferDotGeneralOp(
 
 // ZK: precision_config/algorithm validation (dot_general_c21) and quantization
 // constraints omitted - not ported
-LogicalResult verifyDotGeneralOp(
-    std::optional<Location> location, Value lhs, Value rhs,
-    ArrayRef<int64_t> lhsBatchingDimensions,
-    ArrayRef<int64_t> rhsBatchingDimensions,
-    ArrayRef<int64_t> lhsContractingDimensions,
-    ArrayRef<int64_t> rhsContractingDimensions, Value result) {
+LogicalResult verifyDotGeneralOp(std::optional<Location> location, Value lhs,
+                                 Value rhs,
+                                 ArrayRef<int64_t> lhsBatchingDimensions,
+                                 ArrayRef<int64_t> rhsBatchingDimensions,
+                                 ArrayRef<int64_t> lhsContractingDimensions,
+                                 ArrayRef<int64_t> rhsContractingDimensions,
+                                 Value result) {
   SmallVector<ShapedTypeComponents> inferredReturnShapes;
-  if (failed(inferDotGeneralOp(
-          location, lhs.getType(), rhs.getType(), lhsBatchingDimensions,
-          rhsBatchingDimensions, lhsContractingDimensions,
-          rhsContractingDimensions, inferredReturnShapes)))
+  if (failed(inferDotGeneralOp(location, lhs.getType(), rhs.getType(),
+                               lhsBatchingDimensions, rhsBatchingDimensions,
+                               lhsContractingDimensions,
+                               rhsContractingDimensions, inferredReturnShapes)))
     return failure();
 
   auto inferredShape = inferredReturnShapes[0];
   auto resultType = cast<ShapedType>(result.getType());
-  if (failed(
-          verifyCompatibleShape(inferredShape.getDims(), resultType.getShape())))
-    return emitOptionalError(location, "inferred shape '[",
-                             llvm::make_range(inferredShape.getDims().begin(),
-                                              inferredShape.getDims().end()),
-                             "]' is incompatible with return type of operation ",
-                             resultType);
+  if (failed(verifyCompatibleShape(inferredShape.getDims(),
+                                   resultType.getShape())))
+    return emitOptionalError(
+        location, "inferred shape '[",
+        llvm::make_range(inferredShape.getDims().begin(),
+                         inferredShape.getDims().end()),
+        "]' is incompatible with return type of operation ", resultType);
 
   return success();
 }
