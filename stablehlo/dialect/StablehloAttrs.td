@@ -55,6 +55,18 @@ def StableHLO_GatherDimensionNumbers : AttrDef<StableHLO_Dialect, "GatherDimensi
   let hasCustomAssemblyFormat = 1;
 }
 
+def StableHLO_DotDimensionNumbers : AttrDef<StableHLO_Dialect, "DotDimensionNumbers"> {
+  let mnemonic = "dot";
+  let summary = "Attribute that models the dimension information for dot.";
+  let parameters = (ins
+      StableHLO_Dims:$lhsBatchingDimensions,
+      StableHLO_Dims:$rhsBatchingDimensions,
+      StableHLO_Dims:$lhsContractingDimensions,
+      StableHLO_Dims:$rhsContractingDimensions
+  );
+  let hasCustomAssemblyFormat = 1;
+}
+
 def StableHLO_TypeExtensions : AttrDef<StableHLO_Dialect, "TypeExtensions", [
     DeclareAttrInterfaceMethods<VerifiableTensorEncoding>,
     DeclareAttrInterfaceMethods<HLO_BoundedAttrInterface>]> {

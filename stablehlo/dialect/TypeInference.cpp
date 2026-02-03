@@ -1181,6 +1181,19 @@ LogicalResult inferGatherReturnTypeComponents(
 
 } // namespace
 
+void reifyGatherDimSizes(int64_t resultRank,
+                         llvm::function_ref<Value(int64_t)> getStartIndicesDim,
+                         llvm::function_ref<Value(int64_t)> getSliceDim,
+                         ArrayRef<int64_t> offsetDims,
+                         ArrayRef<int64_t> collapsedSliceDims,
+                         ArrayRef<int64_t> operandBatchingDims,
+                         int64_t indexVectorDim,
+                         SmallVectorImpl<Value> &shape) {
+  inferGatherShape<Value>(resultRank, getStartIndicesDim, getSliceDim,
+                          offsetDims, collapsedSliceDims, operandBatchingDims,
+                          indexVectorDim, shape);
+}
+
 LogicalResult inferGatherOp(
     std::optional<Location> location, Value operand, Value startIndices,
     ArrayRef<int64_t> offsetDims, ArrayRef<int64_t> collapsedSliceDims,
@@ -2596,6 +2609,147 @@ LogicalResult verifyWhileOp(std::optional<Location> location,
         location,
         "expect condition block return a zero-ranked tensor of i1 but got ",
         condReturnTypes[0]);
+
+  return success();
+}
+
+// ZK: verifyPrecisionConfig check (dot_general_c11) omitted - precision_config
+// not ported
+LogicalResult checkDotGeneralConstraints(
+    std::optional<Location> location, Type lhsType, Type rhsType,
+    ArrayRef<int64_t> lhsBatchingDimensions,
+    ArrayRef<int64_t> rhsBatchingDimensions,
+    ArrayRef<int64_t> lhsContractingDimensions,
+    ArrayRef<int64_t> rhsContractingDimensions) {
+  // dot_general_c1
+  if (lhsBatchingDimensions.size() != rhsBatchingDimensions.size())
+    return emitOptionalError(location,
+                             "lhs and rhs should have the same "
+                             "number of batching dimensions");
+  // dot_general_c2
+  if (lhsContractingDimensions.size() != rhsContractingDimensions.size())
+    return emitOptionalError(location,
+                             "lhs and rhs should have the same "
+                             "number of contracting dimensions");
+  // dot_general_c3
+  if (failed(checkDimsDistinct(
+          location, lhsBatchingDimensions, lhsContractingDimensions,
+          "lhs_batching_dimensions", "lhs_contracting_dimensions")))
+    return failure();
+  // dot_general_c4
+  if (failed(checkDimsDistinct(
+          location, rhsBatchingDimensions, rhsContractingDimensions,
+          "rhs_batching_dimensions", "rhs_contracting_dimensions")))
+    return failure();
+
+  auto checkDimsInRange = [&](int64_t rank, ArrayRef<int64_t> dims,
+                              llvm::StringRef dimName) -> LogicalResult {
+    auto inRange = [&](int64_t i) -> bool { return 0 <= i && i < rank; };
+    const auto *dimsNotInRange =
+        std::find_if_not(dims.begin(), dims.end(), inRange);
+    if (dimsNotInRange != dims.end())
+      return emitOptionalError(location, dimName, " value: ", *dimsNotInRange,
+                               " is out of range: ", "[0, ", rank, ")");
+    return success();
+  };
+
+  auto lhsRankedType = cast<RankedTensorType>(lhsType);
+  // dot_general_c5, dot_general_c6
+  if (failed(checkDimsInRange(lhsRankedType.getRank(), lhsBatchingDimensions,
+                              "lhs_batching_dimensions")) ||
+      failed(checkDimsInRange(lhsRankedType.getRank(), lhsContractingDimensions,
+                              "lhs_contracting_dimensions")))
+    return failure();
+
+  auto rhsRankedType = cast<RankedTensorType>(rhsType);
+  // dot_general_c7, dot_general_c8
+  if (failed(checkDimsInRange(rhsRankedType.getRank(), rhsBatchingDimensions,
+                              "rhs_batching_dimensions")) ||
+      failed(checkDimsInRange(rhsRankedType.getRank(), rhsContractingDimensions,
+                              "rhs_contracting_dimensions")))
+    return failure();
+
+  auto lhsShape = lhsRankedType.getShape();
+  auto rhsShape = rhsRankedType.getShape();
+
+  // dot_general_c9
+  for (auto [lhs, rhs] :
+       llvm::zip(lhsBatchingDimensions, rhsBatchingDimensions)) {
+    if (!verifyCompatibleDims(lhsShape[lhs], rhsShape[rhs]))
+      return emitOptionalError(
+          location, "batching dimension sizes must match for lhs/rhs");
+  }
+  // dot_general_c10
+  for (auto [lhs, rhs] :
+       llvm::zip(lhsContractingDimensions, rhsContractingDimensions)) {
+    if (!verifyCompatibleDims(lhsShape[lhs], rhsShape[rhs]))
+      return emitOptionalError(
+          location, "contracting dimension sizes must match for lhs/rhs");
+  }
+  return success();
+}
+
+// ZK: Element type inference and quantization constraints (dot_general_c14~c20)
+// omitted - quantization not ported
+LogicalResult inferDotGeneralOp(
+    std::optional<Location> location, Type lhsType, Type rhsType,
+    ArrayRef<int64_t> lhsBatchingDimensions,
+    ArrayRef<int64_t> rhsBatchingDimensions,
+    ArrayRef<int64_t> lhsContractingDimensions,
+    ArrayRef<int64_t> rhsContractingDimensions,
+    SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
+  if (failed(checkDotGeneralConstraints(
+          location, lhsType, rhsType, lhsBatchingDimensions,
+          rhsBatchingDimensions, lhsContractingDimensions,
+          rhsContractingDimensions)))
+    return failure();
+
+  SmallVector<int64_t> dimensions;
+  auto lhsRankedType = cast<RankedTensorType>(lhsType);
+  auto rhsRankedType = cast<RankedTensorType>(rhsType);
+  auto lhsShape = lhsRankedType.getShape();
+  auto rhsShape = rhsRankedType.getShape();
+
+  for (const int64_t lhsBatchingDim : lhsBatchingDimensions)
+    dimensions.push_back(lhsShape[lhsBatchingDim]);
+  for (int64_t i = 0; i < lhsRankedType.getRank(); i++)
+    if (!llvm::is_contained(lhsBatchingDimensions, i) &&
+        !llvm::is_contained(lhsContractingDimensions, i))
+      dimensions.push_back(lhsShape[i]);
+  for (int64_t i = 0; i < rhsRankedType.getRank(); i++)
+    if (!llvm::is_contained(rhsBatchingDimensions, i) &&
+        !llvm::is_contained(rhsContractingDimensions, i))
+      dimensions.push_back(rhsShape[i]);
+
+  // dot_general_c12
+  inferredReturnShapes.emplace_back(dimensions);
+  return success();
+}
+
+// ZK: precision_config/algorithm validation (dot_general_c21) and quantization
+// constraints omitted - not ported
+LogicalResult verifyDotGeneralOp(
+    std::optional<Location> location, Value lhs, Value rhs,
+    ArrayRef<int64_t> lhsBatchingDimensions,
+    ArrayRef<int64_t> rhsBatchingDimensions,
+    ArrayRef<int64_t> lhsContractingDimensions,
+    ArrayRef<int64_t> rhsContractingDimensions, Value result) {
+  SmallVector<ShapedTypeComponents> inferredReturnShapes;
+  if (failed(inferDotGeneralOp(
+          location, lhs.getType(), rhs.getType(), lhsBatchingDimensions,
+          rhsBatchingDimensions, lhsContractingDimensions,
+          rhsContractingDimensions, inferredReturnShapes)))
+    return failure();
+
+  auto inferredShape = inferredReturnShapes[0];
+  auto resultType = cast<ShapedType>(result.getType());
+  if (failed(
+          verifyCompatibleShape(inferredShape.getDims(), resultType.getShape())))
+    return emitOptionalError(location, "inferred shape '[",
+                             llvm::make_range(inferredShape.getDims().begin(),
+                                              inferredShape.getDims().end()),
+                             "]' is incompatible with return type of operation ",
+                             resultType);
 
   return success();
 }

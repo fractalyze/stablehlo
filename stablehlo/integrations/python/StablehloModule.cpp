@@ -221,6 +221,60 @@ NB_MODULE(_stablehlo, m) {
       });
 
   mlir::python::nanobind_adaptors::mlir_attribute_subclass(
+      m, "DotDimensionNumbers", stablehloAttributeIsADotDimensionNumbers)
+      .def_classmethod(
+          "get",
+          [](nb::object cls, const std::vector<int64_t> &lhsBatchingDimensions,
+             const std::vector<int64_t> &rhsBatchingDimensions,
+             const std::vector<int64_t> &lhsContractingDimensions,
+             const std::vector<int64_t> &rhsContractingDimensions,
+             MlirContext ctx) {
+            return cls(stablehloDotDimensionNumbersGet(
+                ctx, lhsBatchingDimensions.size(), lhsBatchingDimensions.data(),
+                rhsBatchingDimensions.size(), rhsBatchingDimensions.data(),
+                lhsContractingDimensions.size(),
+                lhsContractingDimensions.data(),
+                rhsContractingDimensions.size(),
+                rhsContractingDimensions.data()));
+          },
+          nb::arg("cls"), nb::arg("lhs_batching_dimensions"),
+          nb::arg("rhs_batching_dimensions"),
+          nb::arg("lhs_contracting_dimensions"),
+          nb::arg("rhs_contracting_dimensions"),
+          nb::arg("context").none() = nb::none(),
+          "Creates a DotDimensionNumbers attribute with the given dimension "
+          "configuration.")
+      .def_property_readonly(
+          "lhs_batching_dimensions",
+          [](MlirAttribute self) {
+            return attributePropertyVector(
+                self, stablehloDotDimensionNumbersGetLhsBatchingDimensionsSize,
+                stablehloDotDimensionNumbersGetLhsBatchingDimensionsElem);
+          })
+      .def_property_readonly(
+          "rhs_batching_dimensions",
+          [](MlirAttribute self) {
+            return attributePropertyVector(
+                self, stablehloDotDimensionNumbersGetRhsBatchingDimensionsSize,
+                stablehloDotDimensionNumbersGetRhsBatchingDimensionsElem);
+          })
+      .def_property_readonly(
+          "lhs_contracting_dimensions",
+          [](MlirAttribute self) {
+            return attributePropertyVector(
+                self,
+                stablehloDotDimensionNumbersGetLhsContractingDimensionsSize,
+                stablehloDotDimensionNumbersGetLhsContractingDimensionsElem);
+          })
+      .def_property_readonly(
+          "rhs_contracting_dimensions", [](MlirAttribute self) {
+            return attributePropertyVector(
+                self,
+                stablehloDotDimensionNumbersGetRhsContractingDimensionsSize,
+                stablehloDotDimensionNumbersGetRhsContractingDimensionsElem);
+          });
+
+  mlir::python::nanobind_adaptors::mlir_attribute_subclass(
       m, "ComparisonDirectionAttr",
       stablehloAttributeIsAComparisonDirectionAttr)
       .def_classmethod(
