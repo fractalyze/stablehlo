@@ -386,20 +386,24 @@ Speculation::Speculatability DotGeneralOp::getSpeculatability() {
       rhsBatchingDimensions, rhsContractingDimensions);
 
   for (auto i : lhsSpecialDimensions)
-    if (lhsType.isDynamicDim(i)) return Speculation::NotSpeculatable;
+    if (lhsType.isDynamicDim(i))
+      return Speculation::NotSpeculatable;
   for (auto i : rhsSpecialDimensions)
-    if (rhsType.isDynamicDim(i)) return Speculation::NotSpeculatable;
+    if (rhsType.isDynamicDim(i))
+      return Speculation::NotSpeculatable;
 
   auto resultType = getType();
   int64_t resultIndex = lhsBatchingDimensions.size();
   for (int64_t i = 0; i < lhsType.getRank(); i++) {
-    if (llvm::is_contained(lhsSpecialDimensions, i)) continue;
+    if (llvm::is_contained(lhsSpecialDimensions, i))
+      continue;
     if (!resultType.isDynamicDim(resultIndex) && lhsType.isDynamicDim(i))
       return Speculation::NotSpeculatable;
     resultIndex++;
   }
   for (int64_t i = 0; i < rhsType.getRank(); i++) {
-    if (llvm::is_contained(rhsSpecialDimensions, i)) continue;
+    if (llvm::is_contained(rhsSpecialDimensions, i))
+      continue;
     if (!resultType.isDynamicDim(resultIndex) && rhsType.isDynamicDim(i))
       return Speculation::NotSpeculatable;
     resultIndex++;
@@ -1530,9 +1534,9 @@ LogicalResult GatherOp::inferReturnTypeComponents(
       adaptor.getSliceSizes(), inferredReturnShapes);
 }
 
-LogicalResult GatherOp::reifyReturnTypeShapes(
-    OpBuilder &builder, ValueRange operands,
-    SmallVectorImpl<Value> &reifiedReturnShapes) {
+LogicalResult
+GatherOp::reifyReturnTypeShapes(OpBuilder &builder, ValueRange operands,
+                                SmallVectorImpl<Value> &reifiedReturnShapes) {
   return reifyGatherShape(this, builder, operands, reifiedReturnShapes);
 }
 
