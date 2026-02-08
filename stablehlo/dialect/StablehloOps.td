@@ -1612,6 +1612,38 @@ def StableHLO_SortOp : StableHLO_Op<"sort",
   let hasVerifier = 1;
 }
 
+def StableHLO_BitReverseOp: StableHLO_ShapedInterfaceOp<"bit_reverse",
+      [HLO_SpeculatableIfStaticDimInOutputIsStaticInInput, NoMemoryEffect,
+       SameOperandsAndResultElementType,
+       DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
+  let summary = "BitReverse operation";
+  let description = [{
+    Applies bit-reversal permutation to elements along the specified
+    `dimensions` and produces a `result` tensor.
+
+    Each dimension size must be a power of 2. For a dimension of size n,
+    the element at index i is moved to index bit_reverse(i, log₂(n)).
+
+    Example:
+    ```mlir
+    %result = stablehlo.bit_reverse %operand, dims = [0] : tensor<8xi32>
+    ```
+  }];
+  let arguments = (ins
+    HLO_Tensor:$operand,
+    DenseI64ArrayAttr:$dimensions
+  );
+
+  let hasVerifier = 1;
+
+  let results = (outs HLO_Tensor:$result);
+
+  let assemblyFormat = [{
+    $operand `,` `dims` `=` $dimensions
+      attr-dict `:` custom<SameOperandsAndResultType>(type($operand), type($result))
+  }];
+}
+
 def StableHLO_ReverseOp: StableHLO_ShapedInterfaceOp<"reverse",
       [HLO_SpeculatableIfStaticDimInOutputIsStaticInInput, NoMemoryEffect,
        SameOperandsAndResultElementType /*reverse_c1*/,

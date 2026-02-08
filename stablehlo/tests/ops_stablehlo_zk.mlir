@@ -257,6 +257,66 @@ func.func @shift_right_logical(%arg0: tensor<4xi32>, %arg1: tensor<4xi32>) -> te
 // -----
 
 // =============================================================================
+// BitReverseOp
+// =============================================================================
+
+// CHECK-LABEL: func @bit_reverse_1d
+func.func @bit_reverse_1d(%arg0: tensor<8xi32>) -> tensor<8xi32> {
+  %0 = stablehlo.bit_reverse %arg0, dims = [0] : tensor<8xi32>
+  func.return %0 : tensor<8xi32>
+}
+
+// -----
+
+// CHECK-LABEL: func @bit_reverse_2d
+func.func @bit_reverse_2d(%arg0: tensor<4x8xi32>) -> tensor<4x8xi32> {
+  %0 = stablehlo.bit_reverse %arg0, dims = [0, 1] : tensor<4x8xi32>
+  func.return %0 : tensor<4x8xi32>
+}
+
+// -----
+
+// CHECK-LABEL: func @bit_reverse_no_dims
+func.func @bit_reverse_no_dims(%arg0: tensor<8xi32>) -> tensor<8xi32> {
+  %0 = stablehlo.bit_reverse %arg0, dims = [] : tensor<8xi32>
+  func.return %0 : tensor<8xi32>
+}
+
+// -----
+
+func.func @bit_reverse_duplicate_dims(%arg0: tensor<8xi32>) -> tensor<8xi32> {
+  // expected-error @+1 {{dimensions should be unique. Got: 0, 0}}
+  %0 = stablehlo.bit_reverse %arg0, dims = [0, 0] : tensor<8xi32>
+  func.return %0 : tensor<8xi32>
+}
+
+// -----
+
+func.func @bit_reverse_negative_dim(%arg0: tensor<8xi32>) -> tensor<8xi32> {
+  // expected-error @+1 {{all dimensions should be non-negative. Got dimension: -1.}}
+  %0 = stablehlo.bit_reverse %arg0, dims = [-1] : tensor<8xi32>
+  func.return %0 : tensor<8xi32>
+}
+
+// -----
+
+func.func @bit_reverse_out_of_range_dim(%arg0: tensor<8xi32>) -> tensor<8xi32> {
+  // expected-error @+1 {{all dimensions should be between [0, 1). Got dimension: 1.}}
+  %0 = stablehlo.bit_reverse %arg0, dims = [1] : tensor<8xi32>
+  func.return %0 : tensor<8xi32>
+}
+
+// -----
+
+func.func @bit_reverse_non_power_of_2(%arg0: tensor<6xi32>) -> tensor<6xi32> {
+  // expected-error @+1 {{dimension size must be a power of 2, got 6 for dimension 0.}}
+  %0 = stablehlo.bit_reverse %arg0, dims = [0] : tensor<6xi32>
+  func.return %0 : tensor<6xi32>
+}
+
+// -----
+
+// =============================================================================
 // ReduceOp
 // =============================================================================
 

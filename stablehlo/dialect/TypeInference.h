@@ -187,6 +187,10 @@ LogicalResult inferReduceWindowOp(
     std::optional<DenseIntElementsAttr> padding, Region &body,
     SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes);
 
+LogicalResult inferBitReverseOp(std::optional<Location> location,
+                                Type operandType,
+                                SmallVectorImpl<Type> &inferredReturnTypes);
+
 LogicalResult inferReverseOp(std::optional<Location> location, Type operandType,
                              SmallVectorImpl<Type> &inferredReturnTypes);
 
@@ -296,6 +300,10 @@ verifyReduceWindowOp(std::optional<Location> location, ValueRange inputs,
 
 LogicalResult verifyReshapeOp(std::optional<Location> location, Value operand,
                               Value result);
+
+LogicalResult verifyBitReverseOp(std::optional<Location> location,
+                                 Value operand,
+                                 llvm::ArrayRef<int64_t> dimensions);
 
 LogicalResult verifyReverseOp(std::optional<Location> location, Value operand,
                               llvm::ArrayRef<int64_t> dimensions);
