@@ -1476,9 +1476,11 @@ LogicalResult inferWhileOp(std::optional<Location>, ValueRange operand,
 namespace {
 
 unsigned getBitWidth(Type type) {
-  // TODO(chokobole): Handle extension field case.
   if (auto pfType = dyn_cast<prime_ir::field::PrimeFieldType>(type)) {
     return pfType.getStorageBitWidth();
+  }
+  if (auto efType = dyn_cast<prime_ir::field::ExtensionFieldType>(type)) {
+    return efType.getStorageBitWidth();
   }
   return type.getIntOrFloatBitWidth();
 }
@@ -1501,10 +1503,10 @@ bool isPromotableElementType(Type type1, Type type2) {
   Type tensorEl1 = tensorTy1.getElementType();
   Type tensorEl2 = tensorTy2.getElementType();
 
-  // TODO(chokobole): Handle extension field case.
   bool isSameType =
       matchesType<IntegerType>(tensorEl1, tensorEl2) ||
-      matchesType<prime_ir::field::PrimeFieldType>(tensorEl1, tensorEl2);
+      matchesType<prime_ir::field::PrimeFieldType>(tensorEl1, tensorEl2) ||
+      matchesType<prime_ir::field::ExtensionFieldType>(tensorEl1, tensorEl2);
 
   if (!isSameType)
     return false;
