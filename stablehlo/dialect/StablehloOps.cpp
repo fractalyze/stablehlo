@@ -275,6 +275,21 @@ bool ConstantOp::isCompatibleReturnTypes(TypeRange l, TypeRange r) {
       isa<prime_ir::field::PrimeFieldType>(rhsElementType)) {
     return lhsTy.clone(rhsElementType) == rhsTy;
   }
+  // NOTE: This allows us to create constants of extension field from
+  // integer constants. The value attr has an extra trailing dimension
+  // encoding the degreeOverPrime coefficients.
+  if (isa<IntegerType>(lhsElementType) &&
+      isa<prime_ir::field::ExtensionFieldType>(rhsElementType)) {
+    auto efType = cast<prime_ir::field::ExtensionFieldType>(rhsElementType);
+    auto lhsShape = lhsTy.getShape();
+    auto rhsShape = rhsTy.getShape();
+    // Value attr shape = result shape + [degreeOverPrime]
+    if (lhsShape.size() != rhsShape.size() + 1)
+      return false;
+    if (lhsShape.back() != static_cast<int64_t>(efType.getDegreeOverPrime()))
+      return false;
+    return lhsShape.drop_back() == rhsShape;
+  }
   return false;
 }
 
