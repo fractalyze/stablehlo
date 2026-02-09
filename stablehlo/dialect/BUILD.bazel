@@ -68,6 +68,7 @@ td_library(
     deps = [
         "@llvm-project//mlir:InferTypeOpInterfaceTdFiles",
         "@llvm-project//mlir:OpBaseTdFiles",
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:td_files",
         "@prime_ir//prime_ir/Dialect/Field/IR:td_files",
     ],
 )
@@ -148,6 +149,7 @@ cc_library(
         "@llvm-project//mlir:SparseTensorDialect",
         "@llvm-project//mlir:Support",
         "@llvm-project//mlir:TensorDialect",
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
         "@prime_ir//prime_ir/Dialect/Field/IR:Field",
     ],
 )

@@ -51,6 +51,7 @@ limitations under the License.
 #include "mlir/Support/TypeID.h"
 #include "mlir/Transforms/InliningUtils.h"
 
+#include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveTypes.h"
 #include "prime_ir/Dialect/Field/IR/FieldTypes.h"
 #include "stablehlo/dialect/AssemblyFormat.h"
 #include "stablehlo/dialect/StablehloBytecode.h"
@@ -289,6 +290,28 @@ bool ConstantOp::isCompatibleReturnTypes(TypeRange l, TypeRange r) {
     if (lhsShape.back() != static_cast<int64_t>(efType.getDegreeOverPrime()))
       return false;
     return lhsShape.drop_back() == rhsShape;
+  }
+  // NOTE: This allows us to create constants of EC point types from
+  // integer constants. The value attr has trailing dimensions encoding
+  // the numCoords (and optionally extDegree) of the point.
+  if (isa<IntegerType>(lhsElementType) &&
+      isa<prime_ir::elliptic_curve::PointTypeInterface>(rhsElementType)) {
+    auto ptType =
+        cast<prime_ir::elliptic_curve::PointTypeInterface>(rhsElementType);
+    auto lhsShape = lhsTy.getShape();
+    auto rhsShape = rhsTy.getShape();
+    // Build expected trailing dims: [numCoords] or [numCoords, extDegree]
+    SmallVector<int64_t> trailingDims;
+    trailingDims.push_back(static_cast<int64_t>(ptType.getNumCoords()));
+    if (auto efType = dyn_cast<prime_ir::field::ExtensionFieldType>(
+            ptType.getBaseFieldType()))
+      trailingDims.push_back(static_cast<int64_t>(efType.getDegreeOverPrime()));
+    // Value attr shape = result shape + trailingDims
+    if (lhsShape.size() != rhsShape.size() + trailingDims.size())
+      return false;
+    return lhsShape.drop_back(trailingDims.size()) == rhsShape &&
+           lhsShape.take_back(trailingDims.size()) ==
+               ArrayRef<int64_t>(trailingDims);
   }
   return false;
 }
