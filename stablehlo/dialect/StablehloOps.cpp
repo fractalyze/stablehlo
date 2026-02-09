@@ -210,6 +210,15 @@ LogicalResult AddOp::verify() {
 }
 
 //===----------------------------------------------------------------------===//
+// SubtractOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult SubtractOp::verify() {
+  return hlo::verifySubtractOp(getLoc(), getOperation(), getLhs().getType(),
+                               getRhs().getType(), getResult().getType());
+}
+
+//===----------------------------------------------------------------------===//
 // ConstantOp
 //===----------------------------------------------------------------------===//
 
@@ -1559,6 +1568,16 @@ LogicalResult TupleOp::inferReturnTypes(
 //===----------------------------------------------------------------------===//
 // CompareOp
 //===----------------------------------------------------------------------===//
+
+LogicalResult CompareOp::verify() {
+  auto lhsElType = getElementTypeOrSelf(getLhs().getType());
+  if (isa<prime_ir::elliptic_curve::PointTypeInterface>(lhsElType)) {
+    auto dir = getComparisonDirection();
+    if (dir != ComparisonDirection::EQ && dir != ComparisonDirection::NE)
+      return emitOpError("EC point types only support EQ and NE comparisons");
+  }
+  return success();
+}
 
 LogicalResult CompareOp::inferReturnTypeComponents(
     MLIRContext *context, std::optional<Location> location,

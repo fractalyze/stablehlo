@@ -33,6 +33,7 @@ limitations under the License.
 #include "mlir/IR/TypeRange.h"
 #include "mlir/IR/ValueRange.h"
 
+#include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveTypes.h"
 #include "prime_ir/Dialect/Field/IR/FieldTypes.h"
 #include "stablehlo/dialect/Base.h"
 
@@ -1489,6 +1490,12 @@ unsigned getBitWidth(Type type) {
   if (auto efType = dyn_cast<prime_ir::field::ExtensionFieldType>(type)) {
     return efType.getStorageBitWidth();
   }
+  if (auto ptType =
+          dyn_cast<prime_ir::elliptic_curve::PointTypeInterface>(type)) {
+    auto baseType = ptType.getBaseFieldType();
+    unsigned coordBits = getBitWidth(baseType);
+    return ptType.getNumCoords() * coordBits;
+  }
   return type.getIntOrFloatBitWidth();
 }
 
@@ -1510,10 +1517,12 @@ bool isPromotableElementType(Type type1, Type type2) {
   Type tensorEl1 = tensorTy1.getElementType();
   Type tensorEl2 = tensorTy2.getElementType();
 
+  using PointTypeInterface = prime_ir::elliptic_curve::PointTypeInterface;
   bool isSameType =
       matchesType<IntegerType>(tensorEl1, tensorEl2) ||
       matchesType<prime_ir::field::PrimeFieldType>(tensorEl1, tensorEl2) ||
-      matchesType<prime_ir::field::ExtensionFieldType>(tensorEl1, tensorEl2);
+      matchesType<prime_ir::field::ExtensionFieldType>(tensorEl1, tensorEl2) ||
+      matchesType<PointTypeInterface>(tensorEl1, tensorEl2);
 
   if (!isSameType)
     return false;
@@ -1804,19 +1813,72 @@ LogicalResult validateScatterDimensionNumbers(
   return success();
 }
 
+LogicalResult
+verifyECBinaryOpTypes(std::optional<Location> location,
+                      prime_ir::elliptic_curve::PointTypeInterface lhs,
+                      prime_ir::elliptic_curve::PointTypeInterface rhs,
+                      prime_ir::elliptic_curve::PointTypeInterface res) {
+  using namespace prime_ir::elliptic_curve;
+
+  // Must be on same curve
+  if (lhs.getCurveAttr() != rhs.getCurveAttr() ||
+      lhs.getCurveAttr() != res.getCurveAttr())
+    return emitOptionalError(
+        location, "EC operands and result must be on the same curve");
+
+  // Rule 1: both same type, result is jacobian or xyzz
+  //   affine+affine → jacobian/xyzz
+  //   jacobian+jacobian → jacobian
+  //   xyzz+xyzz → xyzz
+  if (Type(lhs) == Type(rhs) && isa<JacobianType, XYZZType>(res))
+    return success();
+
+  // Rule 2: one affine, output non-affine matching the other operand
+  //   affine+jacobian → jacobian
+  //   jacobian+affine → jacobian
+  //   affine+xyzz → xyzz
+  //   xyzz+affine → xyzz
+  bool resAffine = isa<AffineType>(res);
+  if (!resAffine && (Type(lhs) == Type(res) || Type(rhs) == Type(res)))
+    return success();
+
+  return emitOptionalError(
+      location, "invalid EC point type combination for binary operation");
+}
+
 } // namespace
 
 LogicalResult verifyAddOp(std::optional<Location> location, Operation *op,
                           Type lhsType, Type rhsType, Type resultType) {
-  llvm::SmallVector<Type, 3> typeEntries{lhsType, rhsType, resultType};
+  using PointTypeInterface = prime_ir::elliptic_curve::PointTypeInterface;
+  auto lhsEl = getElementTypeOrSelf(lhsType);
+  auto rhsEl = getElementTypeOrSelf(rhsType);
+  auto resEl = getElementTypeOrSelf(resultType);
 
-  if (getElementTypeOrSelf(lhsType) != getElementTypeOrSelf(rhsType) ||
-      getElementTypeOrSelf(lhsType) != getElementTypeOrSelf(resultType))
+  // EC point type handling
+  auto lhsPt = dyn_cast<PointTypeInterface>(lhsEl);
+  auto rhsPt = dyn_cast<PointTypeInterface>(rhsEl);
+  auto resPt = dyn_cast<PointTypeInterface>(resEl);
+  if (lhsPt || rhsPt || resPt) {
+    if (!lhsPt || !rhsPt || !resPt)
+      return emitOptionalError(location,
+                               "EC types cannot be mixed with non-EC types");
+    return verifyECBinaryOpTypes(location, lhsPt, rhsPt, resPt);
+  }
+
+  // Existing same-type check for non-EC
+  if (lhsEl != rhsEl || lhsEl != resEl)
     return emitOptionalError(
         location,
         "op requires the same element type for all operands and results");
 
   return success();
+}
+
+LogicalResult verifySubtractOp(std::optional<Location> location, Operation *op,
+                               Type lhsType, Type rhsType, Type resultType) {
+  // Same logic as verifyAddOp — EC binary ops share type rules
+  return verifyAddOp(location, op, lhsType, rhsType, resultType);
 }
 
 LogicalResult verifyBitcastConvertOp(std::optional<Location> location,

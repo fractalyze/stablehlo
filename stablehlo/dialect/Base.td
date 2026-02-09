@@ -76,11 +76,13 @@ def HLO_ScalarIntTensor : 0DTensorOf<[HLO_Int]>;
 
 def HLO_IntOrFieldTensor : RankedTensorOf<[HLO_Int, HLO_Field]>;
 
+def HLO_IntFieldOrECTensor : RankedTensorOf<[HLO_Int, HLO_Field, HLO_EC]>;
+
 def HLO_PredTensor : RankedTensorOf<[HLO_Pred]>;
 
-def HLO_Tensor : RankedTensorOf<[HLO_Pred, HLO_Int, HLO_Field]>;
+def HLO_Tensor : RankedTensorOf<[HLO_Pred, HLO_Int, HLO_Field, HLO_EC]>;
 
-def HLO_ScalarTensor: 0DTensorOf<[HLO_Pred, HLO_Int, HLO_Field]>;
+def HLO_ScalarTensor: 0DTensorOf<[HLO_Pred, HLO_Int, HLO_Field, HLO_EC]>;
 
 def HLO_Tuple : NestedTupleOf<[HLO_Tensor, HLO_Token]>;
 
@@ -99,7 +101,7 @@ def HLO_DimensionTensor : 1DTensorOf<[HLO_DimensionValue]>;
 // TODO(b/326463552): Remove these when CHLO no longer needs unranked dynamism.
 //===----------------------------------------------------------------------===//
 
-def HLO_AnyTensor : TensorOf<[HLO_Pred, HLO_Int, HLO_Field]>;
+def HLO_AnyTensor : TensorOf<[HLO_Pred, HLO_Int, HLO_Field, HLO_EC]>;
 
 def HLO_AnyPredTensor : TensorOf<[HLO_Pred]>;
 
@@ -133,7 +135,7 @@ def HLO_StaticShapeTensor : StaticShapeTensorOf<[HLO_Pred, HLO_Int, HLO_Field, H
 
 def HLO_StaticShapeTensorOrToken : AnyTypeOf<[HLO_StaticShapeTensor, HLO_Token]>;
 
-def HLO_StaticShapeOrBoundedDimTensor : RankedTensorOf<[HLO_Pred, HLO_Int, HLO_Field],
+def HLO_StaticShapeOrBoundedDimTensor : RankedTensorOf<[HLO_Pred, HLO_Int, HLO_Field, HLO_EC],
     [HLO_HasStaticOrSingleBoundedShapePred], "statically shaped or single bounded dimension tensor">;
 
 def HLO_StaticShapeIntTensor : StaticShapeTensorOf<[HLO_Int]>;
