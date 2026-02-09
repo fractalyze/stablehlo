@@ -1571,10 +1571,15 @@ LogicalResult TupleOp::inferReturnTypes(
 
 LogicalResult CompareOp::verify() {
   auto lhsElType = getElementTypeOrSelf(getLhs().getType());
+  auto dir = getComparisonDirection();
   if (isa<prime_ir::elliptic_curve::PointTypeInterface>(lhsElType)) {
-    auto dir = getComparisonDirection();
     if (dir != ComparisonDirection::EQ && dir != ComparisonDirection::NE)
       return emitOpError("EC point types only support EQ and NE comparisons");
+  }
+  if (isa<prime_ir::field::ExtensionFieldType>(lhsElType)) {
+    if (dir != ComparisonDirection::EQ && dir != ComparisonDirection::NE)
+      return emitOpError(
+          "extension field types only support EQ and NE comparisons");
   }
   return success();
 }
