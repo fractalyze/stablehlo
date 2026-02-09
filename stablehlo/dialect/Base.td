@@ -22,6 +22,7 @@ include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/IR/OpBase.td"
 include "prime_ir/Dialect/Field/IR/FieldTypes.td"
+include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveTypes.td"
 
 //===----------------------------------------------------------------------===//
 // Common type definitions.
@@ -58,6 +59,11 @@ def HLO_UInt : UnsignedIntOfWidths<[2, 4, 8, 16, 32, 64]>;
 def HLO_Int : AnyTypeOf<[HLO_SInt, HLO_UInt]>;
 
 def HLO_Field : AnyTypeOf<[Field_PrimeFieldType, Field_ExtensionFieldType]>;
+
+def HLO_EC : AnyTypeOf<[EllipticCurve_AffineType,
+                         EllipticCurve_JacobianType,
+                         EllipticCurve_XYZZType],
+                        "EC point type">;
 
 // Token type.
 def HLO_Token : Type<CPred<"isa<TokenType>($_self)">, "token">;
@@ -123,7 +129,7 @@ def HLO_Static2DIntTensor : RankedTensorOf<[HLO_Int], [HasStaticShapePred, HasAn
 
 // In general, static shaped tensor constraints should be avoided unless
 // it is for a legacy op which is only correct with static shapes.
-def HLO_StaticShapeTensor : StaticShapeTensorOf<[HLO_Pred, HLO_Int, HLO_Field]>;
+def HLO_StaticShapeTensor : StaticShapeTensorOf<[HLO_Pred, HLO_Int, HLO_Field, HLO_EC]>;
 
 def HLO_StaticShapeTensorOrToken : AnyTypeOf<[HLO_StaticShapeTensor, HLO_Token]>;
 
