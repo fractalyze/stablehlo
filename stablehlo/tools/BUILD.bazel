@@ -24,6 +24,7 @@ cc_binary(
     srcs = ["StablehloOptMain.cpp"],
     deps = [
         "//stablehlo/dialect:register",
+        "//stablehlo/transforms:passes",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:AllExtensions",
         "@llvm-project//mlir:AllPassesAndDialects",
