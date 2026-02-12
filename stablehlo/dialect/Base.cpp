@@ -23,6 +23,8 @@ limitations under the License.
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/TypeUtilities.h"
 
+#include "prime_ir/Dialect/Field/IR/FieldTypes.h"
+
 // Include order matters
 #include "stablehlo/dialect/BaseAttrInterfaces.cpp.inc"
 
@@ -60,10 +62,25 @@ LogicalResult verifyCompatibleShapeWithBounds(Type type1, Type type2) {
   return success();
 }
 
+// Convert field types to their underlying storage type for comparison.
+// This ensures that field types are compatible with their storage integer
+// types (e.g., babybear with i32) while rejecting mismatched widths
+// (e.g., babybear with i64).
+static Type getStorageTypeOrSelf(Type type) {
+  if (auto ft = dyn_cast<prime_ir::field::PrimeFieldType>(type))
+    return ft.getStorageType();
+  return type;
+}
+
 bool isCompatibleElementTypeForHloTypeInference(Type tp1, Type tp2) {
   // Get element type if shaped
   tp1 = getElementTypeOrSelf(tp1);
   tp2 = getElementTypeOrSelf(tp2);
+
+  // Field types store values as integers internally. Convert to storage type
+  // so that field↔integer compatibility is checked against the actual width.
+  tp1 = getStorageTypeOrSelf(tp1);
+  tp2 = getStorageTypeOrSelf(tp2);
 
   // Sparsity: In the most general case, we allow any combination of
   // sparsity/denseness across any combination of operands/results, as well as

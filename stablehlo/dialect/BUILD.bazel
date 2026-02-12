@@ -46,6 +46,7 @@ cc_library(
         "@llvm-project//mlir:ShapeDialect",
         "@llvm-project//mlir:SideEffectInterfaces",
         "@llvm-project//mlir:Support",
+        "@prime_ir//prime_ir/Dialect/Field/IR:Field",
     ],
 )
 
