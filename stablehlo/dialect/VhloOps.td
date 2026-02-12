@@ -259,6 +259,19 @@ def VHLO_FuncOpV1 : VHLO_Op<"func_v1", "0.0.1", "current"> {
   let assemblyFormat = "custom<FunctionBody>($sym_name, $body, $function_type) attr-dict";
 }
 
+def VHLO_DotGeneralOpV1 : VHLO_Op<"dot_general_v1", "0.0.1", "current"> {
+  let arguments = (ins
+    VHLO_AnyType:$lhs,
+    VHLO_AnyType:$rhs,
+    VHLO_AnyAttr:$lhs_batching_dimensions,
+    VHLO_AnyAttr:$rhs_batching_dimensions,
+    VHLO_AnyAttr:$lhs_contracting_dimensions,
+    VHLO_AnyAttr:$rhs_contracting_dimensions
+    // ZK: precision_config omitted - hardware hints not needed
+  );
+  let results = (outs VHLO_AnyType:$result);
+}
+
 def VHLO_GatherOpV1 : VHLO_Op<"gather_v1", "0.0.1", "current"> {
   let arguments = (ins
     VHLO_AnyType:$operand,
@@ -432,6 +445,25 @@ def VHLO_ReverseOpV1 : VHLO_Op<"reverse_v1", "0.0.1", "current"> {
     VHLO_AnyAttr:$dimensions
   );
   let results = (outs VHLO_AnyType:$result);
+}
+
+def VHLO_ScatterOpV1 : VHLO_Op<"scatter_v1", "0.0.1", "current",
+    [AttrSizedOperandSegments]> {
+  let arguments = (ins
+    Variadic<VHLO_AnyType>:$inputs,
+    VHLO_AnyType:$scatter_indices,
+    Variadic<VHLO_AnyType>:$updates,
+    VHLO_AnyAttr:$update_window_dims,
+    VHLO_AnyAttr:$inserted_window_dims,
+    VHLO_AnyAttr:$input_batching_dims,
+    VHLO_AnyAttr:$scatter_indices_batching_dims,
+    VHLO_AnyAttr:$scatter_dims_to_operand_dims,
+    VHLO_AnyAttr:$index_vector_dim,
+    VHLO_AnyAttr:$indices_are_sorted,
+    VHLO_AnyAttr:$unique_indices
+  );
+  let regions = (region VHLO_AnyRegion:$update_computation);
+  let results = (outs Variadic<VHLO_AnyType>);
 }
 
 def VHLO_SelectOpV1 : VHLO_Op<"select_v1", "0.0.1", "current"> {

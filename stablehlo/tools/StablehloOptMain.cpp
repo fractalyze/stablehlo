@@ -23,14 +23,15 @@ limitations under the License.
 #include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveDialect.h"
 #include "prime_ir/Dialect/Field/IR/FieldDialect.h"
 #include "stablehlo/dialect/Register.h"
+#include "stablehlo/transforms/Passes.h"
 
 int main(int argc, char **argv) {
   mlir::registerAllPasses();
   // clang-format off
-  // TODO(chokobole): Uncomment this. Dependency: mlir::stablehlo::registerXXX
+  // TODO(chokobole): Uncomment this. Dependency: mlir::hlo::registerXXX
   // mlir::hlo::registerAllTestPasses();
-  // mlir::stablehlo::registerPassPipelines();
-  // mlir::stablehlo::registerPasses();
+  mlir::stablehlo::registerPassPipelines();
+  mlir::stablehlo::registerPasses();
   // mlir::stablehlo::registerStablehloLinalgTransformsPasses();
   // mlir::stablehlo::registerInterpreterTransformsPasses();
   // mlir::tosa::registerStablehloTOSATransformsPasses();
