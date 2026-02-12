@@ -23,6 +23,8 @@ limitations under the License.
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/TypeUtilities.h"
 
+#include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveTypes.h"
+
 // Include order matters
 #include "stablehlo/dialect/BaseAttrInterfaces.cpp.inc"
 
@@ -64,6 +66,13 @@ bool isCompatibleElementTypeForHloTypeInference(Type tp1, Type tp2) {
   // Get element type if shaped
   tp1 = getElementTypeOrSelf(tp1);
   tp2 = getElementTypeOrSelf(tp2);
+
+  // EC point types: compatible if on the same curve
+  using PointTypeInterface = prime_ir::elliptic_curve::PointTypeInterface;
+  auto pt1 = dyn_cast<PointTypeInterface>(tp1);
+  auto pt2 = dyn_cast<PointTypeInterface>(tp2);
+  if (pt1 && pt2)
+    return pt1.getCurveAttr() == pt2.getCurveAttr();
 
   // Sparsity: In the most general case, we allow any combination of
   // sparsity/denseness across any combination of operands/results, as well as

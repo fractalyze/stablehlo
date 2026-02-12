@@ -279,7 +279,7 @@ def StableHLO_NotOp: StableHLO_UnaryElementwiseOp<"not",
 }
 
 def StableHLO_NegOp: StableHLO_UnaryElementwiseOp<"negate",
-    [HLO_CompatibleOperandsAndResultType], HLO_IntOrFieldTensor> {
+    [HLO_CompatibleOperandsAndResultType], HLO_IntFieldOrECTensor> {
   let summary = "Neg operation";
   let description = [{
     Performs element-wise negation of `operand` tensor and produces a `result`
@@ -605,7 +605,7 @@ def StableHLO_ShiftRightLogicalOp : StableHLO_BinaryElementwiseOp<"shift_right_l
 }
 
 def StableHLO_SubtractOp : StableHLO_BinaryElementwiseOp<"subtract",
-      [HLO_CompatibleOperandsAndResultType], HLO_IntOrFieldTensor> {
+      [HLO_CompatibleOperandsAndResultType], HLO_IntFieldOrECTensor> {
   let summary = "Subtract operation";
   let description = [{
     Performs element-wise subtraction of two tensors `lhs` and `rhs` and
@@ -619,6 +619,8 @@ def StableHLO_SubtractOp : StableHLO_BinaryElementwiseOp<"subtract",
     %result = stablehlo.subtract %lhs, %rhs : tensor<2xi32>
     ```
   }];
+
+  let hasVerifier = 1;
 }
 
 //===----------------------------------------------------------------------===//
@@ -941,6 +943,8 @@ def StableHLO_CompareOp: StableHLO_Op<"compare",
     StableHLO_ComparisonDirectionAttr:$comparison_direction /*compare_i3*/
   );
   let results = (outs HLO_PredTensor);
+
+  let hasVerifier = 1;
 
   let assemblyFormat = [{
     $comparison_direction `,` $lhs `,` $rhs

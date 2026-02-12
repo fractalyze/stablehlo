@@ -236,6 +236,9 @@ LogicalResult inferWhileOp(std::optional<Location> location, ValueRange operand,
 LogicalResult verifyAddOp(std::optional<Location> location, Operation *op,
                           Type lhsType, Type rhsType, Type resultType);
 
+LogicalResult verifySubtractOp(std::optional<Location> location, Operation *op,
+                               Type lhsType, Type rhsType, Type resultType);
+
 LogicalResult verifyBitcastConvertOp(std::optional<Location> location,
                                      Value operand, Value result);
 

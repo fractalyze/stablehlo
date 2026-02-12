@@ -46,6 +46,7 @@ cc_library(
         "@llvm-project//mlir:ShapeDialect",
         "@llvm-project//mlir:SideEffectInterfaces",
         "@llvm-project//mlir:Support",
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
     ],
 )
 
@@ -68,6 +69,7 @@ td_library(
     deps = [
         "@llvm-project//mlir:InferTypeOpInterfaceTdFiles",
         "@llvm-project//mlir:OpBaseTdFiles",
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:td_files",
         "@prime_ir//prime_ir/Dialect/Field/IR:td_files",
     ],
 )
@@ -148,6 +150,7 @@ cc_library(
         "@llvm-project//mlir:SparseTensorDialect",
         "@llvm-project//mlir:Support",
         "@llvm-project//mlir:TensorDialect",
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
         "@prime_ir//prime_ir/Dialect/Field/IR:Field",
     ],
 )
@@ -214,6 +217,7 @@ cc_library(
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:InferTypeOpInterface",
         "@llvm-project//mlir:Support",
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
         "@prime_ir//prime_ir/Dialect/Field/IR:Field",
     ],
 )
