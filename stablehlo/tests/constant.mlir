@@ -44,16 +44,16 @@ func.func @constant_with_ef2_1d() -> tensor<2x!EF2> {
 
 // -----
 
-!PF = !field.pf<7 : i32>
-!QF = !field.ef<2x!PF, 6:i32>
-!TowerF6 = !field.ef<3x!QF, 2:i32>
+!PF = !field.pf<7:i32>
+!Fp2 = !field.ef<2x!PF, 6:i32>
+!TowerF6 = !field.ef<3x!Fp2, 2:i32>
 
-func.func @constant_with_tower_ef6() -> tensor<!TowerF6> {
-  %0 = stablehlo.constant dense<[1, 2, 3, 4, 5, 6]> : tensor<!TowerF6>
+func.func @constant_with_tower_ext_field() -> tensor<!TowerF6> {
+  %0 = stablehlo.constant dense<[[1, 2], [3, 4], [5, 6]]> : tensor<!TowerF6>
   return %0 : tensor<!TowerF6>
 }
 
-// CHECK: @constant_with_tower_ef6
+// CHECK: @constant_with_tower_ext_field
 
 // -----
 
