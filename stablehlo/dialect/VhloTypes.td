@@ -182,4 +182,45 @@ def VHLO_UnrankedTensorV1 : VHLO_TypeDef<"UnrankedTensorV1", "unranked_tensor_v1
 // and we're planning to look into it as part of the work on the dynamism RFC.
 def VHLO_WitnessV1 : VHLO_TypeDef<"WitnessV1", "witness_v1", "0.0.1", "current">;
 
+//===----------------------------------------------------------------------===//
+// ZK field and elliptic curve types (from prime_ir dialect)
+//===----------------------------------------------------------------------===//
+
+// Corresponds to field::PrimeFieldType from the prime_ir dialect.
+def VHLO_PrimeFieldV1 : VHLO_TypeDef<"PrimeFieldV1", "pf_v1", "0.0.1", "current"> {
+  let parameters = (ins
+    "::mlir::Attribute":$modulus,
+    "bool":$isMontgomery
+  );
+  let assemblyFormat = "`<` $modulus `,` $isMontgomery `>`";
+}
+
+// Corresponds to field::ExtensionFieldType from the prime_ir dialect.
+def VHLO_ExtensionFieldV1 : VHLO_TypeDef<"ExtensionFieldV1", "ef_v1", "0.0.1", "current"> {
+  let parameters = (ins
+    "unsigned":$degree,
+    "::mlir::Type":$baseField,
+    "::mlir::Attribute":$nonResidue
+  );
+  let assemblyFormat = "`<` $degree `x` $baseField `,` $nonResidue `>`";
+}
+
+// Corresponds to elliptic_curve::AffineType from the prime_ir dialect.
+def VHLO_AffineV1 : VHLO_TypeDef<"AffineV1", "affine_v1", "0.0.1", "current"> {
+  let parameters = (ins "::mlir::Attribute":$curve);
+  let assemblyFormat = "`<` $curve `>`";
+}
+
+// Corresponds to elliptic_curve::JacobianType from the prime_ir dialect.
+def VHLO_JacobianV1 : VHLO_TypeDef<"JacobianV1", "jacobian_v1", "0.0.1", "current"> {
+  let parameters = (ins "::mlir::Attribute":$curve);
+  let assemblyFormat = "`<` $curve `>`";
+}
+
+// Corresponds to elliptic_curve::XYZZType from the prime_ir dialect.
+def VHLO_XYZZV1 : VHLO_TypeDef<"XYZZV1", "xyzz_v1", "0.0.1", "current"> {
+  let parameters = (ins "::mlir::Attribute":$curve);
+  let assemblyFormat = "`<` $curve `>`";
+}
+
 #endif  // STABLEHLO_DIALECT_VHLO_TYPES_TD

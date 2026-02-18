@@ -348,6 +348,8 @@ cc_library(
         "@llvm-project//mlir:Support",
         "@llvm-project//mlir:TransformUtils",
         "@llvm-project//mlir:Transforms",
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
+        "@prime_ir//prime_ir/Dialect/Field/IR:Field",
     ],
 )
 
