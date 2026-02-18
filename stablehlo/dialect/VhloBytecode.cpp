@@ -19,6 +19,7 @@ limitations under the License.
 #include <cassert>
 #include <cstdint>
 #include <optional>
+#include <type_traits>
 #include <utility>
 
 #include "llvm/ADT/ArrayRef.h"
@@ -238,6 +239,34 @@ enum TypeCode {
   // NoneV1Type {
   // }
   kNoneV1Type = 21,
+
+  //   PrimeFieldV1Type {
+  //     modulus: Attribute
+  //     isMontgomery: varint
+  //   }
+  kPrimeFieldV1Type = 22,
+
+  //   ExtensionFieldV1Type {
+  //     degree: varint
+  //     baseField: Type
+  //     nonResidue: Attribute
+  //   }
+  kExtensionFieldV1Type = 23,
+
+  //   AffineV1Type {
+  //     curve: Attribute
+  //   }
+  kAffineV1Type = 24,
+
+  //   JacobianV1Type {
+  //     curve: Attribute
+  //   }
+  kJacobianV1Type = 25,
+
+  //   XYZZV1Type {
+  //     curve: Attribute
+  //   }
+  kXYZZV1Type = 26,
 };
 
 } // namespace vhlo_encoding
@@ -318,6 +347,15 @@ public:
   void write(TokenV1Type type, DialectBytecodeWriter &writer) const;
   void write(TupleV1Type type, DialectBytecodeWriter &writer) const;
   void write(UnrankedTensorV1Type type, DialectBytecodeWriter &writer) const;
+
+  // ZK types
+  PrimeFieldV1Type readPrimeFieldV1Type(DialectBytecodeReader &reader) const;
+  ExtensionFieldV1Type
+  readExtensionFieldV1Type(DialectBytecodeReader &reader) const;
+  template <typename T>
+  T readCurveV1Type(DialectBytecodeReader &reader) const;
+  void write(PrimeFieldV1Type type, DialectBytecodeWriter &writer) const;
+  void write(ExtensionFieldV1Type type, DialectBytecodeWriter &writer) const;
 };
 
 //===----------------------------------------------------------------------===//
@@ -658,6 +696,16 @@ Type VhloBytecodeInterface::readType(DialectBytecodeReader &reader) const {
     return readUnrankedTensorV1Type(reader);
   case vhlo_encoding::kWitnessV1Type:
     return WitnessV1Type::get(getContext());
+  case vhlo_encoding::kPrimeFieldV1Type:
+    return readPrimeFieldV1Type(reader);
+  case vhlo_encoding::kExtensionFieldV1Type:
+    return readExtensionFieldV1Type(reader);
+  case vhlo_encoding::kAffineV1Type:
+    return readCurveV1Type<AffineV1Type>(reader);
+  case vhlo_encoding::kJacobianV1Type:
+    return readCurveV1Type<JacobianV1Type>(reader);
+  case vhlo_encoding::kXYZZV1Type:
+    return readCurveV1Type<XYZZV1Type>(reader);
   default:
     reader.emitError() << "unknown vhlo type code: " << code;
     return Type();
@@ -737,6 +785,23 @@ VhloBytecodeInterface::writeType(Type type,
       .Case([&](WitnessV1Type) {
         LOG_WRITE_CALL;
         return writer.writeVarInt(vhlo_encoding::kWitnessV1Type), success();
+      })
+      .Case<PrimeFieldV1Type, ExtensionFieldV1Type>([&](auto type) {
+        LOG_WRITE_CALL;
+        return write(type, writer), success();
+      })
+      .Case<AffineV1Type, JacobianV1Type, XYZZV1Type>([&](auto type) {
+        LOG_WRITE_CALL;
+        using T = decltype(type);
+        if constexpr (std::is_same_v<T, AffineV1Type>) {
+          writer.writeVarInt(vhlo_encoding::kAffineV1Type);
+        } else if constexpr (std::is_same_v<T, JacobianV1Type>) {
+          writer.writeVarInt(vhlo_encoding::kJacobianV1Type);
+        } else {
+          writer.writeVarInt(vhlo_encoding::kXYZZV1Type);
+        }
+        writer.writeAttribute(type.getCurve());
+        return success();
       })
       .Default([&](Type type) {
         LOG_NOT_IMPLEMENTED(type);
@@ -852,6 +917,69 @@ void VhloBytecodeInterface::write(UnrankedTensorV1Type type,
                                   DialectBytecodeWriter &writer) const {
   writer.writeVarInt(vhlo_encoding::kUnrankedTensorV1Type);
   writer.writeType(type.getElementType());
+}
+
+//===----------------------------------------------------------------------===//
+// PrimeFieldV1Type
+//===----------------------------------------------------------------------===//
+
+PrimeFieldV1Type VhloBytecodeInterface::readPrimeFieldV1Type(
+    DialectBytecodeReader &reader) const {
+  LOG_READ_CALL;
+  Attribute modulus;
+  uint64_t isMontgomery;
+  if (failed(reader.readAttribute(modulus)) ||
+      failed(reader.readVarInt(isMontgomery)))
+    return PrimeFieldV1Type();
+  if (isMontgomery != 0 && isMontgomery != 1) {
+    reader.emitError() << "unsupported isMontgomery value: " << isMontgomery;
+    return PrimeFieldV1Type();
+  }
+  return PrimeFieldV1Type::get(getContext(), modulus, isMontgomery == 1);
+}
+
+void VhloBytecodeInterface::write(PrimeFieldV1Type type,
+                                  DialectBytecodeWriter &writer) const {
+  writer.writeVarInt(vhlo_encoding::kPrimeFieldV1Type);
+  writer.writeAttribute(type.getModulus());
+  writer.writeVarInt(type.getIsMontgomery() ? 1 : 0);
+}
+
+//===----------------------------------------------------------------------===//
+// ExtensionFieldV1Type
+//===----------------------------------------------------------------------===//
+
+ExtensionFieldV1Type VhloBytecodeInterface::readExtensionFieldV1Type(
+    DialectBytecodeReader &reader) const {
+  LOG_READ_CALL;
+  uint64_t degree;
+  Type baseField;
+  Attribute nonResidue;
+  if (failed(reader.readVarInt(degree)) || failed(reader.readType(baseField)) ||
+      failed(reader.readAttribute(nonResidue)))
+    return ExtensionFieldV1Type();
+  return ExtensionFieldV1Type::get(getContext(), degree, baseField, nonResidue);
+}
+
+void VhloBytecodeInterface::write(ExtensionFieldV1Type type,
+                                  DialectBytecodeWriter &writer) const {
+  writer.writeVarInt(vhlo_encoding::kExtensionFieldV1Type);
+  writer.writeVarInt(type.getDegree());
+  writer.writeType(type.getBaseField());
+  writer.writeAttribute(type.getNonResidue());
+}
+
+//===----------------------------------------------------------------------===//
+// EC Point Types (Affine, Jacobian, XYZZ)
+//===----------------------------------------------------------------------===//
+
+template <typename T>
+T VhloBytecodeInterface::readCurveV1Type(DialectBytecodeReader &reader) const {
+  LOG_READ_CALL;
+  Attribute curve;
+  if (failed(reader.readAttribute(curve)))
+    return T();
+  return T::get(getContext(), curve);
 }
 
 } // namespace
