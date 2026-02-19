@@ -103,6 +103,14 @@ def VHLO_BitcastConvertOpV1 : VHLO_Op<"bitcast_convert_v1", "0.0.1", "current"> 
   let results = (outs VHLO_AnyType:$result);
 }
 
+def VHLO_BitReverseOpV1 : VHLO_Op<"bit_reverse_v1", "0.0.1", "current"> {
+  let arguments = (ins
+    VHLO_AnyType:$operand,
+    VHLO_AnyAttr:$dimensions
+  );
+  let results = (outs VHLO_AnyType:$result);
+}
+
 def VHLO_BroadcastInDimOpV1 : VHLO_Op<"broadcast_in_dim_v1", "0.0.1", "current"> {
   let arguments = (ins
     VHLO_AnyType:$operand,
