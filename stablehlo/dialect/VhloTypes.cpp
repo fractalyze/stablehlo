@@ -31,6 +31,8 @@ limitations under the License.
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/LogicalResult.h"
 
+#include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveTypes.h"
+#include "prime_ir/Dialect/Field/IR/FieldTypes.h"
 #include "stablehlo/dialect/AssemblyFormat.h"
 
 namespace mlir::vhlo {
@@ -114,6 +116,27 @@ void VhloTypeConverter::addBuiltinToVhloConversions() {
   addConversion([&](shape::WitnessType type) -> Type {
     return vhlo::WitnessV1Type::get(type.getContext());
   });
+  // ZK field and elliptic curve types (from prime_ir dialect)
+  addConversion([&](prime_ir::field::PrimeFieldType type) -> Type {
+    return PrimeFieldV1Type::get(type.getContext(), type.getModulus(),
+                                 type.getIsMontgomery());
+  });
+  addConversion([&](prime_ir::field::ExtensionFieldType type) -> Type {
+    auto convertedBaseField = convertType(type.getBaseField());
+    if (!convertedBaseField)
+      return {};
+    return ExtensionFieldV1Type::get(type.getContext(), type.getDegree(),
+                                     convertedBaseField, type.getNonResidue());
+  });
+  addConversion([&](prime_ir::elliptic_curve::AffineType type) -> Type {
+    return AffineV1Type::get(type.getContext(), type.getCurve());
+  });
+  addConversion([&](prime_ir::elliptic_curve::JacobianType type) -> Type {
+    return JacobianV1Type::get(type.getContext(), type.getCurve());
+  });
+  addConversion([&](prime_ir::elliptic_curve::XYZZType type) -> Type {
+    return XYZZV1Type::get(type.getContext(), type.getCurve());
+  });
 }
 
 void VhloTypeConverter::addVhloToBuiltinConversions() {
@@ -193,6 +216,35 @@ void VhloTypeConverter::addVhloToBuiltinConversions() {
   });
   addConversion([&](WitnessV1Type type) -> Type {
     return shape::WitnessType::get(type.getContext());
+  });
+  // ZK field and elliptic curve types (from prime_ir dialect)
+  addConversion([&](PrimeFieldV1Type type) -> Type {
+    return prime_ir::field::PrimeFieldType::get(
+        type.getContext(), cast<IntegerAttr>(type.getModulus()),
+        type.getIsMontgomery());
+  });
+  addConversion([&](ExtensionFieldV1Type type) -> Type {
+    auto convertedBaseField = convertType(type.getBaseField());
+    if (!convertedBaseField)
+      return {};
+    return prime_ir::field::ExtensionFieldType::get(
+        type.getContext(), type.getDegree(), convertedBaseField,
+        type.getNonResidue());
+  });
+  addConversion([&](AffineV1Type type) -> Type {
+    return prime_ir::elliptic_curve::AffineType::get(
+        type.getContext(),
+        cast<prime_ir::elliptic_curve::ShortWeierstrassAttr>(type.getCurve()));
+  });
+  addConversion([&](JacobianV1Type type) -> Type {
+    return prime_ir::elliptic_curve::JacobianType::get(
+        type.getContext(),
+        cast<prime_ir::elliptic_curve::ShortWeierstrassAttr>(type.getCurve()));
+  });
+  addConversion([&](XYZZV1Type type) -> Type {
+    return prime_ir::elliptic_curve::XYZZType::get(
+        type.getContext(),
+        cast<prime_ir::elliptic_curve::ShortWeierstrassAttr>(type.getCurve()));
   });
 }
 
