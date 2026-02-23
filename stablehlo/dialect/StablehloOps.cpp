@@ -286,19 +286,22 @@ bool ConstantOp::isCompatibleReturnTypes(TypeRange l, TypeRange r) {
     return lhsTy.clone(rhsElementType) == rhsTy;
   }
   // NOTE: This allows us to create constants of extension field from
-  // integer constants. The value attr has an extra trailing dimension
-  // encoding the degreeOverPrime coefficients.
-  if (isa<IntegerType>(lhsElementType) &&
-      isa<prime_ir::field::ExtensionFieldType>(rhsElementType)) {
-    auto efType = cast<prime_ir::field::ExtensionFieldType>(rhsElementType);
-    auto lhsShape = lhsTy.getShape();
-    auto rhsShape = rhsTy.getShape();
-    // Value attr shape = result shape + [degreeOverPrime]
-    if (lhsShape.size() != rhsShape.size() + 1)
-      return false;
-    if (lhsShape.back() != static_cast<int64_t>(efType.getDegreeOverPrime()))
-      return false;
-    return lhsShape.drop_back() == rhsShape;
+  // integer constants.
+  // Extension field constants store coefficients as integer tensors with
+  // shape [tensorDims..., towerDims...]. The result type has shape
+  // [tensorDims...] with ExtensionFieldType element type.
+  if (isa<IntegerType>(lhsElementType)) {
+    if (auto efType =
+            dyn_cast<prime_ir::field::ExtensionFieldType>(rhsElementType)) {
+      // Reconstruct expected value shape: rhsShape + towerDims
+      SmallVector<int64_t> expectedShape(rhsTy.getShape());
+      Type current = efType;
+      while (auto ef = dyn_cast<prime_ir::field::ExtensionFieldType>(current)) {
+        expectedShape.push_back(static_cast<int64_t>(ef.getDegree()));
+        current = ef.getBaseField();
+      }
+      return lhsTy.getShape() == ArrayRef<int64_t>(expectedShape);
+    }
   }
   // NOTE: This allows us to create constants of EC point types from
   // integer constants. The value attr has trailing dimensions encoding
