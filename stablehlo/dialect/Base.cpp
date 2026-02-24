@@ -77,8 +77,9 @@ bool isCompatibleElementTypeForHloTypeInference(Type tp1, Type tp2) {
 
   // Field × EC point: compatible for scalar multiplication
   using FieldTypeInterface = prime_ir::field::FieldTypeInterface;
-  if ((dyn_cast<FieldTypeInterface>(tp1) && pt2) ||
-      (pt1 && dyn_cast<FieldTypeInterface>(tp2)))
+  auto ft1 = dyn_cast<FieldTypeInterface>(tp1);
+  auto ft2 = dyn_cast<FieldTypeInterface>(tp2);
+  if ((ft1 && pt2) || (pt1 && ft2))
     return true;
 
   // Sparsity: In the most general case, we allow any combination of
