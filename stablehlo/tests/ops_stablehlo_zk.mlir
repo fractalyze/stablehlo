@@ -337,8 +337,8 @@ func.func @reduce(%arg0: tensor<4x8xi32>) -> tensor<4xi32> {
 // EC Arithmetic — NegateOp
 // =============================================================================
 
-!PF_G1 = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
-#g1_curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !PF_G1
+!pf_g1 = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+#g1_curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !pf_g1
 !g1_affine = !elliptic_curve.affine<#g1_curve>
 !g1_jacobian = !elliptic_curve.jacobian<#g1_curve>
 !g1_xyzz = !elliptic_curve.xyzz<#g1_curve>
@@ -367,8 +367,8 @@ func.func @negate_ec_xyzz(%arg0: tensor<4x!g1_xyzz>) -> tensor<4x!g1_xyzz> {
 // EC Arithmetic — AddOp (same type, pretty format)
 // =============================================================================
 
-!PF_G1 = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
-#g1_curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !PF_G1
+!pf_g1 = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+#g1_curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !pf_g1
 !g1_jacobian = !elliptic_curve.jacobian<#g1_curve>
 
 // CHECK-LABEL: func @add_ec_jacobian
@@ -383,8 +383,8 @@ func.func @add_ec_jacobian(%a: tensor<4x!g1_jacobian>, %b: tensor<4x!g1_jacobian
 // EC Arithmetic — AddOp (mixed types, generic format)
 // =============================================================================
 
-!PF_G1 = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
-#g1_curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !PF_G1
+!pf_g1 = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+#g1_curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !pf_g1
 !g1_affine = !elliptic_curve.affine<#g1_curve>
 !g1_jacobian = !elliptic_curve.jacobian<#g1_curve>
 !g1_xyzz = !elliptic_curve.xyzz<#g1_curve>
@@ -419,8 +419,8 @@ func.func @add_ec_xyzz_affine(%a: tensor<4x!g1_xyzz>, %b: tensor<4x!g1_affine>) 
 // EC Arithmetic — SubtractOp (same type, pretty format)
 // =============================================================================
 
-!PF_G1 = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
-#g1_curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !PF_G1
+!pf_g1 = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+#g1_curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !pf_g1
 !g1_xyzz = !elliptic_curve.xyzz<#g1_curve>
 
 // CHECK-LABEL: func @subtract_ec_xyzz
@@ -435,8 +435,8 @@ func.func @subtract_ec_xyzz(%a: tensor<4x!g1_xyzz>, %b: tensor<4x!g1_xyzz>) -> t
 // EC Arithmetic — SubtractOp (mixed types, generic format)
 // =============================================================================
 
-!PF_G1 = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
-#g1_curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !PF_G1
+!pf_g1 = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+#g1_curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !pf_g1
 !g1_affine = !elliptic_curve.affine<#g1_curve>
 !g1_xyzz = !elliptic_curve.xyzz<#g1_curve>
 
@@ -452,14 +452,14 @@ func.func @subtract_ec_affine_xyzz(%a: tensor<4x!g1_affine>, %b: tensor<4x!g1_xy
 // EC Arithmetic — G2 (extension field base)
 // =============================================================================
 
-!PF_G2 = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
-!QF = !field.ef<2x!PF_G2, 21888242871839275222246405745257275088696311157297823662689037894645226208582:i256>
+!pf_g2 = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!qf = !field.ef<2x!pf_g2, 21888242871839275222246405745257275088696311157297823662689037894645226208582:i256>
 
 #g2a = dense<[0, 0]> : tensor<2xi256>
 #g2b = dense<[19485874751759354771024239261021720505790618469301721065564631296452457478373, 266929791119991161246907387137283842545076965332900288569378510910307636690]> : tensor<2xi256>
 #g2x = dense<[10857046999023057135944570762232829481370756359578518086990519993285655852781, 11559732032986387107991004021392285783925812861821192530917403151452391805634]> : tensor<2xi256>
 #g2y = dense<[8495653923123431417604973247489272438418190587263600148770280649306958101930, 4082367875863433681332203403145435568316851327593401208105741076214120093531]> : tensor<2xi256>
-#g2_curve = #elliptic_curve.sw<#g2a, #g2b, (#g2x, #g2y)> : !QF
+#g2_curve = #elliptic_curve.sw<#g2a, #g2b, (#g2x, #g2y)> : !qf
 !g2_affine = !elliptic_curve.affine<#g2_curve>
 
 // CHECK-LABEL: func @add_ec_g2_affine
@@ -474,14 +474,14 @@ func.func @add_ec_g2_affine(%a: tensor<4x!g2_affine>, %b: tensor<4x!g2_affine>) 
 // EC Arithmetic — G2 add (generic format)
 // =============================================================================
 
-!PF_G2 = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
-!QF = !field.ef<2x!PF_G2, 21888242871839275222246405745257275088696311157297823662689037894645226208582:i256>
+!pf_g2 = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!qf = !field.ef<2x!pf_g2, 21888242871839275222246405745257275088696311157297823662689037894645226208582:i256>
 
 #g2a = dense<[0, 0]> : tensor<2xi256>
 #g2b = dense<[19485874751759354771024239261021720505790618469301721065564631296452457478373, 266929791119991161246907387137283842545076965332900288569378510910307636690]> : tensor<2xi256>
 #g2x = dense<[10857046999023057135944570762232829481370756359578518086990519993285655852781, 11559732032986387107991004021392285783925812861821192530917403151452391805634]> : tensor<2xi256>
 #g2y = dense<[8495653923123431417604973247489272438418190587263600148770280649306958101930, 4082367875863433681332203403145435568316851327593401208105741076214120093531]> : tensor<2xi256>
-#g2_curve = #elliptic_curve.sw<#g2a, #g2b, (#g2x, #g2y)> : !QF
+#g2_curve = #elliptic_curve.sw<#g2a, #g2b, (#g2x, #g2y)> : !qf
 !g2_affine = !elliptic_curve.affine<#g2_curve>
 !g2_jacobian = !elliptic_curve.jacobian<#g2_curve>
 
@@ -497,8 +497,8 @@ func.func @add_ec_g2(%a: tensor<4x!g2_affine>, %b: tensor<4x!g2_affine>) -> tens
 // EC Compare — EQ/NE (positive tests)
 // =============================================================================
 
-!PF_G1 = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
-#g1_curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !PF_G1
+!pf_g1 = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+#g1_curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !pf_g1
 !g1_affine = !elliptic_curve.affine<#g1_curve>
 
 // CHECK-LABEL: func @compare_ec_eq
@@ -519,8 +519,8 @@ func.func @compare_ec_ne(%a: tensor<4x!g1_affine>, %b: tensor<4x!g1_affine>) -> 
 // EC Compare — ordered direction (negative test)
 // =============================================================================
 
-!PF_G1 = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
-#g1_curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !PF_G1
+!pf_g1 = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+#g1_curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !pf_g1
 !g1_affine = !elliptic_curve.affine<#g1_curve>
 
 func.func @compare_ec_lt_invalid(%a: tensor<4x!g1_affine>, %b: tensor<4x!g1_affine>) -> tensor<4xi1> {
@@ -535,8 +535,8 @@ func.func @compare_ec_lt_invalid(%a: tensor<4x!g1_affine>, %b: tensor<4x!g1_affi
 // EC Add — invalid type combination (negative test)
 // =============================================================================
 
-!PF_G1 = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
-#g1_curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !PF_G1
+!pf_g1 = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+#g1_curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !pf_g1
 !g1_affine = !elliptic_curve.affine<#g1_curve>
 
 func.func @add_ec_affine_affine_invalid(%a: tensor<!g1_affine>, %b: tensor<!g1_affine>) -> tensor<!g1_affine> {
@@ -551,12 +551,12 @@ func.func @add_ec_affine_affine_invalid(%a: tensor<!g1_affine>, %b: tensor<!g1_a
 // ExtensionField Compare — ordered direction (negative test)
 // =============================================================================
 
-!PF = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
-!EF2 = !field.ef<2x!PF, 21888242871839275222246405745257275088696311157297823662689037894645226208582:i256>
+!pf =!field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!ef2 = !field.ef<2x!pf, 21888242871839275222246405745257275088696311157297823662689037894645226208582:i256>
 
-func.func @compare_ef_lt_invalid(%a: tensor<4x!EF2>, %b: tensor<4x!EF2>) -> tensor<4xi1> {
+func.func @compare_ef_lt_invalid(%a: tensor<4x!ef2>, %b: tensor<4x!ef2>) -> tensor<4xi1> {
   // expected-error @+1 {{extension field types only support EQ and NE comparisons}}
-  %0 = stablehlo.compare LT, %a, %b : (tensor<4x!EF2>, tensor<4x!EF2>) -> tensor<4xi1>
+  %0 = stablehlo.compare LT, %a, %b : (tensor<4x!ef2>, tensor<4x!ef2>) -> tensor<4xi1>
   func.return %0 : tensor<4xi1>
 }
 
