@@ -559,3 +559,40 @@ func.func @compare_ef_lt_invalid(%a: tensor<4x!EF2>, %b: tensor<4x!EF2>) -> tens
   %0 = stablehlo.compare LT, %a, %b : (tensor<4x!EF2>, tensor<4x!EF2>) -> tensor<4xi1>
   func.return %0 : tensor<4xi1>
 }
+
+// -----
+
+// =============================================================================
+// EC Scalar Multiplication — field × EC point (positive tests)
+// =============================================================================
+
+!pf_g1 = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!sf_g1 = !field.pf<21888242871839275222246405745257275088548364400416034343698204186575808495617:i256>
+#g1_curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !pf_g1
+!g1_affine = !elliptic_curve.affine<#g1_curve>
+!g1_jacobian = !elliptic_curve.jacobian<#g1_curve>
+!g1_xyzz = !elliptic_curve.xyzz<#g1_curve>
+
+// CHECK-LABEL: func @multiply_field_ec_affine
+func.func @multiply_field_ec_affine(%a: tensor<4x!sf_g1>, %b: tensor<4x!g1_affine>) -> tensor<4x!g1_jacobian> {
+  %0 = "stablehlo.multiply"(%a, %b) : (tensor<4x!sf_g1>, tensor<4x!g1_affine>) -> tensor<4x!g1_jacobian>
+  func.return %0 : tensor<4x!g1_jacobian>
+}
+
+// CHECK-LABEL: func @multiply_ec_affine_field
+func.func @multiply_ec_affine_field(%a: tensor<4x!g1_affine>, %b: tensor<4x!sf_g1>) -> tensor<4x!g1_jacobian> {
+  %0 = "stablehlo.multiply"(%a, %b) : (tensor<4x!g1_affine>, tensor<4x!sf_g1>) -> tensor<4x!g1_jacobian>
+  func.return %0 : tensor<4x!g1_jacobian>
+}
+
+// CHECK-LABEL: func @multiply_field_ec_jacobian
+func.func @multiply_field_ec_jacobian(%a: tensor<4x!sf_g1>, %b: tensor<4x!g1_jacobian>) -> tensor<4x!g1_jacobian> {
+  %0 = "stablehlo.multiply"(%a, %b) : (tensor<4x!sf_g1>, tensor<4x!g1_jacobian>) -> tensor<4x!g1_jacobian>
+  func.return %0 : tensor<4x!g1_jacobian>
+}
+
+// CHECK-LABEL: func @multiply_field_ec_xyzz
+func.func @multiply_field_ec_xyzz(%a: tensor<4x!sf_g1>, %b: tensor<4x!g1_xyzz>) -> tensor<4x!g1_xyzz> {
+  %0 = "stablehlo.multiply"(%a, %b) : (tensor<4x!sf_g1>, tensor<4x!g1_xyzz>) -> tensor<4x!g1_xyzz>
+  func.return %0 : tensor<4x!g1_xyzz>
+}
