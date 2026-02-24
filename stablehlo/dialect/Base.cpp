@@ -24,6 +24,7 @@ limitations under the License.
 #include "mlir/IR/TypeUtilities.h"
 
 #include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveTypes.h"
+#include "prime_ir/Dialect/Field/IR/FieldTypes.h"
 
 // Include order matters
 #include "stablehlo/dialect/BaseAttrInterfaces.cpp.inc"
@@ -73,6 +74,12 @@ bool isCompatibleElementTypeForHloTypeInference(Type tp1, Type tp2) {
   auto pt2 = dyn_cast<PointTypeInterface>(tp2);
   if (pt1 && pt2)
     return pt1.getCurveAttr() == pt2.getCurveAttr();
+
+  // Field × EC point: compatible for scalar multiplication
+  using FieldTypeInterface = prime_ir::field::FieldTypeInterface;
+  if ((dyn_cast<FieldTypeInterface>(tp1) && pt2) ||
+      (pt1 && dyn_cast<FieldTypeInterface>(tp2)))
+    return true;
 
   // Sparsity: In the most general case, we allow any combination of
   // sparsity/denseness across any combination of operands/results, as well as
