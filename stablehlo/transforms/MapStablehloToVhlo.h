@@ -116,6 +116,7 @@ MAP_STABLEHLO_TO_VHLO(OrOp, V1)
 // TODO(chokobole): Uncomment this. Dependency: OutfeedOpV1
 // MAP_STABLEHLO_TO_VHLO(OutfeedOp, V1)
 MAP_STABLEHLO_TO_VHLO(PadOp, V1)
+MAP_STABLEHLO_TO_VHLO(PairingCheckOp, V1)
 // TODO(chokobole): Uncomment this. Dependency: PartitionIdOpV1
 // MAP_STABLEHLO_TO_VHLO(PartitionIdOp, V1)
 MAP_STABLEHLO_TO_VHLO(PopulationCountOp, V1)
