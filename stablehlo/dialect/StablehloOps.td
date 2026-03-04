@@ -1937,4 +1937,37 @@ def StableHLO_DynamicPadOp: StableHLO_ShapedInterfaceOp<"dynamic_pad",
   }];
 }
 
+def StableHLO_PairingCheckOp: StableHLO_Op<"pairing_check",
+      [NoMemoryEffect]> {
+  let summary = "PairingCheck operation";
+  let description = [{
+    Multi-pairing check: verifies that the product of pairings equals the
+    identity in GT:
+      e(P₁, Q₁) * e(P₂, Q₂) * ... * e(Pₙ, Qₙ) = 1
+
+    Both inputs must be 1-D tensors of affine points on compatible
+    pairing-friendly curves (e.g., BN254 G1 and G2). Both tensors must
+    have matching first dimension.
+
+    Returns a scalar boolean (PRED) tensor indicating whether the
+    pairing equation holds.
+
+    Example:
+    ```mlir
+    %result = stablehlo.pairing_check %g1_points, %g2_points
+        : (tensor<2x!g1_affine>, tensor<2x!g2_affine>) -> tensor<i1>
+    ```
+  }];
+  let arguments = (ins
+    HLO_ECTensor:$g1_points,
+    HLO_ECTensor:$g2_points
+  );
+
+  let results = (outs HLO_ScalarPredTensor:$result);
+
+  let assemblyFormat = [{
+    operands attr-dict `:` functional-type(operands, results)
+  }];
+}
+
 #endif // STABLEHLO_DIALECT_STABLEHLO_OPS_TD

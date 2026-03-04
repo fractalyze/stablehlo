@@ -561,4 +561,9 @@ def VHLO_XorOpV1 : VHLO_Op<"xor_v1", "0.0.1", "current"> {
   let results = (outs VHLO_AnyType:$result);
 }
 
+def VHLO_PairingCheckOpV1 : VHLO_Op<"pairing_check_v1", "0.0.1", "current"> {
+  let arguments = (ins VHLO_AnyType:$g1_points, VHLO_AnyType:$g2_points);
+  let results = (outs VHLO_AnyType:$result);
+}
+
 #endif // STABLEHLO_DIALECT_VHLO_OPS_TD
