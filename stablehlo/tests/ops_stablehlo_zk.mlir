@@ -647,3 +647,60 @@ func.func @msm_bn254_batched(%scalars: tensor<2048x!BN254_Fr>, %bases: tensor<10
   %0 = stablehlo.msm %scalars, %bases {window_bits = 16 : i32, batch_size = 2 : i32, are_points_shared = true} : (tensor<2048x!BN254_Fr>, tensor<1024x!g1_affine>) -> tensor<2x!g1_xyzz>
   func.return %0 : tensor<2x!g1_xyzz>
 }
+
+// -----
+
+// =============================================================================
+// PF × EF Arithmetic — prime_field × extension_field (positive tests)
+// =============================================================================
+
+!pf_bb = !field.pf<2013265921:i32>
+!ef_bb4 = !field.ef<4x!pf_bb, 11:i32>
+
+// CHECK-LABEL: func @add_pf_ef
+func.func @add_pf_ef(%a: tensor<4x!pf_bb>, %b: tensor<4x!ef_bb4>) -> tensor<4x!ef_bb4> {
+  %0 = "stablehlo.add"(%a, %b) : (tensor<4x!pf_bb>, tensor<4x!ef_bb4>) -> tensor<4x!ef_bb4>
+  func.return %0 : tensor<4x!ef_bb4>
+}
+
+// CHECK-LABEL: func @add_ef_pf
+func.func @add_ef_pf(%a: tensor<4x!ef_bb4>, %b: tensor<4x!pf_bb>) -> tensor<4x!ef_bb4> {
+  %0 = "stablehlo.add"(%a, %b) : (tensor<4x!ef_bb4>, tensor<4x!pf_bb>) -> tensor<4x!ef_bb4>
+  func.return %0 : tensor<4x!ef_bb4>
+}
+
+// CHECK-LABEL: func @subtract_pf_ef
+func.func @subtract_pf_ef(%a: tensor<4x!pf_bb>, %b: tensor<4x!ef_bb4>) -> tensor<4x!ef_bb4> {
+  %0 = "stablehlo.subtract"(%a, %b) : (tensor<4x!pf_bb>, tensor<4x!ef_bb4>) -> tensor<4x!ef_bb4>
+  func.return %0 : tensor<4x!ef_bb4>
+}
+
+// CHECK-LABEL: func @subtract_ef_pf
+func.func @subtract_ef_pf(%a: tensor<4x!ef_bb4>, %b: tensor<4x!pf_bb>) -> tensor<4x!ef_bb4> {
+  %0 = "stablehlo.subtract"(%a, %b) : (tensor<4x!ef_bb4>, tensor<4x!pf_bb>) -> tensor<4x!ef_bb4>
+  func.return %0 : tensor<4x!ef_bb4>
+}
+
+// CHECK-LABEL: func @multiply_pf_ef
+func.func @multiply_pf_ef(%a: tensor<4x!pf_bb>, %b: tensor<4x!ef_bb4>) -> tensor<4x!ef_bb4> {
+  %0 = "stablehlo.multiply"(%a, %b) : (tensor<4x!pf_bb>, tensor<4x!ef_bb4>) -> tensor<4x!ef_bb4>
+  func.return %0 : tensor<4x!ef_bb4>
+}
+
+// CHECK-LABEL: func @multiply_ef_pf
+func.func @multiply_ef_pf(%a: tensor<4x!ef_bb4>, %b: tensor<4x!pf_bb>) -> tensor<4x!ef_bb4> {
+  %0 = "stablehlo.multiply"(%a, %b) : (tensor<4x!ef_bb4>, tensor<4x!pf_bb>) -> tensor<4x!ef_bb4>
+  func.return %0 : tensor<4x!ef_bb4>
+}
+
+// CHECK-LABEL: func @divide_pf_ef
+func.func @divide_pf_ef(%a: tensor<4x!pf_bb>, %b: tensor<4x!ef_bb4>) -> tensor<4x!ef_bb4> {
+  %0 = "stablehlo.divide"(%a, %b) : (tensor<4x!pf_bb>, tensor<4x!ef_bb4>) -> tensor<4x!ef_bb4>
+  func.return %0 : tensor<4x!ef_bb4>
+}
+
+// CHECK-LABEL: func @divide_ef_pf
+func.func @divide_ef_pf(%a: tensor<4x!ef_bb4>, %b: tensor<4x!pf_bb>) -> tensor<4x!ef_bb4> {
+  %0 = "stablehlo.divide"(%a, %b) : (tensor<4x!ef_bb4>, tensor<4x!pf_bb>) -> tensor<4x!ef_bb4>
+  func.return %0 : tensor<4x!ef_bb4>
+}

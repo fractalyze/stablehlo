@@ -82,6 +82,17 @@ bool isCompatibleElementTypeForHloTypeInference(Type tp1, Type tp2) {
   if ((ft1 && pt2) || (pt1 && ft2))
     return true;
 
+  // PF × EF: compatible when the PF is the base field of the EF.
+  using PFType = prime_ir::field::PrimeFieldType;
+  using EFType = prime_ir::field::ExtensionFieldType;
+  if (auto pf = dyn_cast<PFType>(tp1)) {
+    if (auto ef = dyn_cast<EFType>(tp2))
+      return ef.getBaseField() == pf;
+  } else if (auto ef = dyn_cast<EFType>(tp1)) {
+    if (auto pf = dyn_cast<PFType>(tp2))
+      return ef.getBaseField() == pf;
+  }
+
   // Sparsity: In the most general case, we allow any combination of
   // sparsity/denseness across any combination of operands/results, as well as
   // differences in sparsity encodings for operands and results.
