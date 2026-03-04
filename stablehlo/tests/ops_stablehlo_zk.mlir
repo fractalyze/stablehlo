@@ -622,3 +622,28 @@ func.func @pairing_check_bn254(%g1: tensor<4x!g1_affine>, %g2: tensor<4x!g2_affi
   %0 = stablehlo.pairing_check %g1, %g2 : (tensor<4x!g1_affine>, tensor<4x!g2_affine>) -> tensor<i1>
   func.return %0 : tensor<i1>
 }
+
+// =============================================================================
+// MsmOp — BN254 multi-scalar multiplication
+// =============================================================================
+
+!BN254_Fr = !field.pf<21888242871839275222246405745257275088548364400416034343698204186575808495617:i256>
+!g1_xyzz = !elliptic_curve.xyzz<#g1_curve>
+
+// CHECK-LABEL: func @msm_bn254_defaults
+func.func @msm_bn254_defaults(%scalars: tensor<1024x!BN254_Fr>, %bases: tensor<1024x!g1_affine>) -> tensor<!g1_affine> {
+  %0 = stablehlo.msm %scalars, %bases : (tensor<1024x!BN254_Fr>, tensor<1024x!g1_affine>) -> tensor<!g1_affine>
+  func.return %0 : tensor<!g1_affine>
+}
+
+// CHECK-LABEL: func @msm_bn254_with_config
+func.func @msm_bn254_with_config(%scalars: tensor<1024x!BN254_Fr>, %bases: tensor<1024x!g1_affine>) -> tensor<!g1_xyzz> {
+  %0 = stablehlo.msm %scalars, %bases {window_bits = 16 : i32, precompute_factor = 2 : i32, bitsize = 253 : i32} : (tensor<1024x!BN254_Fr>, tensor<1024x!g1_affine>) -> tensor<!g1_xyzz>
+  func.return %0 : tensor<!g1_xyzz>
+}
+
+// CHECK-LABEL: func @msm_bn254_batched
+func.func @msm_bn254_batched(%scalars: tensor<2048x!BN254_Fr>, %bases: tensor<1024x!g1_affine>) -> tensor<2x!g1_xyzz> {
+  %0 = stablehlo.msm %scalars, %bases {window_bits = 16 : i32, batch_size = 2 : i32, are_points_shared = true} : (tensor<2048x!BN254_Fr>, tensor<1024x!g1_affine>) -> tensor<2x!g1_xyzz>
+  func.return %0 : tensor<2x!g1_xyzz>
+}

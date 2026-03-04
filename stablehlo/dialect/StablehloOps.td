@@ -1970,4 +1970,49 @@ def StableHLO_PairingCheckOp: StableHLO_Op<"pairing_check",
   }];
 }
 
+def StableHLO_MsmOp: StableHLO_Op<"msm",
+      [NoMemoryEffect]> {
+  let summary = "Multi-Scalar Multiplication operation";
+  let description = [{
+    Computes multi-scalar multiplication (MSM):
+      r = s₁ * P₁ + s₂ * P₂ + ... + sₙ * Pₙ
+
+    The `scalars` operand is a 1-D tensor of field elements and the `bases`
+    operand is a 1-D tensor of affine elliptic-curve points on a compatible
+    curve (e.g., BN254 G1). Both tensors must have matching first dimension.
+
+    Returns a scalar EC point (the accumulated result).
+
+    Optional attributes:
+    - `window_bits`: window size for Pippenger's algorithm (0 = auto).
+    - `precompute_factor`: number of point doublings to precompute per base
+      (1 = no precomputation).
+    - `bitsize`: effective scalar bit width (0 = use full field bit width).
+    - `batch_size`: number of independent MSMs batched together (0 = single).
+    - `are_points_shared`: whether batched MSMs share the same bases.
+
+    Example:
+    ```mlir
+    %result = stablehlo.msm %scalars, %bases, window_bits = 16
+        : (tensor<1024x!bn254_sf>, tensor<1024x!bn254_g1_affine>)
+        -> tensor<!bn254_g1_xyzz>
+    ```
+  }];
+  let arguments = (ins
+    HLO_FieldTensor:$scalars,
+    HLO_ECTensor:$bases,
+    DefaultValuedOptionalAttr<I32Attr, "0">:$window_bits,
+    DefaultValuedOptionalAttr<I32Attr, "0">:$precompute_factor,
+    DefaultValuedOptionalAttr<I32Attr, "0">:$bitsize,
+    DefaultValuedOptionalAttr<I32Attr, "0">:$batch_size,
+    DefaultValuedOptionalAttr<BoolAttr, "false">:$are_points_shared
+  );
+
+  let results = (outs HLO_ECTensor:$result);
+
+  let assemblyFormat = [{
+    operands attr-dict `:` functional-type(operands, results)
+  }];
+}
+
 #endif // STABLEHLO_DIALECT_STABLEHLO_OPS_TD
