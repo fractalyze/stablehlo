@@ -1981,14 +1981,17 @@ def StableHLO_MsmOp: StableHLO_Op<"msm",
     operand is a 1-D tensor of affine elliptic-curve points on a compatible
     curve (e.g., BN254 G1). Both tensors must have matching first dimension.
 
-    Returns a scalar EC point (the accumulated result).
+    Returns an EC point tensor. For a single MSM the result is a scalar
+    (rank-0) EC point; for a batched MSM (`batch_size` > 1) the result is a
+    1-D tensor of `batch_size` EC points.
 
     Optional attributes:
     - `window_bits`: window size for Pippenger's algorithm (0 = auto).
     - `precompute_factor`: number of point doublings to precompute per base
-      (1 = no precomputation).
+      (0 = backend default, 1 = no precomputation, k > 1 = k doublings).
     - `bitsize`: effective scalar bit width (0 = use full field bit width).
-    - `batch_size`: number of independent MSMs batched together (0 = single).
+    - `batch_size`: number of independent MSMs batched together. A value of
+      0 or 1 indicates a single MSM.
     - `are_points_shared`: whether batched MSMs share the same bases.
 
     Example:
@@ -2001,10 +2004,10 @@ def StableHLO_MsmOp: StableHLO_Op<"msm",
   let arguments = (ins
     HLO_FieldTensor:$scalars,
     HLO_ECTensor:$bases,
-    DefaultValuedOptionalAttr<I32Attr, "0">:$window_bits,
-    DefaultValuedOptionalAttr<I32Attr, "0">:$precompute_factor,
-    DefaultValuedOptionalAttr<I32Attr, "0">:$bitsize,
-    DefaultValuedOptionalAttr<I32Attr, "0">:$batch_size,
+    DefaultValuedOptionalAttr<ConfinedAttr<I32Attr, [IntNonNegative]>, "0">:$window_bits,
+    DefaultValuedOptionalAttr<ConfinedAttr<I32Attr, [IntNonNegative]>, "0">:$precompute_factor,
+    DefaultValuedOptionalAttr<ConfinedAttr<I32Attr, [IntNonNegative]>, "0">:$bitsize,
+    DefaultValuedOptionalAttr<ConfinedAttr<I32Attr, [IntNonNegative]>, "0">:$batch_size,
     DefaultValuedOptionalAttr<BoolAttr, "false">:$are_points_shared
   );
 
