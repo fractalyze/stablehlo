@@ -566,4 +566,17 @@ def VHLO_PairingCheckOpV1 : VHLO_Op<"pairing_check_v1", "0.0.1", "current"> {
   let results = (outs VHLO_AnyType:$result);
 }
 
+def VHLO_MsmOpV1 : VHLO_Op<"msm_v1", "0.0.1", "current"> {
+  let arguments = (ins
+    VHLO_AnyType:$scalars,
+    VHLO_AnyType:$bases,
+    VHLO_AnyAttr:$window_bits,
+    VHLO_AnyAttr:$precompute_factor,
+    VHLO_AnyAttr:$bitsize,
+    VHLO_AnyAttr:$batch_size,
+    VHLO_AnyAttr:$are_points_shared
+  );
+  let results = (outs VHLO_AnyType:$result);
+}
+
 #endif // STABLEHLO_DIALECT_VHLO_OPS_TD

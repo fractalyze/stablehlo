@@ -80,6 +80,8 @@ def HLO_IntFieldOrECTensor : RankedTensorOf<[HLO_Int, HLO_Field, HLO_EC]>;
 
 def HLO_PredTensor : RankedTensorOf<[HLO_Pred]>;
 
+def HLO_FieldTensor : RankedTensorOf<[HLO_Field]>;
+
 def HLO_ECTensor : RankedTensorOf<[HLO_EC]>;
 
 def HLO_Tensor : RankedTensorOf<[HLO_Pred, HLO_Int, HLO_Field, HLO_EC]>;
