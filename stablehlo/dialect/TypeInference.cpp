@@ -1866,6 +1866,19 @@ LogicalResult verifyAddOp(std::optional<Location> location, Operation *op,
     return verifyECBinaryOpTypes(location, lhsPt, rhsPt, resPt);
   }
 
+  // PF × EF: compatible when the PF is the base field of the EF.
+  using PFType = prime_ir::field::PrimeFieldType;
+  using EFType = prime_ir::field::ExtensionFieldType;
+  if (auto pf = dyn_cast<PFType>(lhsEl)) {
+    if (auto ef = dyn_cast<EFType>(rhsEl))
+      if (ef.getBaseField() == pf && resEl == rhsEl)
+        return success();
+  } else if (auto ef = dyn_cast<EFType>(lhsEl)) {
+    if (auto pf = dyn_cast<PFType>(rhsEl))
+      if (ef.getBaseField() == pf && resEl == lhsEl)
+        return success();
+  }
+
   // Existing same-type check for non-EC
   if (lhsEl != rhsEl || lhsEl != resEl)
     return emitOptionalError(
