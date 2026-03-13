@@ -1,0 +1,33 @@
+# Copyright 2026 Fractalyze Inc. All rights reserved.
+
+name: Pin Bump
+
+on:
+  repository_dispatch:
+    types: [pin-bump]
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bump prime-ir pin
+        if: github.event.client_payload.source_repo == 'prime-ir'
+        uses: fractalyze/github-actions/pin-bump@main
+        with:
+          upstream_repo: prime-ir
+          upstream_commit: ${{ github.event.client_payload.commit }}
+          pin_file: third_party/prime_ir/workspace.bzl
+          var_prefix: PRIME_IR
+          github_token: ${{ secrets.GH_PAT }}
+
+      - name: Bump zk_dtypes pin
+        if: github.event.client_payload.source_repo == 'zk_dtypes'
+        uses: fractalyze/github-actions/pin-bump@main
+        with:
+          upstream_repo: zk_dtypes
+          upstream_commit: ${{ github.event.client_payload.commit }}
+          pin_file: third_party/zk_dtypes/workspace.bzl
+          var_prefix: ZK_DTYPES
+          github_token: ${{ secrets.GH_PAT }}
