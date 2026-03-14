@@ -49,4 +49,24 @@ def StableHLO_ComparisonDirection : I32EnumAttr<"ComparisonDirection",
 
 def StableHLO_ComparisonDirectionAttr : EnumAttr<StableHLO_Dialect, StableHLO_ComparisonDirection, "comparison_direction">;
 
+//===----------------------------------------------------------------------===//
+// Fast Fourier Transform Type enum definitions.
+//===----------------------------------------------------------------------===//
+
+// These mirror the ZKX FftType proto enum.
+def STABLEHLO_FFT_TYPE_FFT : I32EnumAttrCase<"FFT", 0>;
+def STABLEHLO_FFT_TYPE_IFFT : I32EnumAttrCase<"IFFT", 1>;
+
+def StableHLO_FftType : I32EnumAttr<"FftType",
+    "Type of FFT/NTT operation to perform.",
+    [
+      STABLEHLO_FFT_TYPE_FFT,
+      STABLEHLO_FFT_TYPE_IFFT
+    ]> {
+  let genSpecializedAttr = 0;
+  let cppNamespace = "::mlir::stablehlo";
+}
+
+def StableHLO_FftTypeAttr : EnumAttr<StableHLO_Dialect, StableHLO_FftType, "fft_type">;
+
 #endif // STABLEHLO_DIALECT_STABLEHLO_ENUMS_TD
