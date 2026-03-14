@@ -563,6 +563,38 @@ func.func @compare_ef_lt_invalid(%a: tensor<4x!ef2>, %b: tensor<4x!ef2>) -> tens
 // -----
 
 // =============================================================================
+// FftOp — Number Theoretic Transform (NTT)
+// =============================================================================
+
+!pf_babybear_mont = !field.pf<2013265921:i32, true>
+
+// CHECK-LABEL: func @fft_1d
+func.func @fft_1d(%x: tensor<1024x!pf_babybear_mont>) -> tensor<1024x!pf_babybear_mont> {
+  %0 = stablehlo.fft %x, type = FFT, length = 1024 : tensor<1024x!pf_babybear_mont>
+  func.return %0 : tensor<1024x!pf_babybear_mont>
+}
+
+// CHECK-LABEL: func @ifft_1d
+func.func @ifft_1d(%x: tensor<1024x!pf_babybear_mont>) -> tensor<1024x!pf_babybear_mont> {
+  %0 = stablehlo.fft %x, type = IFFT, length = 1024 : tensor<1024x!pf_babybear_mont>
+  func.return %0 : tensor<1024x!pf_babybear_mont>
+}
+
+// CHECK-LABEL: func @fft_2d
+func.func @fft_2d(%x: tensor<1024x16x!pf_babybear_mont>) -> tensor<1024x16x!pf_babybear_mont> {
+  %0 = stablehlo.fft %x, type = FFT, length = 1024 : tensor<1024x16x!pf_babybear_mont>
+  func.return %0 : tensor<1024x16x!pf_babybear_mont>
+}
+
+// CHECK-LABEL: func @ifft_2d
+func.func @ifft_2d(%x: tensor<1024x16x!pf_babybear_mont>) -> tensor<1024x16x!pf_babybear_mont> {
+  %0 = stablehlo.fft %x, type = IFFT, length = 1024 : tensor<1024x16x!pf_babybear_mont>
+  func.return %0 : tensor<1024x16x!pf_babybear_mont>
+}
+
+// -----
+
+// =============================================================================
 // EC Scalar Multiplication — field × EC point (positive tests)
 // =============================================================================
 

@@ -123,6 +123,9 @@ Attribute convertGeneric(Attribute vhloAttr,
     }
     return DictionaryAttr::get(attr.getContext(), vhloAttrs);
   }
+  if (auto attr = dyn_cast<vhlo::FftTypeV1Attr>(vhloAttr)) {
+    RETURN_CONVERTED_ENUM_ATTR(FftType, V1);
+  }
   if (auto attr = dyn_cast<vhlo::IntegerV1Attr>(vhloAttr)) {
     auto builtinIntegerType = typeConverter->convertType(attr.getType());
     if (!builtinIntegerType)

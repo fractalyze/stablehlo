@@ -253,6 +253,15 @@ def VHLO_DynamicUpdateSliceOpV1 : VHLO_Op<"dynamic_update_slice_v1", "0.0.1", "c
   let results = (outs VHLO_AnyType:$result);
 }
 
+def VHLO_FftOpV1 : VHLO_Op<"fft_v1", "0.0.1", "current"> {
+  let arguments = (ins
+    VHLO_AnyType:$operand,
+    VHLO_AnyAttr:$fft_type,
+    VHLO_AnyAttr:$fft_length
+  );
+  let results = (outs VHLO_AnyType:$result);
+}
+
 // TODO(#425): FuncOp is not part of the StableHLO spec.
 // We're planning to look into it as part of the work on speccing
 // Module/Func/Call/Return ops in StableHLO.
