@@ -1442,7 +1442,7 @@ def StableHLO_FftOp: StableHLO_Op<"fft", [NoMemoryEffect,
   let arguments = (ins
     HLO_FieldTensor:$operand,
     StableHLO_FftTypeAttr:$fft_type,
-    I64Attr:$fft_length
+    ConfinedAttr<I64Attr, [IntNonNegative]>:$fft_length
   );
   let results = (outs HLO_FieldTensor:$result);
   let assemblyFormat = [{
