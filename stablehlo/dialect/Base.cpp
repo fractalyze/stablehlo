@@ -347,6 +347,21 @@ inferLeastSpecificDimAndBound(std::optional<Location> location, int64_t dim,
 
 namespace {
 
+// Infer the result element type from operand types, applying prime-ir specific
+// type promotion rules. For mixed PF × EF operands, promotes to the
+// ExtensionField type (the wider type) regardless of operand order.
+Type inferResultElementType(ArrayRef<RankedTensorType> rankedTypes) {
+  Type elementType = rankedTypes[0].getElementType();
+  using EFType = prime_ir::field::ExtensionFieldType;
+  for (size_t i = 1; i < rankedTypes.size(); ++i) {
+    if (!isa<EFType>(elementType) &&
+        isa<EFType>(rankedTypes[i].getElementType())) {
+      return rankedTypes[i].getElementType();
+    }
+  }
+  return elementType;
+}
+
 FailureOr<ShapedType> inferTypeWithCustomFn(
     std::optional<Location> location, SmallVector<RankedTensorType> rankedTypes,
     std::function<FailureOr<std::pair<int64_t, int64_t>>(
@@ -386,7 +401,7 @@ FailureOr<ShapedType> inferTypeWithCustomFn(
   }
 
   return {RankedTensorType::get(
-      inferredSizes, rankedTypes[0].getElementType(),
+      inferredSizes, inferResultElementType(rankedTypes),
       boundsToEncoding(
           rankedTypes[0].getEncoding(),
           // Empty array as argument is an indicator to boundsToEncoding() that
