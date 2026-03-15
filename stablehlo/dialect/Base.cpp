@@ -385,8 +385,21 @@ FailureOr<ShapedType> inferTypeWithCustomFn(
     }
   }
 
+  // For mixed PF × EF operands, the result element type must be EF (the wider
+  // type), regardless of operand order. Without this, the first operand's
+  // element type would be blindly selected, producing incorrect lowering.
+  Type elementType = rankedTypes[0].getElementType();
+  using EFType = prime_ir::field::ExtensionFieldType;
+  for (size_t i = 1; i < rankedTypes.size(); ++i) {
+    if (!isa<EFType>(elementType) &&
+        isa<EFType>(rankedTypes[i].getElementType())) {
+      elementType = rankedTypes[i].getElementType();
+      break;
+    }
+  }
+
   return {RankedTensorType::get(
-      inferredSizes, rankedTypes[0].getElementType(),
+      inferredSizes, elementType,
       boundsToEncoding(
           rankedTypes[0].getEncoding(),
           // Empty array as argument is an indicator to boundsToEncoding() that
