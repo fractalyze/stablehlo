@@ -23,5 +23,6 @@ jobs:
           pin_file: third_party/prime_ir/workspace.bzl
           var_prefix: PRIME_IR
           github_token: ${{ secrets.BUMPER_GH_PAT }}
+          read_token: ${{ secrets.FRACTALYZE_REPOS_READ_TOKEN }}
           transitive_pins: |
             zk_dtypes|third_party/zk_dtypes/workspace.bzl|third_party/zk_dtypes/workspace.bzl|ZK_DTYPES
