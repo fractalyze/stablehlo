@@ -81,4 +81,19 @@ def VHLO_ComparisonDirectionV1 : VHLO_I32EnumAttr<"ComparisonDirectionV1", [
 def VHLO_ComparisonDirectionAttrV1
   : VHLO_EnumAttr<VHLO_ComparisonDirectionV1, "comparison_direction_v1", "0.0.1", "current">;
 
+//===----------------------------------------------------------------------===//
+// FftType
+//===----------------------------------------------------------------------===//
+
+def VHLO_FFT_TYPE_V1_FFT : I32EnumAttrCase<"FFT", 0>;
+def VHLO_FFT_TYPE_V1_IFFT : I32EnumAttrCase<"IFFT", 1>;
+
+def VHLO_FftTypeV1 : VHLO_I32EnumAttr<"FftTypeV1", [
+  VHLO_FFT_TYPE_V1_FFT,
+  VHLO_FFT_TYPE_V1_IFFT
+]> {}
+
+def VHLO_FftTypeAttrV1
+  : VHLO_EnumAttr<VHLO_FftTypeV1, "fft_type_v1", "0.0.1", "current">;
+
 #endif // STABLEHLO_DIALECT_VHLO_ENUMS_TD

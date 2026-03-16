@@ -1417,6 +1417,40 @@ def StableHLO_DynamicReshapeOp: StableHLO_ShapedInterfaceOp<"dynamic_reshape",
   let assemblyFormat = "operands attr-dict `:` functional-type(operands, results)";
 }
 
+def StableHLO_FftOp: StableHLO_Op<"fft", [NoMemoryEffect,
+    SameOperandsAndResultElementType,
+    SameOperandsAndResultShape]> {
+  let summary = "Fast Fourier Transform (NTT) operation";
+  let description = [{
+    Computes the Number Theoretic Transform (NTT) of the input tensor
+    along the last dimension. Supports both forward (FFT) and inverse
+    (IFFT) transforms on field-element tensors.
+
+    For a 1-D input of length n, computes the standard DFT/IDFT.
+    For a 2-D input of shape (w, n), computes w independent DFTs of
+    length n (batched FFT on the last dimension).
+
+    The `fft_length` attribute must equal the last dimension size and
+    must be a power of 2.
+
+    Example:
+    ```mlir
+    %result = stablehlo.fft %x, type = FFT, length = 1024
+        : tensor<1024x!pf_babybear_mont>
+    ```
+  }];
+  let arguments = (ins
+    HLO_FieldTensor:$operand,
+    StableHLO_FftTypeAttr:$fft_type,
+    ConfinedAttr<I64Attr, [IntNonNegative]>:$fft_length
+  );
+  let results = (outs HLO_FieldTensor:$result);
+  let assemblyFormat = [{
+    $operand `,` `type` `=` $fft_type `,` `length` `=` $fft_length
+      attr-dict `:` custom<SameOperandsAndResultType>(type($operand), type($result))
+  }];
+}
+
 def StableHLO_GatherOp: StableHLO_Op<"gather",
       [HLO_SpeculatableIfAllInputsStatic, NoMemoryEffect,
       InferTensorTypeWithReify /*gather_c22*/,

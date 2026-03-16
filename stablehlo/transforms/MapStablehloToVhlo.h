@@ -97,6 +97,7 @@ MAP_STABLEHLO_TO_VHLO(DynamicSliceOp, V1)
 MAP_STABLEHLO_TO_VHLO(DynamicUpdateSliceOp, V1)
 // TODO(chokobole): Uncomment this. Dependency: EinsumOpV1
 // MAP_STABLEHLO_TO_VHLO(EinsumOp, V1)
+MAP_STABLEHLO_TO_VHLO(FftOp, V1)
 MAP_STABLEHLO_TO_VHLO(GatherOp, V1)
 MAP_STABLEHLO_TO_VHLO(GetDimensionSizeOp, V1)
 MAP_STABLEHLO_TO_VHLO(GetTupleElementOp, V1)
