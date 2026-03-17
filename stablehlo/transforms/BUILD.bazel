@@ -61,6 +61,8 @@ cc_library(
     name = "passes",
     srcs = [
         "PassPipelines.cpp",
+        "PrimeIRToStablehlo.cpp",
+        "StablehloToPrimeIR.cpp",
         "VhloLegalizeToStablehlo.cpp",
         "VhloToVersion.cpp",
     ],
@@ -72,6 +74,8 @@ cc_library(
     deps = [
         ":passes_inc_gen",
         ":vhlo_to_version_patterns_inc_gen",
+        "//stablehlo/conversions/PrimeIRToStablehlo",
+        "//stablehlo/conversions/StablehloToPrimeIR",
         "//stablehlo/dialect:stablehlo_ops",
         "//stablehlo/dialect:stablehlo_ops_inc_gen",
         "//stablehlo/dialect:version",
@@ -86,5 +90,7 @@ cc_library(
         "@llvm-project//mlir:Support",
         "@llvm-project//mlir:TransformUtils",
         "@llvm-project//mlir:Transforms",
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
+        "@prime_ir//prime_ir/Dialect/Field/IR:Field",
     ],
 )

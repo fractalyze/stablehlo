@@ -33,3 +33,19 @@ def VhloToVersionPass : Pass<"vhlo-to-version"> {
   ];
   let dependentDialects = ["mlir::vhlo::VhloDialect"];
 }
+
+def StablehloToPrimeIRPass : Pass<"stablehlo-to-prime-ir"> {
+  let summary = "Convert field/EC-typed StableHLO ops to prime-ir dialect ops.";
+}
+
+def PrimeIRToStablehloPass : Pass<"prime-ir-to-stablehlo"> {
+  let summary = "Convert prime-ir ops back to StableHLO ops.";
+  let description = [{
+    Converts prime-ir field and EC operations back to StableHLO.
+    Specialized prime-ir ops are expanded:
+      field.double(x) → stablehlo.add(x, x)
+      field.square(x) → stablehlo.multiply(x, x)
+      field.inverse(x) → stablehlo.divide(1, x)
+      elliptic_curve.double(P) → stablehlo.add(P, P)
+  }];
+}

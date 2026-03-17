@@ -47,6 +47,11 @@ void populateVhloToVersionPatterns(RewritePatternSet *patterns,
 
 void createStablehloDeserializePipeline(OpPassManager &pm);
 
+/// Create a pipeline that canonicalizes field/EC-typed StableHLO ops via
+/// prime-ir:
+///   StableHLO (field/EC ops) → prime-ir → canonicalize → StableHLO
+void createStablehloCanonicalizePipeline(OpPassManager &pm);
+
 void registerPassPipelines();
 
 } // namespace stablehlo
