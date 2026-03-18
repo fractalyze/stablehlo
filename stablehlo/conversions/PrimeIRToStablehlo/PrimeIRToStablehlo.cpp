@@ -18,6 +18,7 @@ limitations under the License.
 #include "mlir/IR/PatternMatch.h"
 
 #include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveOps.h"
+#include "prime_ir/Dialect/Field/IR/FieldOperation.h"
 #include "prime_ir/Dialect/Field/IR/FieldOps.h"
 #include "stablehlo/dialect/StablehloOps.h"
 
@@ -110,12 +111,28 @@ struct ConvertFieldInverseBack
 
   LogicalResult matchAndRewrite(prime_ir::field::InverseOp op,
                                 PatternRewriter &rewriter) const override {
-    // Create field constant "1" via prime-ir, then convert to stablehlo.
-    auto fieldOne = rewriter.create<prime_ir::field::ConstantOp>(
-        op.getLoc(), op.getType(), uint64_t{1});
+    Type elemType = getElementTypeOrSelf(op.getType());
+    auto fieldOne = prime_ir::field::FieldOperation(uint64_t{1}, elemType);
+
+    // Build the constant "1" attribute in storage representation.
+    Attribute oneAttr;
+    if (auto pfType = dyn_cast<prime_ir::field::PrimeFieldType>(elemType)) {
+      APInt val = static_cast<APInt>(fieldOne);
+      oneAttr = DenseIntElementsAttr::get(
+          RankedTensorType::get({}, pfType.getStorageType()), {val});
+    } else if (auto efType =
+                   dyn_cast<prime_ir::field::ExtensionFieldType>(elemType)) {
+      SmallVector<APInt> coeffs = static_cast<SmallVector<APInt>>(fieldOne);
+      oneAttr = DenseIntElementsAttr::get(
+          RankedTensorType::get(efType.getAttrShape(),
+                                efType.getBasePrimeField().getStorageType()),
+          coeffs);
+    } else {
+      return failure();
+    }
+
     auto one = rewriter.create<ConstantOp>(op.getLoc(), op.getType(),
-                                           fieldOne.getValue());
-    rewriter.eraseOp(fieldOne);
+                                           cast<ElementsAttr>(oneAttr));
     rewriter.replaceOpWithNewOp<DivOp>(op, op.getType(), one, op.getInput());
     return success();
   }

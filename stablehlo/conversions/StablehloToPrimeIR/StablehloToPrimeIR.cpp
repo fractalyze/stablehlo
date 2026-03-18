@@ -81,7 +81,7 @@ struct ConvertFieldMul : public OpRewritePattern<MulOp> {
 
   LogicalResult matchAndRewrite(MulOp op,
                                 PatternRewriter &rewriter) const override {
-    if (!hasFieldElementType(op.getLhs()))
+    if (!hasFieldElementType(op.getLhs()) || !hasFieldElementType(op.getRhs()))
       return failure();
     rewriter.replaceOpWithNewOp<prime_ir::field::MulOp>(
         op, op.getType(), op.getLhs(), op.getRhs());

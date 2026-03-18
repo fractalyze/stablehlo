@@ -13,8 +13,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#ifndef STABLEHLO_CONVERSIONS_STABLEHLOTOPRIMEIIR_H_
-#define STABLEHLO_CONVERSIONS_STABLEHLOTOPRIMEIIR_H_
+#ifndef STABLEHLO_CONVERSIONS_STABLEHLOTOPRIMEIR_STABLEHLOTOPRIMEIR_H_
+#define STABLEHLO_CONVERSIONS_STABLEHLOTOPRIMEIR_STABLEHLOTOPRIMEIR_H_
 
 #include "mlir/IR/PatternMatch.h"
 
@@ -26,4 +26,4 @@ void populateStablehloToPrimeIRPatterns(RewritePatternSet &patterns);
 
 } // namespace mlir::stablehlo
 
-#endif // STABLEHLO_CONVERSIONS_STABLEHLOTOPRIMEIIR_H_
+#endif // STABLEHLO_CONVERSIONS_STABLEHLOTOPRIMEIR_STABLEHLOTOPRIMEIR_H_
