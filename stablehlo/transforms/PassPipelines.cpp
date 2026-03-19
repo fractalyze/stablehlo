@@ -32,10 +32,27 @@ void createStablehloDeserializePipeline(OpPassManager &pm) {
   pm.addPass(createVhloLegalizeToStablehloPass());
 }
 
+void createStablehloCanonicalizePipeline(OpPassManager &pm) {
+  // Step 1: Convert field/EC-typed StableHLO ops to prime-ir dialect ops.
+  pm.addPass(createStablehloToPrimeIRPass());
+
+  // Step 2: Run MLIR canonicalizer to pick up prime-ir's canonicalization
+  // patterns (strength reduction, algebraic identities, distributivity, etc.)
+  pm.addPass(createCanonicalizerPass());
+
+  // Step 3: Convert prime-ir ops back to StableHLO, expanding specialized ops
+  // (double, square, inverse) into StableHLO equivalents.
+  pm.addPass(createPrimeIRToStablehloPass());
+}
+
 void registerPassPipelines() {
   PassPipelineRegistration<>("stablehlo-deserialize",
                              "Run an example pipeline.",
                              createStablehloDeserializePipeline);
+  PassPipelineRegistration<>(
+      "stablehlo-canonicalize",
+      "Canonicalize field/EC-typed StableHLO ops via prime-ir dialect.",
+      createStablehloCanonicalizePipeline);
 }
 
 } // namespace mlir::stablehlo
