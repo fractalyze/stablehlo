@@ -1,4 +1,4 @@
-# Copyright 2025 The StableHLO(Fractalyze) Authors.
+# Copyright 2026 The StableHLO(Fractalyze) Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,11 +13,16 @@
 # limitations under the License.
 # ==============================================================================
 
-"""StableHLO dependencies."""
+"""StableHLO dependencies3."""
 
-load("//third_party/prime_ir:workspace.bzl", prime_ir = "repo")
+load("@llvm-raw//utils/bazel:configure.bzl", "llvm_configure")
+load("@prime_ir//bazel:prime_ir_deps.bzl", "prime_ir_deps")
+load("@zk_dtypes//bazel:zk_dtypes_deps.bzl", "zk_dtypes_deps")
 
-def stablehlo_deps():
-    """StableHLO dependencies."""
+def stablehlo_deps3():
+    """StableHLO dependencies3."""
 
-    prime_ir()
+    zk_dtypes_deps()
+    prime_ir_deps()
+
+    llvm_configure(name = "llvm-project")
