@@ -26,7 +26,10 @@ limitations under the License.
 #include "llvm/Support/raw_ostream.h"
 #include "mlir/IR/Builders.h"
 
+#include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveTypes.h"
 #include "prime_ir/Dialect/Field/IR/FieldOps.h"
+#include "prime_ir/Dialect/Field/IR/TowerFieldConfig.h"
+#include "prime_ir/Utils/AssemblyFormatUtils.h"
 
 #define DEBUG_TYPE "hlo-assembly"
 
@@ -132,8 +135,35 @@ ParseResult parseVariadicSameOperandsAndResultType(
 
 void printConstantOp(OpAsmPrinter &p, Operation *op, ElementsAttr value) {
   assert(op->getNumResults() == 1);
-  // If not all types are the same, use generic form.
-  if (value.getType() != op->getResultTypes().front()) {
+  Type resultType = op->getResultTypes().front();
+
+  if (value.getType() != resultType) {
+    // Field types store values as integer attrs, so types never match.
+    // Print clean format instead of generic form.
+    Type elementType = getElementTypeOrSelf(resultType);
+    if (isa<prime_ir::field::PrimeFieldType,
+            prime_ir::field::ExtensionFieldType,
+            prime_ir::field::BinaryFieldType>(elementType)) {
+      p.printOptionalAttrDict(op->getAttrs(), /*elidedAttrs=*/{"value"});
+      p << ' ';
+      Attribute stdValue = prime_ir::field::maybeToStandard(elementType, value);
+      p.printAttributeWithoutType(stdValue);
+      p << " : ";
+      p.printType(resultType);
+      return;
+    }
+    if (auto pointType = dyn_cast<prime_ir::elliptic_curve::PointTypeInterface>(
+            elementType)) {
+      p.printOptionalAttrDict(op->getAttrs(), /*elidedAttrs=*/{"value"});
+      p << ' ';
+      Type baseFieldType = pointType.getBaseFieldType();
+      Attribute stdValue =
+          prime_ir::field::maybeToStandard(baseFieldType, value);
+      p.printAttributeWithoutType(stdValue);
+      p << " : ";
+      p.printType(resultType);
+      return;
+    }
     p.printGenericOp(op, /*printOpName=*/false);
     return;
   }
@@ -141,6 +171,143 @@ void printConstantOp(OpAsmPrinter &p, Operation *op, ElementsAttr value) {
   p.printOptionalAttrDict(op->getAttrs(), /*elidedAttrs=*/{"value"});
   p << ' ';
   p.printStrippedAttrOrType(value);
+}
+
+// Unified parser for HLO constants with field or EC point element types.
+// Parses `dense<values> : type` once, then dispatches based on element type.
+// This avoids emitting errors from one fallback that prevent a later one from
+// succeeding.
+static ParseResult parseHloFieldOrECConstant(OpAsmParser &parser,
+                                             OperationState &result) {
+  using namespace prime_ir;
+
+  SmallVector<APInt> parsedInts;
+  Type parsedType;
+
+  auto getModulusCallback = [&](APInt &modulus) -> ParseResult {
+    auto elementType = getElementTypeOrSelf(parsedType);
+    if (auto pfType = dyn_cast<field::PrimeFieldType>(elementType)) {
+      modulus = pfType.getModulus().getValue();
+      return success();
+    }
+    if (auto bfType = dyn_cast<field::BinaryFieldType>(elementType)) {
+      unsigned bitWidth = bfType.getBitWidth();
+      modulus = APInt::getOneBitSet(bitWidth + 1, bitWidth);
+      return success();
+    }
+    if (auto efType = dyn_cast<field::ExtensionFieldType>(elementType)) {
+      modulus = efType.getBasePrimeField().getModulus().getValue();
+      return success();
+    }
+    if (auto pointType =
+            dyn_cast<elliptic_curve::PointTypeInterface>(elementType)) {
+      auto pfType = field::getBasePrimeField(pointType.getBaseFieldType());
+      modulus = pfType.getModulus().getValue();
+      return success();
+    }
+    return failure();
+  };
+
+  auto shapeCallback = [&](ArrayRef<int64_t> typeShape,
+                           ArrayRef<int64_t> parsedShape) -> ParseResult {
+    auto elementType = getElementTypeOrSelf(parsedType);
+
+    // Field types: delegate to field-specific shape validation.
+    if (auto efType = dyn_cast<field::ExtensionFieldType>(elementType)) {
+      // Use tower signature for structured trailing dimensions.
+      // e.g., ef<3x ef<2x pf>> → {3, 2}
+      auto sig = getTowerSignature(efType);
+      SmallVector<int64_t> expectedShape(typeShape);
+      for (unsigned d : sig)
+        expectedShape.push_back(static_cast<int64_t>(d));
+      if (expectedShape.size() != parsedShape.size() ||
+          !std::equal(expectedShape.begin(), expectedShape.end(),
+                      parsedShape.begin()))
+        return failure();
+      return success();
+    }
+    if (isa<field::PrimeFieldType, field::BinaryFieldType>(elementType)) {
+      if (typeShape.size() != parsedShape.size() ||
+          !std::equal(typeShape.begin(), typeShape.end(), parsedShape.begin()))
+        return failure();
+      return success();
+    }
+
+    // EC types: expected shape includes numCoords (and degree if EF base).
+    if (auto pointType =
+            dyn_cast<elliptic_curve::PointTypeInterface>(elementType)) {
+      SmallVector<int64_t> expectedShape(typeShape);
+      expectedShape.push_back(static_cast<int64_t>(pointType.getNumCoords()));
+      Type baseFieldType = pointType.getBaseFieldType();
+      if (auto efType = dyn_cast<field::ExtensionFieldType>(baseFieldType))
+        expectedShape.push_back(
+            static_cast<int64_t>(efType.getDegreeOverPrime()));
+      if (expectedShape.size() != parsedShape.size() ||
+          !std::equal(expectedShape.begin(), expectedShape.end(),
+                      parsedShape.begin()))
+        return failure();
+      return success();
+    }
+    return failure();
+  };
+
+  if (failed(parseModularIntegerList(parser, parsedInts, parsedType,
+                                     getModulusCallback, shapeCallback)))
+    return failure();
+
+  auto shapedType = cast<ShapedType>(parsedType);
+  auto elementType = getElementTypeOrSelf(parsedType);
+
+  // Field types.
+  if (auto pfType = dyn_cast<field::PrimeFieldType>(elementType)) {
+    auto denseAttr = DenseIntElementsAttr::get(
+        shapedType.clone(pfType.getStorageType()), parsedInts);
+    result.addAttribute("value", field::maybeToMontgomery(pfType, denseAttr));
+    result.addTypes(parsedType);
+    return success();
+  }
+  if (auto bfType = dyn_cast<field::BinaryFieldType>(elementType)) {
+    SmallVector<APInt> adjusted;
+    adjusted.reserve(parsedInts.size());
+    for (const APInt &val : parsedInts)
+      adjusted.push_back(val.zextOrTrunc(bfType.getBitWidth()));
+    auto denseAttr = DenseIntElementsAttr::get(
+        shapedType.clone(bfType.getStorageType()), adjusted);
+    result.addAttribute("value", denseAttr);
+    result.addTypes(parsedType);
+    return success();
+  }
+  if (auto efType = dyn_cast<field::ExtensionFieldType>(elementType)) {
+    auto pfType = efType.getBasePrimeField();
+    SmallVector<int64_t> attrShape(shapedType.getShape());
+    auto sig = getTowerSignature(efType);
+    for (unsigned d : sig)
+      attrShape.push_back(static_cast<int64_t>(d));
+    auto attrType = RankedTensorType::get(attrShape, pfType.getStorageType());
+    auto denseAttr = DenseIntElementsAttr::get(attrType, parsedInts);
+    result.addAttribute("value", denseAttr);
+    result.addTypes(parsedType);
+    return success();
+  }
+
+  // EC point types.
+  if (auto pointType =
+          dyn_cast<elliptic_curve::PointTypeInterface>(elementType)) {
+    Type baseFieldType = pointType.getBaseFieldType();
+    auto pfType = field::getBasePrimeField(baseFieldType);
+    SmallVector<int64_t> attrShape(shapedType.getShape());
+    attrShape.push_back(static_cast<int64_t>(pointType.getNumCoords()));
+    if (auto efType = dyn_cast<field::ExtensionFieldType>(baseFieldType))
+      attrShape.push_back(static_cast<int64_t>(efType.getDegreeOverPrime()));
+    auto attrType = RankedTensorType::get(attrShape, pfType.getStorageType());
+    auto denseAttr = DenseIntElementsAttr::get(attrType, parsedInts);
+    result.addAttribute("value",
+                        field::maybeToMontgomery(baseFieldType, denseAttr));
+    result.addTypes(parsedType);
+    return success();
+  }
+
+  return failure();
 }
 
 ParseResult parseConstantOp(OpAsmParser &parser, OperationState &result) {
@@ -196,7 +363,7 @@ ParseResult parseConstantOp(OpAsmParser &parser, OperationState &result) {
   // constant parsing logic.
   result.attributes.clear();
   parser.resetToken(startPtr);
-  return prime_ir::field::parseFieldConstant(parser, result);
+  return parseHloFieldOrECConstant(parser, result);
 }
 
 void printTupleOpType(OpAsmPrinter &p, Operation *, TypeRange operands,
