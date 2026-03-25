@@ -172,3 +172,26 @@ func.func @fold_negate_constant_ef() -> tensor<!EF2> {
   // CHECK: dense<[6, 5]>
   return %1 : tensor<!EF2>
 }
+
+// -----
+
+//===----------------------------------------------------------------------===//
+// Tensor field constant shape matching (inverse)
+//===----------------------------------------------------------------------===//
+
+!pf_bb = !field.pf<2013265921 : i32, true>
+
+// CHECK-LABEL: @divide_broadcast_field_constant
+func.func @divide_broadcast_field_constant(%arg0: tensor<4x!pf_bb>) -> tensor<4x!pf_bb> {
+  // Scalar field constant broadcast then divided — the crash pattern.
+  // ConvertFieldInverseBack must create the "1" constant matching the
+  // result shape, not scalar. Without the fix, stablehlo-canonicalize
+  // crashes: 'stablehlo.constant' op inferred type(s) 'tensor<i32>'
+  // incompatible with return type 'tensor<4x!pf>'.
+  // CHECK: stablehlo.divide
+  // CHECK: return
+  %0 = "stablehlo.constant"() <{value = dense<1> : tensor<i32>}> : () -> tensor<!pf_bb>
+  %1 = stablehlo.broadcast_in_dim %0, dims = [] : (tensor<!pf_bb>) -> tensor<4x!pf_bb>
+  %2 = stablehlo.divide %1, %arg0 : tensor<4x!pf_bb>
+  return %2 : tensor<4x!pf_bb>
+}
