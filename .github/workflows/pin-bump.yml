@@ -15,7 +15,7 @@ jobs:
         with:
           token: ${{ secrets.BUMPER_GH_PAT }}
 
-      - name: Bump prime-ir pin (+ sync zk_dtypes)
+      - name: Bump prime-ir pin
         uses: fractalyze/github-actions/pin-bump@main
         with:
           upstream_repo: prime-ir
@@ -23,5 +23,3 @@ jobs:
           pin_file: third_party/prime_ir/workspace.bzl
           var_prefix: PRIME_IR
           github_token: ${{ secrets.BUMPER_GH_PAT }}
-          transitive_pins: |
-            zk_dtypes|third_party/zk_dtypes/workspace.bzl|third_party/zk_dtypes/workspace.bzl|ZK_DTYPES
