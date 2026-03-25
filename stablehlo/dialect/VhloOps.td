@@ -257,7 +257,8 @@ def VHLO_FftOpV1 : VHLO_Op<"fft_v1", "0.0.1", "current"> {
   let arguments = (ins
     VHLO_AnyType:$operand,
     VHLO_AnyAttr:$fft_type,
-    VHLO_AnyAttr:$fft_length
+    VHLO_AnyAttr:$fft_length,
+    VHLO_AnyAttr:$generator
   );
   let results = (outs VHLO_AnyType:$result);
 }

@@ -592,6 +592,12 @@ func.func @ifft_2d(%x: tensor<1024x16x!pf_babybear_mont>) -> tensor<1024x16x!pf_
   func.return %0 : tensor<1024x16x!pf_babybear_mont>
 }
 
+// CHECK-LABEL: func @fft_with_generator
+func.func @fft_with_generator(%x: tensor<1024x!pf_babybear_mont>) -> tensor<1024x!pf_babybear_mont> {
+  %0 = stablehlo.fft %x, type = FFT, length = 1024, generator = 5 : tensor<1024x!pf_babybear_mont>
+  func.return %0 : tensor<1024x!pf_babybear_mont>
+}
+
 // -----
 
 // =============================================================================

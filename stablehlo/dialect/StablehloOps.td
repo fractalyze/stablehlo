@@ -1433,20 +1433,31 @@ def StableHLO_FftOp: StableHLO_Op<"fft", [NoMemoryEffect,
     The `fft_length` attribute must equal the last dimension size and
     must be a power of 2.
 
+    The optional `generator` attribute specifies the multiplicative subgroup
+    generator used to derive the NTT root of unity. The root is computed as
+    `gen^((p - 1) / fft_length) mod p`. Different proving systems use
+    different generators. When omitted, the canonical root from zk_dtypes is used.
+
     Example:
     ```mlir
     %result = stablehlo.fft %x, type = FFT, length = 1024
+        : tensor<1024x!pf_babybear_mont>
+
+    // With explicit generator
+    %result2 = stablehlo.fft %x, type = FFT, length = 1024, generator = 5
         : tensor<1024x!pf_babybear_mont>
     ```
   }];
   let arguments = (ins
     HLO_FieldTensor:$operand,
     StableHLO_FftTypeAttr:$fft_type,
-    ConfinedAttr<I64Attr, [IntNonNegative]>:$fft_length
+    ConfinedAttr<I64Attr, [IntNonNegative]>:$fft_length,
+    OptionalAttr<I64Attr>:$generator
   );
   let results = (outs HLO_FieldTensor:$result);
   let assemblyFormat = [{
     $operand `,` `type` `=` $fft_type `,` `length` `=` $fft_length
+      (`,` `generator` `=` $generator^)?
       attr-dict `:` custom<SameOperandsAndResultType>(type($operand), type($result))
   }];
 }
