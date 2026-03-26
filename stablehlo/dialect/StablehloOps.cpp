@@ -280,10 +280,13 @@ bool ConstantOp::isCompatibleReturnTypes(TypeRange l, TypeRange r) {
   Type lhsElementType = getElementTypeOrSelf(lhsTy);
   Type rhsElementType = getElementTypeOrSelf(rhsTy);
   // NOTE(chokobole): This allows us to create constants of prime field from
-  // integer constants.
+  // integer constants. After bytecode round-trip, splat DenseElementsAttr may
+  // lose its shape (tensor<8x1xi32> → tensor<i32>), so also accept a scalar
+  // integer attr for any-rank field result.
   if (isa<IntegerType>(lhsElementType) &&
       isa<prime_ir::field::PrimeFieldType>(rhsElementType)) {
-    return lhsTy.clone(rhsElementType) == rhsTy;
+    // Splat: scalar integer attr is compatible with any-shape field result.
+    return lhsTy.clone(rhsElementType) == rhsTy || lhsTy.getRank() == 0;
   }
   // NOTE: This allows us to create constants of extension field from
   // integer constants.
@@ -300,7 +303,9 @@ bool ConstantOp::isCompatibleReturnTypes(TypeRange l, TypeRange r) {
         expectedShape.push_back(static_cast<int64_t>(ef.getDegree()));
         current = ef.getBaseField();
       }
-      return lhsTy.getShape() == ArrayRef<int64_t>(expectedShape);
+      // Splat: scalar integer attr is compatible with any-shape EF result.
+      return lhsTy.getShape() == ArrayRef<int64_t>(expectedShape) ||
+             lhsTy.getRank() == 0;
     }
   }
   // NOTE: This allows us to create constants of EC point types from

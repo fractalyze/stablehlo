@@ -130,3 +130,42 @@ func.func @constant_with_g2_affine() -> tensor<!g2_affine> {
 }
 
 // CHECK: @constant_with_g2_affine
+
+// -----
+
+// Splat PF constant — scalar i32 attr with ranked field result.
+// After MLIR bytecode round-trip, splat DenseElementsAttr may lose its
+// shape (e.g. tensor<8x1xi32> → tensor<i32>). The verifier must accept
+// a scalar integer attr for any-rank prime field result.
+!pf_splat = !field.pf<2130706433 : i32, true>
+
+func.func @constant_pf_splat_1d() -> tensor<8x!pf_splat> {
+  %0 = "stablehlo.constant"() <{value = dense<33554430> : tensor<i32>}> : () -> tensor<8x!pf_splat>
+  return %0 : tensor<8x!pf_splat>
+}
+
+// CHECK: @constant_pf_splat_1d
+
+// -----
+
+!pf_splat = !field.pf<2130706433 : i32, true>
+
+func.func @constant_pf_splat_2d() -> tensor<8x1x!pf_splat> {
+  %0 = "stablehlo.constant"() <{value = dense<33554430> : tensor<i32>}> : () -> tensor<8x1x!pf_splat>
+  return %0 : tensor<8x1x!pf_splat>
+}
+
+// CHECK: @constant_pf_splat_2d
+
+// -----
+
+// Splat EF constant — scalar i32 attr with ranked extension field result.
+!PF = !field.pf<2013265921 : i32, true>
+!EF2 = !field.ef<2x!PF, 11:i32>
+
+func.func @constant_ef_splat_1d() -> tensor<4x!EF2> {
+  %0 = "stablehlo.constant"() <{value = dense<0> : tensor<i32>}> : () -> tensor<4x!EF2>
+  return %0 : tensor<4x!EF2>
+}
+
+// CHECK: @constant_ef_splat_1d
