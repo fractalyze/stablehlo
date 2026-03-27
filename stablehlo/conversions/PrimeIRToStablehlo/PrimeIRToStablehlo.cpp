@@ -114,17 +114,23 @@ struct ConvertFieldInverseBack
     Type elemType = getElementTypeOrSelf(op.getType());
     auto fieldOne = prime_ir::field::FieldOperation(uint64_t{1}, elemType);
 
-    // Build the constant "1" attribute in storage representation.
+    // Build the constant "1" attribute in storage representation,
+    // matching the result type's shape for correct splat broadcast.
+    auto resultShape = cast<ShapedType>(op.getType()).getShape();
     Attribute oneAttr;
     if (auto pfType = dyn_cast<prime_ir::field::PrimeFieldType>(elemType)) {
       APInt val = static_cast<APInt>(fieldOne);
       oneAttr = DenseIntElementsAttr::get(
-          RankedTensorType::get({}, pfType.getStorageType()), {val});
+          RankedTensorType::get(resultShape, pfType.getStorageType()), {val});
     } else if (auto efType =
                    dyn_cast<prime_ir::field::ExtensionFieldType>(elemType)) {
       SmallVector<APInt> coeffs = static_cast<SmallVector<APInt>>(fieldOne);
+      // Extension field attr shape = resultShape + towerDims
+      SmallVector<int64_t> attrShape(resultShape);
+      for (auto d : efType.getAttrShape())
+        attrShape.push_back(d);
       oneAttr = DenseIntElementsAttr::get(
-          RankedTensorType::get(efType.getAttrShape(),
+          RankedTensorType::get(attrShape,
                                 efType.getBasePrimeField().getStorageType()),
           coeffs);
     } else {
@@ -148,9 +154,13 @@ struct ConvertFieldConstantBack
     Attribute value = op.getValue();
     // field.constant may use IntegerAttr (scalar prime field) or
     // DenseIntElementsAttr (tensor/extension field). StableHLO constants
-    // require ElementsAttr, so wrap scalar IntegerAttr if needed.
+    // require ElementsAttr. Wrap IntegerAttr into DenseIntElementsAttr
+    // matching the result shape (handles splat tensor field.constants
+    // from prime-ir constant folding).
     if (auto intAttr = dyn_cast<IntegerAttr>(value)) {
-      auto tensorType = RankedTensorType::get(/*shape=*/{}, intAttr.getType());
+      auto resultType = cast<ShapedType>(op.getType());
+      auto tensorType =
+          RankedTensorType::get(resultType.getShape(), intAttr.getType());
       value = DenseIntElementsAttr::get(tensorType, {intAttr.getValue()});
     }
     auto elementsAttr = dyn_cast<ElementsAttr>(value);
