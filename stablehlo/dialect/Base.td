@@ -54,8 +54,8 @@ def HLO_Pred : TypeAlias<I1, "pred (AKA boolean or 1-bit integer)">;
 
 // TODO(hinsu): Use signed integers instead of signless integer which is being
 // used for legacy reasons.
-def HLO_SInt : SignlessIntOfWidths<[2, 4, 8, 16, 32, 64]>;
-def HLO_UInt : UnsignedIntOfWidths<[2, 4, 8, 16, 32, 64]>;
+def HLO_SInt : SignlessIntOfWidths<[2, 4, 8, 16, 32, 64, 128, 256]>;
+def HLO_UInt : UnsignedIntOfWidths<[2, 4, 8, 16, 32, 64, 128, 256]>;
 def HLO_Int : AnyTypeOf<[HLO_SInt, HLO_UInt]>;
 
 def HLO_Field : AnyTypeOf<[Field_PrimeFieldType, Field_ExtensionFieldType]>;

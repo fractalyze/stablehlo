@@ -764,3 +764,82 @@ func.func @divide_ef_pf(%a: tensor<4x!ef_bb4>, %b: tensor<4x!pf_bb>) -> tensor<4
   %0 = "stablehlo.divide"(%a, %b) : (tensor<4x!ef_bb4>, tensor<4x!pf_bb>) -> tensor<4x!ef_bb4>
   func.return %0 : tensor<4x!ef_bb4>
 }
+
+// -----
+
+// =============================================================================
+// i128 / i256 integer ops (extended widths for BN254 bit decomposition)
+// =============================================================================
+
+// CHECK-LABEL: func @and_i256
+func.func @and_i256(%arg0: tensor<4xi256>, %arg1: tensor<4xi256>) -> tensor<4xi256> {
+  %0 = stablehlo.and %arg0, %arg1 : tensor<4xi256>
+  func.return %0 : tensor<4xi256>
+}
+
+// CHECK-LABEL: func @or_i256
+func.func @or_i256(%arg0: tensor<4xi256>, %arg1: tensor<4xi256>) -> tensor<4xi256> {
+  %0 = stablehlo.or %arg0, %arg1 : tensor<4xi256>
+  func.return %0 : tensor<4xi256>
+}
+
+// CHECK-LABEL: func @xor_i256
+func.func @xor_i256(%arg0: tensor<4xi256>, %arg1: tensor<4xi256>) -> tensor<4xi256> {
+  %0 = stablehlo.xor %arg0, %arg1 : tensor<4xi256>
+  func.return %0 : tensor<4xi256>
+}
+
+// CHECK-LABEL: func @shift_left_i256
+func.func @shift_left_i256(%arg0: tensor<4xi256>, %arg1: tensor<4xi256>) -> tensor<4xi256> {
+  %0 = stablehlo.shift_left %arg0, %arg1 : tensor<4xi256>
+  func.return %0 : tensor<4xi256>
+}
+
+// CHECK-LABEL: func @shift_right_arithmetic_i256
+func.func @shift_right_arithmetic_i256(%arg0: tensor<4xi256>, %arg1: tensor<4xi256>) -> tensor<4xi256> {
+  %0 = stablehlo.shift_right_arithmetic %arg0, %arg1 : tensor<4xi256>
+  func.return %0 : tensor<4xi256>
+}
+
+// CHECK-LABEL: func @shift_right_logical_i256
+func.func @shift_right_logical_i256(%arg0: tensor<4xi256>, %arg1: tensor<4xi256>) -> tensor<4xi256> {
+  %0 = stablehlo.shift_right_logical %arg0, %arg1 : tensor<4xi256>
+  func.return %0 : tensor<4xi256>
+}
+
+// CHECK-LABEL: func @and_i128
+func.func @and_i128(%arg0: tensor<4xi128>, %arg1: tensor<4xi128>) -> tensor<4xi128> {
+  %0 = stablehlo.and %arg0, %arg1 : tensor<4xi128>
+  func.return %0 : tensor<4xi128>
+}
+
+// CHECK-LABEL: func @shift_right_logical_i128
+func.func @shift_right_logical_i128(%arg0: tensor<4xi128>, %arg1: tensor<4xi128>) -> tensor<4xi128> {
+  %0 = stablehlo.shift_right_logical %arg0, %arg1 : tensor<4xi128>
+  func.return %0 : tensor<4xi128>
+}
+
+// CHECK-LABEL: func @convert_i256_to_pf
+!pf_bn254 = !field.pf<21888242871839275222246405745257275088548364400416034343698204186575808495617:i256>
+func.func @convert_i256_to_pf(%arg0: tensor<4xi256>) -> tensor<4x!pf_bn254> {
+  %0 = stablehlo.convert %arg0 : (tensor<4xi256>) -> tensor<4x!pf_bn254>
+  func.return %0 : tensor<4x!pf_bn254>
+}
+
+// -----
+
+// CHECK-LABEL: func @convert_pf_to_i256
+!pf_bn254 = !field.pf<21888242871839275222246405745257275088548364400416034343698204186575808495617:i256>
+func.func @convert_pf_to_i256(%arg0: tensor<4x!pf_bn254>) -> tensor<4xi256> {
+  %0 = stablehlo.convert %arg0 : (tensor<4x!pf_bn254>) -> tensor<4xi256>
+  func.return %0 : tensor<4xi256>
+}
+
+// -----
+
+// CHECK-LABEL: func @power_pf_i256
+!pf_bn254 = !field.pf<21888242871839275222246405745257275088548364400416034343698204186575808495617:i256>
+func.func @power_pf_i256(%base: tensor<!pf_bn254>, %exp: tensor<i256>) -> tensor<!pf_bn254> {
+  %0 = "stablehlo.power"(%base, %exp) : (tensor<!pf_bn254>, tensor<i256>) -> tensor<!pf_bn254>
+  func.return %0 : tensor<!pf_bn254>
+}
