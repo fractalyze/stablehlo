@@ -514,22 +514,40 @@ def StableHLO_MulOp : StableHLO_BinaryElementwiseOp<"multiply",
   }];
 }
 
-def StableHLO_PowOp : StableHLO_BinaryElementwiseOp<"power",
-      [HLO_CompatibleOperandsAndResultType /* pow_c1 */],
-      HLO_IntOrFieldTensor /* pow_i1, pow_i2 */> {
+def StableHLO_PowOp : StableHLO_Op<"power",
+    [SameOperandsAndResultShape, NoMemoryEffect, Elementwise]> {
   let summary = "Power operation";
   let description = [{
     Performs element-wise exponentiation of `lhs` tensor by `rhs` tensor and
     produces a `result` tensor.
+
+    The base (`lhs`) and result must have the same type (integer or field).
+    The exponent (`rhs`) must be an integer type.
 
     See:
     https://github.com/openxla/stablehlo/blob/main/docs/spec.md#power
 
     Example:
     ```mlir
-    %result = stablehlo.power %lhs, %rhs : tensor<6xi64>
+    %result = stablehlo.power %lhs, %rhs
+        : (tensor<6xi64>, tensor<6xi64>) -> tensor<6xi64>
+
+    %result = stablehlo.power %base, %exp
+        : (tensor<!pf>, tensor<i32>) -> tensor<!pf>
     ```
   }];
+
+  let arguments = (ins
+    HLO_IntOrFieldTensor:$lhs,
+    HLO_IntTensor:$rhs
+  );
+  let results = (outs HLO_IntOrFieldTensor:$result);
+
+  let assemblyFormat = [{
+    $lhs `,` $rhs attr-dict `:` functional-type(operands, results)
+  }];
+
+  let hasVerifier = 1;
 }
 
 def StableHLO_RemOp : StableHLO_BinaryElementwiseOp<"remainder",

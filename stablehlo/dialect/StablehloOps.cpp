@@ -172,7 +172,6 @@ INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(NegOp)
 INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(NotOp)
 INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(OrOp)
 INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(PopulationCountOp)
-INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(PowOp)
 INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(RemOp)
 INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(ShiftLeftOp)
 INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(ShiftRightArithmeticOp)
@@ -216,6 +215,22 @@ LogicalResult AddOp::verify() {
 LogicalResult SubtractOp::verify() {
   return hlo::verifySubtractOp(getLoc(), getOperation(), getLhs().getType(),
                                getRhs().getType(), getResult().getType());
+}
+
+//===----------------------------------------------------------------------===//
+// PowOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult PowOp::verify() {
+  auto lhsType = cast<RankedTensorType>(getLhs().getType());
+  auto resultType = cast<RankedTensorType>(getResult().getType());
+
+  // Result type must match base (lhs) type.
+  if (lhsType != resultType)
+    return emitOpError("result type must match base (lhs) type");
+
+  // Exponent (rhs) must be integer (enforced by HLO_IntTensor in ODS).
+  return success();
 }
 
 //===----------------------------------------------------------------------===//
