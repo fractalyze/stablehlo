@@ -112,33 +112,27 @@ struct ConvertFieldInverseBack
   LogicalResult matchAndRewrite(prime_ir::field::InverseOp op,
                                 PatternRewriter &rewriter) const override {
     Type elemType = getElementTypeOrSelf(op.getType());
-    auto fieldOne = prime_ir::field::FieldOperation(uint64_t{1}, elemType);
 
-    // Build the constant "1" attribute in storage representation,
-    // matching the result type's shape for correct splat broadcast.
-    auto resultShape = cast<ShapedType>(op.getType()).getShape();
-    Attribute oneAttr;
-    if (auto pfType = dyn_cast<prime_ir::field::PrimeFieldType>(elemType)) {
-      APInt val = static_cast<APInt>(fieldOne);
-      oneAttr = DenseIntElementsAttr::get(
-          RankedTensorType::get(resultShape, pfType.getStorageType()), {val});
-    } else if (auto efType =
-                   dyn_cast<prime_ir::field::ExtensionFieldType>(elemType)) {
-      SmallVector<APInt> coeffs = static_cast<SmallVector<APInt>>(fieldOne);
-      // Extension field attr shape = resultShape + towerDims
-      SmallVector<int64_t> attrShape(resultShape);
-      for (auto d : efType.getAttrShape())
-        attrShape.push_back(d);
-      oneAttr = DenseIntElementsAttr::get(
-          RankedTensorType::get(attrShape,
-                                efType.getBasePrimeField().getStorageType()),
-          coeffs);
-    } else {
+    // Resolve the base prime field type — for PF it's the type itself,
+    // for EF we extract the underlying prime field.
+    prime_ir::field::PrimeFieldType pfType;
+    if (auto pf = dyn_cast<prime_ir::field::PrimeFieldType>(elemType))
+      pfType = pf;
+    else if (auto ef = dyn_cast<prime_ir::field::ExtensionFieldType>(elemType))
+      pfType = ef.getBasePrimeField();
+    else
       return failure();
-    }
 
-    auto one = rewriter.create<ConstantOp>(op.getLoc(), op.getType(),
-                                           cast<ElementsAttr>(oneAttr));
+    // Build a base-field "1" constant. DivOp supports mixed PF / EF
+    // operands (div_c1 compatibility), so a scalar PF "1" works for both.
+    auto fieldOne = prime_ir::field::FieldOperation(uint64_t{1}, pfType);
+    APInt val = static_cast<APInt>(fieldOne);
+    auto resultShape = cast<ShapedType>(op.getType()).getShape();
+    auto oneAttr = DenseIntElementsAttr::get(
+        RankedTensorType::get(resultShape, pfType.getStorageType()), {val});
+
+    auto oneType = RankedTensorType::get(resultShape, pfType);
+    auto one = rewriter.create<ConstantOp>(op.getLoc(), oneType, oneAttr);
     rewriter.replaceOpWithNewOp<DivOp>(op, op.getType(), one, op.getInput());
     return success();
   }
