@@ -195,3 +195,20 @@ func.func @divide_broadcast_field_constant(%arg0: tensor<4x!pf_bb>) -> tensor<4x
   %2 = stablehlo.divide %1, %arg0 : tensor<4x!pf_bb>
   return %2 : tensor<4x!pf_bb>
 }
+
+// -----
+
+!pf_bb = !field.pf<2013265921 : i32, true>
+!ef4 = !field.ef<4x!pf_bb, 11:i32>
+
+// CHECK-LABEL: @divide_broadcast_field_constant_ef
+func.func @divide_broadcast_field_constant_ef(%arg0: tensor<4x!ef4>) -> tensor<4x!ef4> {
+  // Exercises ConvertFieldInverseBack on tensor<4x!ef4>: the EF "1"
+  // coefficients [1,0,0,0] must be replicated for every tensor element.
+  // CHECK: stablehlo.divide
+  // CHECK: return
+  %0 = "stablehlo.constant"() <{value = dense<[1, 0, 0, 0]> : tensor<4xi32>}> : () -> tensor<!ef4>
+  %1 = stablehlo.broadcast_in_dim %0, dims = [] : (tensor<!ef4>) -> tensor<4x!ef4>
+  %2 = stablehlo.divide %1, %arg0 : tensor<4x!ef4>
+  return %2 : tensor<4x!ef4>
+}
