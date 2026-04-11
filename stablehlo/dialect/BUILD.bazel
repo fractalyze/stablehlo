@@ -28,7 +28,9 @@ cc_library(
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Support",
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
         "@prime_ir//prime_ir/Dialect/Field/IR:Field",
+        "@prime_ir//prime_ir/Utils:AssemblyFormatUtils",
     ],
 )
 
