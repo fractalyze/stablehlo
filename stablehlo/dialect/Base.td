@@ -115,6 +115,8 @@ def HLO_AnyPredOrIntTensor : TensorOf<[HLO_Pred, HLO_Int]>;
 
 def HLO_AnyTuple : NestedTupleOf<[HLO_AnyTensor, HLO_Token]>;
 
+def HLO_CustomCallValue : AnyTypeOf<[HLO_AnyTensor, HLO_Token, HLO_AnyTuple]>;
+
 //===----------------------------------------------------------------------===//
 // HLO combined type definitions.
 //===----------------------------------------------------------------------===//
