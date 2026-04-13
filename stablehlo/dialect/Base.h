@@ -236,6 +236,30 @@ class IsCommutative
     : public mlir::OpTrait::TraitBase<ConcreteType, IsCommutative> {};
 
 template <typename ConcreteType>
+class PairwiseSameOperandAndResultType
+    : public mlir::OpTrait::TraitBase<ConcreteType,
+                                      PairwiseSameOperandAndResultType> {
+public:
+  static LogicalResult verifyTrait(Operation *op) {
+    const int numOperands = op->getNumOperands();
+    const int numResults = op->getNumResults();
+    if (numOperands != numResults) {
+      return op->emitOpError()
+             << "requires the same number of operands and results";
+    }
+
+    for (int idx : llvm::seq<int>(0, numOperands)) {
+      if (op->getOperand(idx).getType() != op->getResult(idx).getType()) {
+        return op->emitOpError()
+               << "requires the same type for operand and result at index "
+               << idx;
+      }
+    }
+    return success();
+  }
+};
+
+template <typename ConcreteType>
 class CompatibleOperandsAndResultElementType
     : public mlir::OpTrait::TraitBase<ConcreteType,
                                       CompatibleOperandsAndResultElementType> {

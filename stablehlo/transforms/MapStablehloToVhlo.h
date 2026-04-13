@@ -112,8 +112,7 @@ MAP_STABLEHLO_TO_VHLO(MulOp, V1)
 MAP_STABLEHLO_TO_VHLO(MsmOp, V1)
 MAP_STABLEHLO_TO_VHLO(NegOp, V1)
 MAP_STABLEHLO_TO_VHLO(NotOp, V1)
-// TODO(chokobole): Uncomment this. Dependency: OptimizationBarrierOpV1
-// MAP_STABLEHLO_TO_VHLO(OptimizationBarrierOp, V1)
+MAP_STABLEHLO_TO_VHLO(OptimizationBarrierOp, V1)
 MAP_STABLEHLO_TO_VHLO(OrOp, V1)
 // TODO(chokobole): Uncomment this. Dependency: OutfeedOpV1
 // MAP_STABLEHLO_TO_VHLO(OutfeedOp, V1)

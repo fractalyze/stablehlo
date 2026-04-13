@@ -165,6 +165,13 @@ def HLO_BroadcastingElementwise : HLO_NativeOpTrait<"BroadcastingElementwise">;
 // default folders or canonicalization.
 def HLO_Commutative : HLO_NativeOpTrait<"IsCommutative">;
 
+// Op has pairwise operand and result type matching: the number of operands
+// must be equal to the number of results and the type of ith operand must
+// match the type of ith result.
+// TODO(b/195086460) Promote this to be an mlir trait and remove it here.
+def HLO_PairwiseSameOperandAndResultType :
+  HLO_NativeOpTrait<"PairwiseSameOperandAndResultType">;
+
 // Op has operand and result types compatible with each other according to
 // the rules implemented in isCompatibleForHloTypeInference, which account for
 // special properties dynamism, quantization and sparsity.
