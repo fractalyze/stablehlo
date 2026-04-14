@@ -1780,6 +1780,58 @@ func.func @reduce_window(%arg0: tensor<4x6xi32>) -> tensor<2x2xi32> {
 // -----
 
 // =============================================================================
+// OptimizationBarrierOp
+// =============================================================================
+
+// CHECK-LABEL: func @optimization_barrier
+func.func @optimization_barrier(%arg0: tensor<4xi32>, %arg1: tensor<4xi32>) -> (tensor<4xi32>, tensor<4xi32>) {
+  %0:2 = stablehlo.optimization_barrier %arg0, %arg1 : tensor<4xi32>, tensor<4xi32>
+  func.return %0#0, %0#1 : tensor<4xi32>, tensor<4xi32>
+}
+
+// -----
+
+// CHECK-LABEL: func @optimization_barrier_single
+func.func @optimization_barrier_single(%arg0: tensor<2xi64>) -> tensor<2xi64> {
+  %0 = stablehlo.optimization_barrier %arg0 : tensor<2xi64>
+  func.return %0 : tensor<2xi64>
+}
+
+// -----
+
+// CHECK-LABEL: func @optimization_barrier_empty
+func.func @optimization_barrier_empty() {
+  stablehlo.optimization_barrier()
+  func.return
+}
+
+// -----
+
+// CHECK-LABEL: func @optimization_barrier_token
+func.func @optimization_barrier_token(%arg0: !stablehlo.token) -> !stablehlo.token {
+  %0 = stablehlo.optimization_barrier %arg0 : !stablehlo.token
+  func.return %0 : !stablehlo.token
+}
+
+// -----
+
+func.func @optimization_barrier_type_mismatch(%arg0: tensor<4xi32>) -> tensor<4xi64> {
+  // expected-error@+1 {{requires the same type for operand and result at index 0}}
+  %0 = "stablehlo.optimization_barrier"(%arg0) : (tensor<4xi32>) -> tensor<4xi64>
+  func.return %0 : tensor<4xi64>
+}
+
+// -----
+
+func.func @optimization_barrier_count_mismatch(%arg0: tensor<4xi32>) -> (tensor<4xi32>, tensor<4xi32>) {
+  // expected-error@+1 {{requires the same number of operands and results}}
+  %0:2 = "stablehlo.optimization_barrier"(%arg0) : (tensor<4xi32>) -> (tensor<4xi32>, tensor<4xi32>)
+  func.return %0#0, %0#1 : tensor<4xi32>, tensor<4xi32>
+}
+
+// -----
+
+// =============================================================================
 // WhileOp
 // =============================================================================
 

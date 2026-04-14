@@ -166,6 +166,10 @@ inferMapOp(std::optional<Location> location, ValueRange inputs,
            ArrayRef<int64_t> dimensions, Region &computation,
            SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes);
 
+LogicalResult
+inferOptimizationBarrierOp(std::optional<Location> location, ValueRange operand,
+                           SmallVectorImpl<Type> &inferredReturnTypes);
+
 // TODO(chokobole): Do we need this? Dependency: interior_padding
 LogicalResult inferPadOp(std::optional<Location> location, Type operandType,
                          Type paddingValueType,

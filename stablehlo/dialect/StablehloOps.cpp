@@ -1110,6 +1110,18 @@ ReduceOp::reifyReturnTypeShapes(OpBuilder &builder, ValueRange operands,
 }
 
 //===----------------------------------------------------------------------===//
+// OptimizationBarrierOp
+//===----------------------------------------------------------------------===//
+LogicalResult OptimizationBarrierOp::inferReturnTypes(
+    MLIRContext *, std::optional<Location> location, ValueRange operands,
+    DictionaryAttr attributes, OpaqueProperties properties, RegionRange,
+    SmallVectorImpl<Type> &inferredReturnTypes) {
+  OptimizationBarrierOp::Adaptor adaptor(operands, attributes, properties);
+  return hlo::inferOptimizationBarrierOp(location, adaptor.getOperand(),
+                                         inferredReturnTypes);
+}
+
+//===----------------------------------------------------------------------===//
 // ReduceWindowOp
 //===----------------------------------------------------------------------===//
 

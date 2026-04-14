@@ -736,6 +736,15 @@ inferMapOp(std::optional<Location> location, ValueRange inputs,
   return success();
 }
 
+LogicalResult
+inferOptimizationBarrierOp(std::optional<Location>, ValueRange operand,
+                           SmallVectorImpl<Type> &inferredReturnTypes) {
+  // optimization_barrier_c1
+  for (auto inputArgType : operand.getTypes())
+    inferredReturnTypes.emplace_back(inputArgType);
+  return success();
+}
+
 LogicalResult inferPadOp(std::optional<Location> location, Type operandType,
                          Type paddingValueType,
                          ArrayRef<int64_t> edgePaddingLow,

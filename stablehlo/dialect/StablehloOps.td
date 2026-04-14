@@ -1921,6 +1921,42 @@ def StableHLO_ReturnOp : StableHLO_Op<"return", [Pure, Terminator]> {
   let assemblyFormat = "$results attr-dict (`:` type($results)^)?";
 }
 
+def StableHLO_OptimizationBarrierOp : StableHLO_Op<"optimization_barrier",
+      [Pure, HLO_PairwiseSameOperandAndResultType,
+      DeclareOpInterfaceMethods<InferTypeOpInterface> /*optimization_barrier_c1*/]> {
+  let summary = "OptimizationBarrier operation";
+  let description = [{
+    Ensures that the operations that produce the `operand` are executed before any
+    operations that depend on the `result` and prevents compiler transformations
+    from moving operations across the barrier. Other than that, the operation is
+    an identity, i.e. `result` = `operand`.
+
+    See:
+    https://github.com/openxla/stablehlo/blob/main/docs/spec.md#optimization_barrier
+
+    Example:
+    ```mlir
+    %result0, %result1 = stablehlo.optimization_barrier %operand0, %operand1 : tensor<f32>, tensor<f32>
+    ```
+  }];
+
+  let arguments = (ins Variadic<HLO_TensorOrToken>:$operand);
+
+  let results = (outs Variadic<HLO_TensorOrToken>:$result);
+
+  // Use `attr-dict` before `$operand` because Optional Group anchors in custom
+  // directives are currently not supported. Also since inputs are variadic,
+  // print `()` if no arguments are present, otherwise parsing is ambiguous:
+  //   stablehlo.optimization_barrier
+  //   %1 = stablehlo.add ...
+  //   ^ Without lookahead, ambiguous if this is an operand to the previous line
+  //     or the start of a separate operation, since newlines are ignored.
+  let assemblyFormat = [{
+    attr-dict ($operand^ `:` custom<PairwiseOpType>(type($operand), type($result))):(`(` `)`)?
+  }];
+}
+
+
 def StableHLO_RealDynamicSliceOp: StableHLO_ShapedInterfaceOp<
       "real_dynamic_slice",
       [ConditionallySpeculatable, NoMemoryEffect,
