@@ -81,8 +81,7 @@ MAP_STABLEHLO_TO_VHLO(ConvertOp, V1)
 MAP_STABLEHLO_TO_VHLO(CreateTokenOp, V1)
 // TODO(chokobole): Uncomment this. Dependency: CrossReplicaSumOpV1
 // MAP_STABLEHLO_TO_VHLO(CrossReplicaSumOp, V1)
-// TODO(chokobole): Uncomment this. Dependency: CustomCallOpV1
-// MAP_STABLEHLO_TO_VHLO(CustomCallOp, V1)
+MAP_STABLEHLO_TO_VHLO(CustomCallOp, V1)
 MAP_STABLEHLO_TO_VHLO(DivOp, V1)
 MAP_STABLEHLO_TO_VHLO(DotGeneralOp, V1)
 // TODO(chokobole): Uncomment this. Dependency: DotOpV1

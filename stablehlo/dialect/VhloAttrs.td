@@ -100,6 +100,19 @@ def VHLO_IntegerAttrV1 : VHLO_AttrDef<"IntegerV1", "0.0.1", "current"> {
   let hasCustomAssemblyFormat = 1;
 }
 
+// TODO(#740): OutputOperandAlias is not yet part of the StableHLO spec.
+// At the moment, it is used to represent buffer donation, and we're planning
+// to look into it as part of the work on speccing buffer donation in StableHLO.
+def VHLO_OutputOperandAliasAttrV1 : VHLO_AttrDef<"OutputOperandAliasV1", "0.0.1", "current"> {
+  let mnemonic = "output_operand_alias_v1";
+  let parameters = (ins
+    VHLO_Dims:$outputTupleIndices,
+    "int64_t":$operandIndex,
+    VHLO_Dims:$operandTupleIndices
+  );
+  let assemblyFormat = "`<` struct(params) `>`";
+}
+
 // Corresponds to StringConstant from the StableHLO spec.
 def VHLO_StringAttrV1 : VHLO_AttrDef<"StringV1", "0.0.1", "current"> {
   let mnemonic = "string_v1";

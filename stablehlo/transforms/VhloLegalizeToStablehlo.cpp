@@ -107,10 +107,9 @@ Attribute convertGeneric(Attribute vhloAttr,
   if (auto attr = dyn_cast<vhlo::ComparisonDirectionV1Attr>(vhloAttr)) {
     RETURN_CONVERTED_ENUM_ATTR(ComparisonDirection, V1);
   }
-  // TODO(chokobole): Uncomment this. Dependency: CustomCallApiVersionV1Attr
-  // if (auto attr = dyn_cast<vhlo::CustomCallApiVersionV1Attr>(vhloAttr)) {
-  //   RETURN_CONVERTED_ENUM_ATTR(CustomCallApiVersion, V1);
-  // }
+  if (auto attr = dyn_cast<vhlo::CustomCallApiVersionV1Attr>(vhloAttr)) {
+    RETURN_CONVERTED_ENUM_ATTR(CustomCallApiVersion, V1);
+  }
   if (auto attr = dyn_cast<vhlo::DictionaryV1Attr>(vhloAttr)) {
     SmallVector<NamedAttribute> vhloAttrs;
     for (auto namedAttr : attr.getValue()) {
@@ -132,7 +131,11 @@ Attribute convertGeneric(Attribute vhloAttr,
       return {};
     return IntegerAttr::get(builtinIntegerType, attr.getValue());
   }
-  // TODO(chokobole): Implement this. Dependency: OutputOperandAliasV1Attr
+  if (auto attr = dyn_cast<vhlo::OutputOperandAliasV1Attr>(vhloAttr)) {
+    return stablehlo::OutputOperandAliasAttr::get(
+        attr.getContext(), attr.getOutputTupleIndices(), attr.getOperandIndex(),
+        attr.getOperandTupleIndices());
+  }
   if (auto attr = dyn_cast<vhlo::StringV1Attr>(vhloAttr)) {
     return StringAttr::get(attr.getContext(), attr.getValue());
   }
@@ -217,6 +220,22 @@ Attribute convertSymbol(Attribute vhloAttr,
   if (!stablehloStringAttr)
     return {};
   return FlatSymbolRefAttr::get(stablehloStringAttr);
+}
+
+Attribute
+convertCustomCallCalledComputations(Attribute vhloAttr,
+                                    const TypeConverter *typeConverter) {
+  if (auto vhloArrayAttr = dyn_cast<vhlo::ArrayV1Attr>(vhloAttr)) {
+    SmallVector<Attribute> stablehloAttrs;
+    for (auto vhloAttr : vhloArrayAttr.getValue()) {
+      auto stablehloAttr = convertSymbol(vhloAttr, typeConverter);
+      if (!stablehloAttr)
+        return {};
+      stablehloAttrs.push_back(stablehloAttr);
+    }
+    return ArrayAttr::get(vhloAttr.getContext(), stablehloAttrs);
+  }
+  return {};
 }
 
 template <typename OpType>
@@ -390,8 +409,15 @@ SpecialResult convertSpecial(const OpConversionPattern<VhloOpTy> &pattern,
   // TODO(chokobole): Implement this. Dependency: AllGatherOpV2, AllReduceOpV2,
   // AllToAllOpV2, CollectivePermuteOpV1, ReduceScatterOpV1,
   // CollectiveBroadcastOpV1
-  // TODO(chokobole): Implement this. Dependency: CustomCallOpV1
   // TODO(chokobole): Implement this. Dependency: CompositeOpV1
+  if constexpr (std::is_same<VhloOpTy, vhlo::CustomCallOpV1>::value) {
+    if (vhloName == "called_computations") {
+      stablehloAttr = convertCustomCallCalledComputations(
+          vhloAttr, pattern.getTypeConverter());
+      if (!stablehloAttr)
+        return specialFailure();
+    }
+  }
   if constexpr (std::is_same<VhloOpTy, vhlo::CallOpV1>::value) {
     if (vhloName == "callee") {
       stablehloAttr = convertFuncCallee(vhloAttr, pattern.getTypeConverter());
@@ -486,10 +512,22 @@ bool isEmptyArray(Attribute vhloAttr) {
   return attr && attr.getValue().empty();
 }
 
+bool isEmptyDictionary(Attribute vhloAttr) {
+  auto attr = dyn_cast_or_null<vhlo::DictionaryV1Attr>(vhloAttr);
+  return attr && attr.getValue().empty();
+}
+
+bool isEmptyString(Attribute vhloAttr) {
+  auto attr = dyn_cast_or_null<vhlo::StringV1Attr>(vhloAttr);
+  return attr && attr.getValue().empty();
+}
+
 bool isEmptyTensor(Attribute vhloAttr) {
   auto attr = dyn_cast_or_null<vhlo::TensorV1Attr>(vhloAttr);
   return attr && attr.getData().empty();
 }
+
+bool isEnum(Attribute vhloAttr, Attribute value) { return vhloAttr == value; }
 
 bool isInteger(Attribute vhloAttr, int64_t value) {
   auto attr = dyn_cast_or_null<vhlo::IntegerV1Attr>(vhloAttr);
@@ -529,7 +567,27 @@ LogicalResult removeDefaults(const OpConversionPattern<VhloOpTy> &pattern,
   // TODO(chokobole): Implement this. Dependency: AllToAllOpV2,
   //   CollectivePermuteOpV1, CollectiveBroadcastOpV1, ChannelHandleAttr
   // TODO(chokobole): Implement this. Dependency: CompositeOpV1
-  // TODO(chokobole): Implement this. Dependency: CustomCallOpV1
+  if constexpr (std::is_same<VhloOpTy, vhlo::CustomCallOpV1>::value) {
+    if (isBoolean(vhloOp.getHasSideEffectAttr(), false))
+      eraseAttrs(vhloAttrs, "has_side_effect");
+    if (isEmptyString(vhloOp.getBackendConfigAttr()) ||
+        isEmptyDictionary(vhloOp.getBackendConfigAttr()))
+      eraseAttrs(vhloAttrs, "backend_config");
+    if (isEnum(vhloOp.getApiVersionAttr(),
+               vhlo::CustomCallApiVersionV1Attr::get(
+                   pattern.getContext(),
+                   vhlo::CustomCallApiVersionV1::API_VERSION_ORIGINAL)))
+      eraseAttrs(vhloAttrs, "api_version");
+    if (isEmptyArray(vhloOp.getCalledComputations()))
+      eraseAttrs(vhloAttrs, "called_computations");
+    if (isEmptyArray(vhloOp.getOperandLayouts()) &&
+        isEmptyArray(vhloOp.getResultLayouts())) {
+      eraseAttrs(vhloAttrs, "operand_layouts");
+      eraseAttrs(vhloAttrs, "result_layouts");
+    }
+    if (isEmptyArray(vhloOp.getOutputOperandAliases()))
+      eraseAttrs(vhloAttrs, "output_operand_aliases");
+  }
   if constexpr (std::is_same<VhloOpTy,
                              vhlo::DynamicBroadcastInDimOpV1>::value) {
     if (isEmptyTensor(vhloOp.getKnownExpandingDimensionsAttr()))
