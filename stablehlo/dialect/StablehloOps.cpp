@@ -23,6 +23,7 @@ limitations under the License.
 
 #include <algorithm>
 #include <cstdint>
+#include <numeric>
 #include <utility>
 
 #include "llvm/ADT/APInt.h"
@@ -361,6 +362,201 @@ LogicalResult CreateTokenOp::inferReturnTypes(
     SmallVectorImpl<Type> &inferredReturnTypes) {
   return hlo::inferCreateTokenOp(getStablehloDialect(context), location,
                                  inferredReturnTypes);
+}
+
+//===----------------------------------------------------------------------===//
+// CustomCallOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult CustomCallOp::verify() {
+  // If both operand and result layout attributes are not specified then nothing
+  // to verify.
+  if (getOperandLayouts().has_value() || getResultLayouts().has_value()) {
+    // Layout constraints for either both operands & results or none should be
+    // specified.
+    if (getOperandLayouts().has_value() != getResultLayouts().has_value())
+      return emitOpError() << "Layout attributes should be specified for "
+                              "either both operands and results or none.";
+
+    // Helper function to verify types and the corresponding layouts.
+    auto verifyTypesAndLayouts =
+        [this](TypeRange types, mlir::ArrayAttr layouts,
+               const std::string &valueName) -> LogicalResult {
+      if (types.size() != layouts.size())
+        return emitOpError()
+               << "Number of " << valueName << "s must match the number of "
+               << valueName << " layouts, " << types.size()
+               << " != " << layouts.size();
+
+      for (const auto &indexedTypeAndLayout :
+           llvm::enumerate(llvm::zip(types, layouts))) {
+        // Get index for more descriptive error message.
+        auto index = indexedTypeAndLayout.index();
+
+        auto type = std::get<0>(indexedTypeAndLayout.value());
+        auto layout = cast<DenseIntElementsAttr>(
+            std::get<1>(indexedTypeAndLayout.value()));
+
+        if (isa<TupleType>(type))
+          return emitOpError() << "Tuple types are not fully supported with "
+                                  "layout constraints yet";
+        auto shapedType = dyn_cast<ShapedType>(type);
+
+        // For non-tensor types such as !stablehlo.token, the layout should be
+        // empty.
+        if (!shapedType) {
+          if (layout.empty())
+            continue;
+          return emitOpError()
+                 << "Only tensor types can have non-empty layout: " << valueName
+                 << " #" << index << " of type " << type << " has layout "
+                 << layout;
+        }
+
+        // For unranked tensors, we cannot verify the compatibility with layout
+        // any further.
+        if (!shapedType.hasRank())
+          continue;
+
+        // Layout must be a permutation of [0, N) where N is the rank of the
+        // tensor type.
+        std::vector<int64_t> range(shapedType.getRank());
+        std::iota(range.begin(), range.end(), 0);
+        if (shapedType.getRank() != layout.size() ||
+            !std::is_permutation(range.begin(), range.end(), layout.begin()))
+          return emitOpError()
+                 << "incorrect layout " << layout << " for type " << type
+                 << ", layout must be a permutation of [0, "
+                 << shapedType.getRank() << ")";
+      }
+      return success();
+    };
+
+    // At this point both `operand_layouts` and `result_layouts` are defined.
+    ArrayAttr operandLayouts = this->getOperandLayouts().value();
+    ArrayAttr resultLayouts = this->getResultLayouts().value();
+
+    // Full support for layouts for arbitrary nesting of tuples is not
+    // supported yet.
+    //
+    // If result does not have any tuples, then i-th element of `result_layouts`
+    // specifies the layout constraints on i-th result.
+    //
+    // For the common case of a single tuple result packing non-tuple values,
+    // the i-th element of `result_layouts` specifies layout for i-th element of
+    // the result tuple.
+    TypeRange resultTypes;
+    if (getNumResults() == 1 && isa<TupleType>(getResult(0).getType()))
+      resultTypes = cast<TupleType>(getResult(0).getType()).getTypes();
+    else
+      resultTypes = getResultTypes();
+
+    // Verify that operands and operand layouts match.
+    if (failed(verifyTypesAndLayouts(getOperandTypes(), operandLayouts,
+                                     "operand")))
+      return failure();
+
+    // Verify that results and result layouts match.
+    if (failed(verifyTypesAndLayouts(resultTypes, resultLayouts, "result")))
+      return failure();
+  }
+
+  // Check output_operand_aliases
+
+  auto aliasArrayAttr = getOutputOperandAliases();
+  for (auto attr : aliasArrayAttr) {
+    auto alias = cast<OutputOperandAliasAttr>(attr);
+    auto outputTupleIndices = alias.getOutputTupleIndices();
+    auto operandIndex = alias.getOperandIndex();
+    auto operandTupleIndices = alias.getOperandTupleIndices();
+
+    if (operandIndex < 0 ||
+        operandIndex >= static_cast<int64_t>(getInputs().size()))
+      return emitOpError()
+             << "expects operandIndex in the output_operand_alias attribute "
+                "to be in range [0, "
+             << getInputs().size() << "); got: " << operandIndex << ".";
+
+    Type operandPart = getOperand(operandIndex).getType();
+    for (auto i : operandTupleIndices) {
+      if (!isa<TupleType>(operandPart) ||
+          i >= static_cast<int64_t>(cast<TupleType>(operandPart).size()) ||
+          i < 0)
+        return emitOpError()
+               << "operand_tuple_indices in the output_operand_alias "
+                  "attribute out of bounds";
+      operandPart = cast<TupleType>(operandPart).getType(i);
+    }
+    Type outputPart = getNumResults() > 1
+                          ? TupleType::get(getContext(), getResultTypes())
+                          : getResult(0).getType();
+    for (auto i : outputTupleIndices) {
+      if (!isa<TupleType>(outputPart) ||
+          i >= static_cast<int64_t>(cast<TupleType>(outputPart).size()) ||
+          i < 0)
+        return emitOpError()
+               << "output_tuple_indices in the output_operand_alias "
+                  "attribute out of bounds";
+      outputPart = cast<TupleType>(outputPart).getType(i);
+    }
+    if (operandPart != outputPart)
+      return emitOpError()
+             << "shapes mismatch in the output_operand_alias attribute: "
+             << "operand part has type " << operandPart
+             << " and output part has type " << outputPart;
+  }
+  if (auto backendConfig = getBackendConfig()) {
+    if (getApiVersion() == CustomCallApiVersion::API_VERSION_TYPED_FFI) {
+      if (!isa<mlir::DictionaryAttr>(*backendConfig))
+        return emitOpError() << "backend_config for api_version "
+                             << stringifyCustomCallApiVersion(getApiVersion())
+                             << " must be a dictionary attribute.";
+    } else {
+      if (!isa<mlir::StringAttr>(*backendConfig))
+        return emitOpError() << "backend_config for api_version "
+                             << stringifyCustomCallApiVersion(getApiVersion())
+                             << " must be a string attribute.";
+    }
+  }
+
+  return success();
+}
+
+void CustomCallOp::getEffects(
+    SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
+        &effects) {
+  // CustomCall has "all possible effects" unless the has_side_effect is present
+  // and set to false.
+  auto hasSideEffect = getHasSideEffectAttr();
+  if (hasSideEffect && !hasSideEffect.getValue())
+    return;
+  effects.emplace_back(MemoryEffects::Allocate::get());
+  effects.emplace_back(MemoryEffects::Free::get());
+  effects.emplace_back(MemoryEffects::Write::get());
+  effects.emplace_back(MemoryEffects::Read::get());
+}
+
+mlir::Attribute CustomCallOp::getBackendConfigOrDefault() {
+  auto backendConfig = getBackendConfig();
+  if (backendConfig.has_value())
+    return backendConfig.value();
+
+  if (getApiVersion() ==
+      mlir::stablehlo::CustomCallApiVersion::API_VERSION_TYPED_FFI)
+    return DictionaryAttr::get(getContext());
+
+  return StringAttr::get(getContext(), "");
+}
+
+// Returns if the backend config is unset, or if empty dict / string attribute.
+bool CustomCallOp::hasEmptyBackendConfig() {
+  if (!getBackendConfig().has_value())
+    return true;
+  Attribute backendConfig = getBackendConfigOrDefault();
+  if (auto strAttr = dyn_cast<StringAttr>(backendConfig)) {
+    return strAttr.empty();
+  }
+  return cast<DictionaryAttr>(backendConfig).empty();
 }
 
 //===----------------------------------------------------------------------===//
@@ -1726,6 +1922,7 @@ ParseResult WhileOp::parse(OpAsmParser &parser, OperationState &result) {
 
 } // namespace mlir::stablehlo
 
+using mlir::hlo::parseCustomCallTarget;
 using mlir::hlo::parsePairwiseOpType;
 using mlir::hlo::parseSameOperandsAndResultType;
 using mlir::hlo::parseSelectOpType;
@@ -1733,6 +1930,7 @@ using mlir::hlo::parseSliceRanges;
 using mlir::hlo::parseTupleOpType;
 using mlir::hlo::parseVariadicOperandWithAttribute;
 using mlir::hlo::parseVariadicSameOperandsAndResultType;
+using mlir::hlo::printCustomCallTarget;
 using mlir::hlo::printPairwiseOpType;
 using mlir::hlo::printSameOperandsAndResultType;
 using mlir::hlo::printSelectOpType;

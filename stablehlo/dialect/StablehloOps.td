@@ -1312,6 +1312,66 @@ def StableHLO_ConcatenateOp : StableHLO_ShapedInterfaceOp<"concatenate",
   }];
 }
 
+def StableHLO_CustomCallOp: StableHLO_Op<"custom_call",
+    [DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
+  let summary = "CustomCall operation";
+  let description = [{
+    Encapsulates an implementation-defined operation `call_target_name` that
+    takes `inputs` and `called_computations` and produces `results`.
+
+    Depending on the API version there are two ways to pass extra bits of static
+    information to the external function:
+    1. Use `API_VERSION_TYPED_FFI` which allows passing a dictionary attribute.
+    2. Use a previous API version with a StringAttr to encode backend config.
+
+    See:
+    https://github.com/openxla/stablehlo/blob/main/docs/spec.md#custom_call
+
+    Example:
+    ```mlir
+    %results = stablehlo.custom_call @foo(%input0) {
+      backend_config = {bar = 42 : i32},
+      api_version = 4 : i32,
+      called_computations = [@foo]
+    } : (tensor<f64>) -> tensor<f64>
+    ```
+  }];
+
+  let arguments = (ins
+    Variadic<HLO_CustomCallValue>:$inputs,
+    StrAttr:$call_target_name,
+    DefaultValuedOptionalAttr<BoolAttr, "false">:$has_side_effect,
+    OptionalAttr<AnyAttrOf<[StrAttr, DictionaryAttr]>>:$backend_config,
+    // TODO(b/189822916): Remove this field when all clients are migrated to
+    // the status-returning API.
+    DefaultValuedOptionalAttr<
+        StableHLO_CustomCallApiVersionAttr,
+        "::mlir::stablehlo::CustomCallApiVersion::API_VERSION_ORIGINAL">:
+        $api_version,
+    DefaultValuedOptionalAttr<StableHLO_FlatSymbolRefArrayAttr, "{}">:$called_computations,
+    OptionalAttr<StableHLO_ArrayOfLayoutAttr>:$operand_layouts,
+    OptionalAttr<StableHLO_ArrayOfLayoutAttr>:$result_layouts,
+    DefaultValuedOptionalAttr<
+        TypedArrayAttrBase<
+            StableHLO_OutputOperandAlias,
+            "Aliasing attribute for outputs and operands of CustomCall">,
+        "{}">:$output_operand_aliases
+  );
+
+  let results = (outs Variadic<HLO_CustomCallValue>);
+  let hasVerifier = 1;
+
+  let assemblyFormat = [{
+    custom<CustomCallTarget>($call_target_name) `(` $inputs `)`
+      attr-dict `:` functional-type(operands, results)
+  }];
+
+  let extraClassDeclaration = commonClassDeclaration # [{
+    mlir::Attribute getBackendConfigOrDefault();
+    bool hasEmptyBackendConfig();
+  }];
+}
+
 def StableHLO_GetDimensionSizeOp: StableHLO_Op<"get_dimension_size",
       [Pure, InferTensorType]> {
   let summary = "GetDimensionSize operation";
@@ -1339,7 +1399,6 @@ def StableHLO_GetDimensionSizeOp: StableHLO_Op<"get_dimension_size",
     $operand `,` `dim` `=` $dimension attr-dict `:` functional-type(operands, results)
   }];
 }
-
 
 def StableHLO_MapOp: StableHLO_ShapedInterfaceOp<"map",
       [HLO_RecursivelySpeculatableIfAllInputsStatic, RecursiveMemoryEffects,
