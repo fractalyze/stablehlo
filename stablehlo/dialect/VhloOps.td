@@ -198,6 +198,21 @@ def VHLO_CreateTokenOpV1 : VHLO_Op<"create_token_v1", "0.0.1", "current"> {
   let results = (outs VHLO_AnyType:$output);
 }
 
+def VHLO_CustomCallOpV1 : VHLO_Op<"custom_call_v1", "0.0.1", "current"> {
+  let arguments = (ins
+    Variadic<VHLO_AnyType>:$inputs,
+    VHLO_AnyAttr:$call_target_name,
+    VHLO_AnyAttr:$has_side_effect,
+    VHLO_AnyAttr:$backend_config,
+    VHLO_AnyAttr:$api_version,
+    VHLO_AnyAttr:$called_computations,
+    VHLO_AnyAttr:$operand_layouts,
+    VHLO_AnyAttr:$result_layouts,
+    VHLO_AnyAttr:$output_operand_aliases
+  );
+  let results = (outs Variadic<VHLO_AnyType>);
+}
+
 def VHLO_DivOpV1 : VHLO_Op<"divide_v1", "0.0.1", "current"> {
   let arguments = (ins VHLO_AnyType:$lhs, VHLO_AnyType:$rhs);
   let results = (outs VHLO_AnyType:$result);

@@ -827,6 +827,14 @@ ParseResult parseDimSizes(AsmParser &parser, SmallVector<int64_t> &dimSizes) {
   });
 }
 
+void printCustomCallTarget(AsmPrinter &p, Operation *, StringAttr target) {
+  p.printSymbolName(target.getValue());
+}
+
+ParseResult parseCustomCallTarget(AsmParser &parser, StringAttr &target) {
+  return parser.parseSymbolName(target);
+}
+
 void printTypeExtensions(BoundedAttrInterface attr, DialectAsmPrinter &os) {
   os << "bounds<";
   llvm::interleaveComma(attr.getBounds(), os,

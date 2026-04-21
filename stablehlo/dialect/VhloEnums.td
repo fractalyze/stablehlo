@@ -82,6 +82,27 @@ def VHLO_ComparisonDirectionAttrV1
   : VHLO_EnumAttr<VHLO_ComparisonDirectionV1, "comparison_direction_v1", "0.0.1", "current">;
 
 //===----------------------------------------------------------------------===//
+// CustomCallApiVersion
+//===----------------------------------------------------------------------===//
+
+def VHLO_CUSTOM_CALL_API_VERSION_V1_UNSPECIFIED : I32EnumAttrCase<"API_VERSION_UNSPECIFIED", 0>;
+def VHLO_CUSTOM_CALL_API_VERSION_V1_ORIGINAL : I32EnumAttrCase<"API_VERSION_ORIGINAL", 1>;
+def VHLO_CUSTOM_CALL_API_VERSION_V1_STATUS_RETURNING : I32EnumAttrCase<"API_VERSION_STATUS_RETURNING", 2>;
+def VHLO_CUSTOM_CALL_API_VERSION_V1_STATUS_RETURNING_UNIFIED : I32EnumAttrCase<"API_VERSION_STATUS_RETURNING_UNIFIED", 3>;
+def VHLO_CUSTOM_CALL_API_VERSION_V1_TYPED_FFI : I32EnumAttrCase<"API_VERSION_TYPED_FFI", 4>;
+
+def VHLO_CustomCallApiVersionV1 : VHLO_I32EnumAttr<"CustomCallApiVersionV1", [
+  VHLO_CUSTOM_CALL_API_VERSION_V1_UNSPECIFIED,
+  VHLO_CUSTOM_CALL_API_VERSION_V1_ORIGINAL,
+  VHLO_CUSTOM_CALL_API_VERSION_V1_STATUS_RETURNING,
+  VHLO_CUSTOM_CALL_API_VERSION_V1_STATUS_RETURNING_UNIFIED,
+  VHLO_CUSTOM_CALL_API_VERSION_V1_TYPED_FFI
+]> {}
+
+def VHLO_CustomCallApiVersionAttrV1
+  : VHLO_EnumAttr<VHLO_CustomCallApiVersionV1, "custom_call_api_version_v1", "0.0.1", "current">;
+
+//===----------------------------------------------------------------------===//
 // FftType
 //===----------------------------------------------------------------------===//
 
