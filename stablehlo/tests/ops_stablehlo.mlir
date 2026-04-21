@@ -1566,6 +1566,244 @@ func.func @gather_c5(%operand: tensor<2x4x9xi32>, %start_indices: tensor<1x5x2xi
 
 // -----
 
+// CHECK: func @custom_call_multiple_inputs_outputs
+func.func @custom_call_multiple_inputs_outputs(%x: tensor<2xi32>, %token: !stablehlo.token) -> tensor<2xi32> {
+  %0:3 = "stablehlo.custom_call"(%x, %token) {backend_config="", call_target_name = "foo", has_side_effect = false} : (tensor<2xi32>, !stablehlo.token) -> (tensor<2xi32>, tensor<2xi32>, !stablehlo.token)
+  %1 = "stablehlo.add"(%0#0, %0#1) : (tensor<2xi32>, tensor<2xi32>) -> tensor<2xi32>
+  func.return %1 : tensor<2xi32>
+}
+
+// -----
+
+// CHECK: func @custom_call_multiple_inputs_outputs_with_layout
+func.func @custom_call_multiple_inputs_outputs_with_layout(%x: tensor<2xi32>, %token: !stablehlo.token) -> tensor<i32> {
+  %0:3 = "stablehlo.custom_call"(%x, %token) {
+    call_target_name = "foo",
+    operand_layouts = [dense<[0]> : tensor<1xindex>, dense<> : tensor<0xindex>],
+    result_layouts = [dense<> : tensor<0xindex>, dense<[0]> : tensor<1xindex>, dense<> : tensor<0xindex>]
+  } : (tensor<2xi32>, !stablehlo.token) -> (tensor<i32>, tensor<2xi32>, !stablehlo.token)
+  func.return %0#0 : tensor<i32>
+}
+
+// -----
+
+// CHECK: func @custom_call_tuple_output_with_layout
+func.func @custom_call_tuple_output_with_layout(%x: tensor<2xi32>, %token: !stablehlo.token) -> tuple<tensor<2xi32>, tensor<2xi32>, !stablehlo.token> {
+  %0 = "stablehlo.custom_call"(%x, %token) {
+    call_target_name = "foo",
+    operand_layouts = [dense<[0]> : tensor<1xindex>, dense<> : tensor<0xindex>],
+    result_layouts = [dense<[0]> : tensor<1xindex>, dense<[0]> : tensor<1xindex>, dense<> : tensor<0xindex>]
+  } : (tensor<2xi32>, !stablehlo.token) -> tuple<tensor<2xi32>, tensor<2xi32>, !stablehlo.token>
+  func.return %0 : tuple<tensor<2xi32>, tensor<2xi32>, !stablehlo.token>
+}
+
+// -----
+
+func.func @custom_call_only_operand_layout_constraints(%x: tensor<2xi32>, %token: !stablehlo.token) -> tensor<2xi32> {
+  // expected-error@+1 {{Layout attributes should be specified for either both operands and results or none}}
+  %0:3 = "stablehlo.custom_call"(%x, %token) {
+    call_target_name = "foo",
+    operand_layouts = [dense<[0]> : tensor<1xindex>, dense<> : tensor<0xindex>]
+  } : (tensor<2xi32>, !stablehlo.token) -> (tensor<2xi32>, tensor<2xi32>, !stablehlo.token)
+  func.return %0#0 : tensor<2xi32>
+}
+
+// -----
+
+func.func @custom_call_layout_mismatch_num_operands(%x: tensor<2xi32>, %token: !stablehlo.token) -> tensor<2xi32> {
+  // expected-error@+1 {{Number of operands must match the number of operand layouts, 2 != 1}}
+  %0:3 = "stablehlo.custom_call"(%x, %token) {
+    call_target_name = "foo",
+    operand_layouts = [dense<[0]> : tensor<1xindex>],
+    result_layouts = [dense<[0]> : tensor<1xindex>, dense<[0]> : tensor<1xindex>, dense<> : tensor<0xindex>]
+  } : (tensor<2xi32>, !stablehlo.token) -> (tensor<2xi32>, tensor<2xi32>, !stablehlo.token)
+  func.return %0#0 : tensor<2xi32>
+}
+
+// -----
+
+func.func @custom_call_layout_mismatch_num_results() -> tensor<2xi32> {
+  // expected-error@+1 {{Number of results must match the number of result layouts, 3 != 2}}
+  %0:3 = "stablehlo.custom_call"() {
+    call_target_name = "foo",
+    operand_layouts = [],
+    result_layouts = [dense<[0]> : tensor<1xindex>, dense<[0]> : tensor<1xindex>]
+  } : () -> (tensor<2xi32>, tensor<2xi32>, !stablehlo.token)
+  func.return %0#0 : tensor<2xi32>
+}
+
+// -----
+
+func.func @custom_call_layout_mismatch_num_results_tuple(%x: tensor<2xi32>, %token: !stablehlo.token) -> tuple<tensor<2xi32>, tensor<2xi32>, !stablehlo.token> {
+  // expected-error@+1 {{Number of results must match the number of result layouts, 3 != 2}}
+  %0 = "stablehlo.custom_call"(%x, %token) {
+    call_target_name = "foo",
+    operand_layouts = [dense<[0]> : tensor<1xindex>, dense<> : tensor<0xindex>],
+    result_layouts = [dense<[0]> : tensor<1xindex>, dense<[0]> : tensor<1xindex>]
+  } : (tensor<2xi32>, !stablehlo.token) -> tuple<tensor<2xi32>, tensor<2xi32>, !stablehlo.token>
+  func.return %0 : tuple<tensor<2xi32>, tensor<2xi32>, !stablehlo.token>
+}
+
+// -----
+
+func.func @custom_call_tuple_operand_input(%x: tuple<tensor<2xi32>>, %token: !stablehlo.token) -> tuple<tensor<2xi32>, tensor<2xi32>, !stablehlo.token> {
+  // expected-error@+1 {{Tuple types are not fully supported with layout constraints yet}}
+  %0 = "stablehlo.custom_call"(%x, %token) {
+    call_target_name = "foo",
+    operand_layouts = [dense<[0]> : tensor<1xindex>, dense<> : tensor<0xindex>],
+    result_layouts = [dense<[0]> : tensor<1xindex>, dense<[0]> : tensor<1xindex>, dense<> : tensor<0xindex>]
+  } : (tuple<tensor<2xi32>>, !stablehlo.token) -> tuple<tensor<2xi32>, tensor<2xi32>, !stablehlo.token>
+  func.return %0 : tuple<tensor<2xi32>, tensor<2xi32>, !stablehlo.token>
+}
+
+// -----
+
+func.func @custom_call_token_with_layout(%token: !stablehlo.token) {
+  // expected-error@+1 {{Only tensor types can have non-empty layout: operand #0 of type '!stablehlo.token' has layout dense<[0, 1]> : tensor<2xindex>}}
+  "stablehlo.custom_call"(%token) {
+    call_target_name = "foo",
+    operand_layouts = [dense<[0, 1]> : tensor<2xindex>],
+    result_layouts = []
+  } : (!stablehlo.token) -> ()
+  func.return
+}
+
+// -----
+
+func.func @custom_call_mismatch_tensor_and_layout_rank(%arg: tensor<2x3xi32>) {
+  // expected-error@+1 {{incorrect layout dense<[0, 1, 2]> : tensor<3xindex> for type 'tensor<2x3xi32>', layout must be a permutation of [0, 2)}}
+  "stablehlo.custom_call"(%arg) {
+    call_target_name = "foo",
+    operand_layouts = [dense<[0, 1, 2]> : tensor<3xindex>],
+    result_layouts = []
+  } : (tensor<2x3xi32>) -> ()
+  func.return
+}
+
+// -----
+
+func.func @custom_call_mismatch_tensor_and_layout_permutation(%arg: tensor<1x2x3xi32>) {
+  // expected-error@+1 {{incorrect layout dense<[0, 1, 3]> : tensor<3xindex> for type 'tensor<1x2x3xi32>', layout must be a permutation of [0, 3)}}
+  "stablehlo.custom_call"(%arg) {
+    call_target_name = "foo",
+    operand_layouts = [dense<[0, 1, 3]> : tensor<3xindex>],
+    result_layouts = []
+  } : (tensor<1x2x3xi32>) -> ()
+  func.return
+}
+
+// -----
+
+// CHECK-LABEL: func @custom_call_output_operand_alias
+func.func @custom_call_output_operand_alias(%arg0: tuple<tensor<1x1xi32>, tensor<2x3xi32>>, %arg1: tensor<5x5xi32>) {
+  // CHECK: stablehlo.custom_call @foo(%arg0, %arg1)
+  // CHECK-SAME{LITERAL}: output_operand_aliases = [#stablehlo.output_operand_alias<output_tuple_indices = [0], operand_index = 0, operand_tuple_indices = [1]>]}
+  %0 = "stablehlo.custom_call"(%arg0, %arg1) {
+    call_target_name = "foo",
+    output_operand_aliases = [
+      #stablehlo.output_operand_alias<output_tuple_indices = [0],
+                                 operand_index = 0,
+                                 operand_tuple_indices = [1]>
+    ]
+  } : (tuple<tensor<1x1xi32>, tensor<2x3xi32>>, tensor<5x5xi32>) -> tuple<tensor<2x3xi32>>
+  func.return
+}
+
+// -----
+
+func.func @custom_call_output_operand_alias_mismatch_operand_index(%arg0: tuple<tensor<1x1xi32>, tensor<2x3xi32>>, %arg1: tensor<5x5xi32>) {
+  // expected-error@+1 {{expects operandIndex in the output_operand_alias attribute to be in range [0, 2); got: 2}}
+  %0 = "stablehlo.custom_call"(%arg0, %arg1) {
+    call_target_name = "foo",
+    output_operand_aliases = [
+      #stablehlo.output_operand_alias<output_tuple_indices = [0],
+                                 operand_index = 2,
+                                 operand_tuple_indices = [1]>
+    ]
+  } : (tuple<tensor<1x1xi32>, tensor<2x3xi32>>, tensor<5x5xi32>) -> tuple<tensor<2x3xi32>>
+  func.return
+}
+
+// -----
+
+func.func @custom_call_invalid_output_tuple_indices(%arg0: tuple<tensor<1x1xi32>, tensor<2x3xi32>>, %arg1: tensor<5x5xi32>) {
+  // expected-error@+1 {{output_tuple_indices in the output_operand_alias attribute out of bounds}}
+  %0 = "stablehlo.custom_call"(%arg0, %arg1) {
+    call_target_name = "foo",
+    output_operand_aliases = [
+      #stablehlo.output_operand_alias<output_tuple_indices = [1],
+                                 operand_index = 0,
+                                 operand_tuple_indices = [1]>
+    ]
+  } : (tuple<tensor<1x1xi32>, tensor<2x3xi32>>, tensor<5x5xi32>) -> tuple<tensor<2x3xi32>>
+  func.return
+}
+
+// -----
+
+func.func @custom_call_invalid_operand_tuple_indices(%arg0: tuple<tensor<1x1xi32>, tensor<2x3xi32>>, %arg1: tensor<5x5xi32>) {
+  // expected-error@+1 {{operand_tuple_indices in the output_operand_alias attribute out of bounds}}
+  %0 = "stablehlo.custom_call"(%arg0, %arg1) {
+    call_target_name = "foo",
+    output_operand_aliases = [
+      #stablehlo.output_operand_alias<output_tuple_indices = [0],
+                                 operand_index = 0,
+                                 operand_tuple_indices = [2]>
+    ]
+  } : (tuple<tensor<1x1xi32>, tensor<2x3xi32>>, tensor<5x5xi32>) -> tuple<tensor<2x3xi32>>
+  func.return
+}
+
+// -----
+
+func.func @custom_call_output_operand_alias(%arg0: tuple<tensor<1x1xi32>, tensor<2x3xi32>>, %arg1: tensor<5x5xi32>) {
+  // expected-error@+1 {{shapes mismatch in the output_operand_alias attribute: operand part has type 'tensor<2x3xi32>' and output part has type 'tensor<20x30xi32>'}}
+  %0 = "stablehlo.custom_call"(%arg0, %arg1) {
+    call_target_name = "foo",
+    output_operand_aliases = [
+      #stablehlo.output_operand_alias<output_tuple_indices = [0],
+                                 operand_index = 0,
+                                 operand_tuple_indices = [1]>
+    ]
+  } : (tuple<tensor<1x1xi32>, tensor<2x3xi32>>, tensor<5x5xi32>) -> tuple<tensor<20x30xi32>>
+  func.return
+}
+
+// -----
+
+// CHECK-LABEL: func @custom_call_unranked_types
+func.func @custom_call_unranked_types(%arg0: tensor<*xi32>) -> tensor<*xi32> {
+  // CHECK: stablehlo.custom_call {{.*}} : (tensor<*xi32>) -> tensor<*xi32>
+  %0 = "stablehlo.custom_call"(%arg0) {call_target_name = "foo"} : (tensor<*xi32>) -> tensor<*xi32>
+  func.return %0 : tensor<*xi32>
+}
+
+// -----
+
+func.func @custom_call_with_dictionary_backend_config() {
+  // CHECK: stablehlo.custom_call @foo() {api_version = 4 : i32, backend_config = {foo = 42 : i32}}
+  "stablehlo.custom_call"() {api_version = 4 : i32, backend_config={foo = 42 : i32}, call_target_name = "foo"} : () -> ()
+  func.return
+}
+
+// -----
+
+func.func @custom_call_with_incompatible_backend_config() {
+  // expected-error@+1 {{backend_config for api_version API_VERSION_TYPED_FFI must be a dictionary attribute}}
+  "stablehlo.custom_call"() {api_version = 4 : i32, backend_config="bar=42", call_target_name = "foo"} : () -> ()
+  func.return
+}
+
+// -----
+
+func.func @custom_call_with_incompatible_backend_config() {
+  // expected-error@+1 {{backend_config for api_version API_VERSION_STATUS_RETURNING_UNIFIED must be a string attribute}}
+  "stablehlo.custom_call"() {api_version = 3 : i32, backend_config={bar = 42 : i32}, call_target_name = "foo"} : () -> ()
+  func.return
+}
+
+// -----
+
 // =============================================================================
 // GetDimensionSizeOp
 // =============================================================================
