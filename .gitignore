@@ -1,7 +1,9 @@
 bazel-bin
 bazel-out
 bazel-stablehlo
+bazel-stablehlo_fork
 bazel-testlogs
+.bazelrc.user
 build
 cmake-build
 llvm-project

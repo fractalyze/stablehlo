@@ -73,3 +73,5 @@ test --nolegacy_external_runfiles
 
 # Disallow empty globs unless explicitly declared using `allow_empty=True`
 common --incompatible_disallow_empty_glob
+
+try-import %workspace%/.bazelrc.user
