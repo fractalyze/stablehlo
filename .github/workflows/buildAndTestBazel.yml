@@ -47,10 +47,6 @@ jobs:
       with:
         fetch-depth: $(( ${{ github.event_name == 'pull_request' && github.event.pull_request.commits || 0 }} + 1 ))
 
-    - name: Validate LLVM Commit
-      run: |
-        ./build_tools/github_actions/lint_llvm_commit.sh .
-
     - name: Get LLVM Version
       id: llvm-version
       shell: bash

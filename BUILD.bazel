@@ -805,6 +805,15 @@ cc_library(
         "@llvm-project//mlir:ShapeDialect",
         "@llvm-project//mlir:SparseTensorDialect",
         "@llvm-project//mlir:TensorDialect",
+        # prime-ir's MLIR widening patch (linalg_type_support.patch) adds
+        # references to mlir::prime_ir::* into LinalgDialect with only
+        # *Hdrs deps; symbols are resolved lazily at binary link time.
+        # Adding the IR libraries here means any binary that links
+        # :register (stablehlo-opt, stablehlo-translate,
+        # stablehlo-lsp-server, ...) gets the lazy symbols satisfied.
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
+        "@prime_ir//prime_ir/Dialect/Field/IR:Field",
+        "@prime_ir//prime_ir/Dialect/ModArith/IR:ModArith",
     ],
 )
 
