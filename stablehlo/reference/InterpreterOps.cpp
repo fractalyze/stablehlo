@@ -15,6 +15,9 @@ limitations under the License.
 
 #include "stablehlo/reference/InterpreterOps.h"
 
+// Generated InterpreterOps.cpp.inc references prime-ir field/EC types by
+// fully-qualified name in op-trait predicates (InterpreterOps shares
+// HLO_Tensor and friends from Base.td); the headers must precede the .inc.
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -40,6 +43,8 @@ limitations under the License.
 #include "mlir/Support/DebugStringHelper.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/TypeID.h"
+#include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveTypes.h"
+#include "prime_ir/Dialect/Field/IR/FieldTypes.h"
 #include "stablehlo/reference/NumPy.h"
 #include "stablehlo/reference/Ops.h"
 #include "stablehlo/reference/Process.h"

@@ -40,6 +40,11 @@ cc_library(
         "//:reference_token",
         "//:reference_types",
         "//:reference_value",
+        # CheckOps' generated code references prime-ir field/EC
+        # types because it shares HLO_Tensor / HLO_TensorOrPerAxisQuantizedTensor
+        # constraints with the stablehlo dialect.
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
+        "@prime_ir//prime_ir/Dialect/Field/IR:Field",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:BytecodeOpInterface",
         "@llvm-project//mlir:IR",

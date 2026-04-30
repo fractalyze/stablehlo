@@ -20,6 +20,8 @@ limitations under the License.
 #include "mlir/Dialect/Quant/IR/Quant.h"
 #include "mlir/Dialect/SparseTensor/IR/SparseTensor.h"
 #include "mlir/IR/DialectRegistry.h"
+#include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveDialect.h"
+#include "prime_ir/Dialect/Field/IR/FieldDialect.h"
 #include "stablehlo/dialect/ChloOps.h"
 #include "stablehlo/dialect/StablehloOps.h"
 #include "stablehlo/dialect/VhloOps.h"
@@ -35,6 +37,13 @@ void registerAllDialects(mlir::DialectRegistry &registry) {
   registry.insert<mlir::chlo::ChloDialect,
                   mlir::stablehlo::StablehloDialect,
                   mlir::vhlo::VhloDialect>();
+  // stablehlo's tensor type constraints accept prime-ir field
+  // and elliptic-curve element types alongside the FP/int/complex set,
+  // so any tool consuming a stablehlo module that mentions them must
+  // load these dialects. ModArith is bridged for lazy linking but
+  // intentionally not registered here yet.
+  registry.insert<mlir::prime_ir::field::FieldDialect,
+                  mlir::prime_ir::elliptic_curve::EllipticCurveDialect>();
   // clang-format on
 }
 

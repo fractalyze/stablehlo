@@ -74,6 +74,11 @@ td_library(
     ],
     includes = ["."],
     deps = [
+        # Base.td references prime-ir field/EC types so the
+        # tensor-element-type unions (HLO_Tensor, HLO_TensorOrPerAxisQuantizedTensor,
+        # HLO_AnyTensor, ...) can be widened to admit field/EC alongside FP/int/complex.
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:td_files",
+        "@prime_ir//prime_ir/Dialect/Field/IR:td_files",
         "@llvm-project//mlir:InferTypeOpInterfaceTdFiles",
         "@llvm-project//mlir:OpBaseTdFiles",
         "@llvm-project//mlir:QuantizationOpsTdFiles",
@@ -102,8 +107,14 @@ gentbl_cc_library(
     name = "chlo_attrs_inc_gen",
     strip_include_prefix = ".",
     tbl_outs = {
-        "stablehlo/dialect/ChloAttrs.cpp.inc": ["-gen-attrdef-defs"],
-        "stablehlo/dialect/ChloAttrs.h.inc": ["-gen-attrdef-decls"],
+        "stablehlo/dialect/ChloAttrs.cpp.inc": [
+            "-gen-attrdef-defs",
+            "--attrdefs-dialect=chlo",
+        ],
+        "stablehlo/dialect/ChloAttrs.h.inc": [
+            "-gen-attrdef-decls",
+            "--attrdefs-dialect=chlo",
+        ],
     },
     tblgen = "@llvm-project//mlir:mlir-tblgen",
     td_file = "stablehlo/dialect/ChloOps.td",
@@ -259,6 +270,11 @@ cc_library(
         ":stablehlo_assembly_format",
         ":stablehlo_broadcast_lowering",
         ":stablehlo_type_inference",
+        # chlo's generated code references prime-ir field/EC
+        # types via the widened HLO_Tensor / HLO_TensorOrPerAxisQuantizedTensor
+        # constraints in Base.td.
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
+        "@prime_ir//prime_ir/Dialect/Field/IR:Field",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:BytecodeOpInterface",
         "@llvm-project//mlir:BytecodeReader",
@@ -354,6 +370,10 @@ cc_library(
         ":reference_process",
         ":reference_process_grid",
         ":reference_value",
+        # Generated InterpreterOps.cpp.inc references prime-ir field/EC
+        # types via the widened HLO_Tensor element-type unions in Base.td.
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
+        "@prime_ir//prime_ir/Dialect/Field/IR:Field",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
@@ -838,8 +858,14 @@ gentbl_cc_library(
     name = "stablehlo_attrs_inc_gen",
     strip_include_prefix = ".",
     tbl_outs = {
-        "stablehlo/dialect/StablehloAttrs.cpp.inc": ["-gen-attrdef-defs"],
-        "stablehlo/dialect/StablehloAttrs.h.inc": ["-gen-attrdef-decls"],
+        "stablehlo/dialect/StablehloAttrs.cpp.inc": [
+            "-gen-attrdef-defs",
+            "--attrdefs-dialect=stablehlo",
+        ],
+        "stablehlo/dialect/StablehloAttrs.h.inc": [
+            "-gen-attrdef-decls",
+            "--attrdefs-dialect=stablehlo",
+        ],
     },
     tblgen = "@llvm-project//mlir:mlir-tblgen",
     td_file = "stablehlo/dialect/StablehloOps.td",
@@ -1406,6 +1432,11 @@ cc_library(
         ":stablehlo_type_inference",
         ":stablehlo_types_inc_gen",
         ":version",
+        # widened op type constraints reference prime-ir field/EC
+        # types in generated StablehloOps.cpp.inc; the headers must be in
+        # scope and the symbols available at link time.
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
+        "@prime_ir//prime_ir/Dialect/Field/IR:Field",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:ArithDialect",
         "@llvm-project//mlir:BytecodeOpInterface",
@@ -1461,6 +1492,10 @@ cc_binary(
         ":stablehlo_serialization",
         ":version",
         ":vhlo_ops",
+        # StablehloTranslateMain.cpp explicitly registers prime-ir
+        # field/EC dialects in the `interpret` translation entry point.
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
+        "@prime_ir//prime_ir/Dialect/Field/IR:Field",
         "//stablehlo/tests:check_ops",
         "//stablehlo/tests:test_utils",
         "@llvm-project//llvm:Support",

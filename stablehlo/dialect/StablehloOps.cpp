@@ -16,6 +16,9 @@ limitations under the License.
 
 #include "stablehlo/dialect/StablehloOps.h"
 
+// Generated StablehloOps.cpp.inc references prime-ir field/EC types by
+// fully-qualified name in op-trait predicates (HLO_Tensor and friends in
+// Base.td admit them); the headers must precede the .inc include below.
 #include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -86,6 +89,8 @@ limitations under the License.
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Support/TypeID.h"
 #include "mlir/Transforms/InliningUtils.h"
+#include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveTypes.h"
+#include "prime_ir/Dialect/Field/IR/FieldTypes.h"
 #include "stablehlo/dialect/AssemblyFormat.h"
 #include "stablehlo/dialect/Base.h"
 #include "stablehlo/dialect/StablehloBytecode.h"

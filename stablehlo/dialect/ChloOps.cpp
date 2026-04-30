@@ -16,6 +16,9 @@ limitations under the License.
 
 #include "stablehlo/dialect/ChloOps.h"
 
+// Generated ChloOps.cpp.inc references prime-ir field/EC types by
+// fully-qualified name in op-trait predicates (chlo shares HLO_Tensor
+// and friends from Base.td); the headers must precede the .inc include.
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -46,6 +49,8 @@ limitations under the License.
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Support/TypeID.h"
 #include "mlir/Transforms/InliningUtils.h"
+#include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveTypes.h"
+#include "prime_ir/Dialect/Field/IR/FieldTypes.h"
 #include "stablehlo/dialect/AssemblyFormat.h"
 #include "stablehlo/dialect/Base.h"
 #include "stablehlo/dialect/BroadcastUtils.h"

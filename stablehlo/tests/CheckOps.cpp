@@ -15,6 +15,9 @@ limitations under the License.
 
 #include "stablehlo/tests/CheckOps.h"
 
+// Generated CheckOps.cpp.inc references prime-ir field/EC types by
+// fully-qualified name in op-trait predicates (CheckOps shares HLO_Tensor
+// and friends from Base.td); the headers must precede the .inc include.
 #include <algorithm>
 #include <cassert>
 #include <cinttypes>
@@ -38,6 +41,8 @@ limitations under the License.
 #include "mlir/Support/DebugStringHelper.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/TypeID.h"
+#include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveTypes.h"
+#include "prime_ir/Dialect/Field/IR/FieldTypes.h"
 #include "stablehlo/dialect/Base.h"
 #include "stablehlo/reference/Element.h"
 #include "stablehlo/reference/Errors.h"
