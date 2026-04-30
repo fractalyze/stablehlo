@@ -41,6 +41,8 @@ limitations under the License.
 #include "mlir/Tools/mlir-translate/MlirTranslateMain.h"
 #include "mlir/Tools/mlir-translate/Translation.h"
 #include "mlir/Transforms/Passes.h"
+#include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveDialect.h"
+#include "prime_ir/Dialect/Field/IR/FieldDialect.h"
 #include "stablehlo/dialect/Register.h"
 #include "stablehlo/dialect/Serialization.h"
 #include "stablehlo/dialect/StablehloOps.h"
@@ -306,6 +308,8 @@ TranslateFromMLIRRegistration interpretRegistration(
       registry.insert<stablehlo::check::CheckDialect>();
       registry.insert<stablehlo::interpreter::InterpreterDialect>();
       registry.insert<stablehlo::StablehloDialect>();
+      registry.insert<prime_ir::field::FieldDialect>();
+      registry.insert<prime_ir::elliptic_curve::EllipticCurveDialect>();
     });
 
 TranslateFromMLIRRegistration serializeRegistration(
