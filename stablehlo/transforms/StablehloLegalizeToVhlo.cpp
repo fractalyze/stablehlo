@@ -35,6 +35,8 @@ limitations under the License.
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveDialect.h"
+#include "prime_ir/Dialect/Field/IR/FieldDialect.h"
 #include "stablehlo/dialect/StablehloOps.h"
 #include "stablehlo/dialect/VhloOps.h"
 #include "stablehlo/dialect/VhloTypes.h"
@@ -66,6 +68,15 @@ class StablehloToVhloTypeConverter : public vhlo::VhloTypeConverter {
 
     addConversion([&allowOtherDialects](Type type) -> Type {
       if (isa<vhlo::VhloDialect>(type.getDialect())) return type;
+
+      // prime-ir types round-trip through VHLO as opaque type names; the
+      // field-arithmetic lowering happens post-deserialization in the
+      // device-side MLIR pipeline.
+      if (isa<prime_ir::field::FieldDialect,
+              prime_ir::elliptic_curve::EllipticCurveDialect>(
+              type.getDialect())) {
+        return type;
+      }
 
       if (allowOtherDialects &&
           !isa<BuiltinDialect, StablehloDialect>(type.getDialect())) {
