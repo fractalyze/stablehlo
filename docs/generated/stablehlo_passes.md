@@ -385,6 +385,30 @@ Modules valid for shape refinement must have the following properties:
   * All calls to a single function resolve to the same argument shapes, and no
     recursive / co-recursive function calls are made.
 
+### `-stablehlo-to-prime-ir`
+
+_Convert field/EC-typed StableHLO ops to prime-ir dialect ops._
+
+Rewrites StableHLO arithmetic ops whose tensor element type is a prime-ir
+field or elliptic-curve point type into the corresponding `field.*` /
+`elliptic_curve.*` ops. Ops on non-field/non-EC element types are left
+untouched.
+
+Field rewrites:
+  stablehlo.add(field)      -> field.add
+  stablehlo.subtract(field) -> field.sub
+  stablehlo.multiply(field) -> field.mul
+  stablehlo.divide(field)   -> field.mul(x, field.inverse(y))
+  stablehlo.negate(field)   -> field.negate
+  stablehlo.constant(field) -> field.constant
+
+Elliptic-curve rewrites (lower benefit, so field patterns win on a mixed
+multiply by accident):
+  stablehlo.add(point)      -> elliptic_curve.add
+  stablehlo.subtract(point) -> elliptic_curve.sub
+  stablehlo.negate(point)   -> elliptic_curve.negate
+  stablehlo.multiply(scalar, point) -> elliptic_curve.scalar_mul
+
 ### `-stablehlo-wrap-in-composite`
 
 _Wraps a non-composite  StableHLO op in a composite op._

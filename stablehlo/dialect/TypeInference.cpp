@@ -72,6 +72,8 @@ limitations under the License.
 #include "mlir/Interfaces/InferTypeOpInterface.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/LogicalResult.h"
+#include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveTypes.h"
+#include "prime_ir/Dialect/Field/IR/FieldTypes.h"
 #include "stablehlo/dialect/AssemblyFormat.h"
 #include "stablehlo/dialect/Base.h"
 #include "stablehlo/dialect/TypeInference.h"
@@ -447,6 +449,25 @@ unsigned getBitWidth(Type type) {
     return 2 * getBitWidth(complexTy.getElementType());
   if (auto quantTy = dyn_cast<quant::QuantizedType>(type))
     return getBitWidth(quantTy.getStorageType());
+  // prime-ir field/EC types: storage bitwidth lives on the type itself.
+  // Without this, hlo verifiers (e.g. bitcast_convert) call
+  // getIntOrFloatBitWidth which dispatches to FloatType::getWidth and
+  // segfaults on non-int/float types.
+  if (auto pf = dyn_cast<prime_ir::field::PrimeFieldType>(type))
+    return pf.getStorageBitWidth();
+  if (auto ef = dyn_cast<prime_ir::field::ExtensionFieldType>(type))
+    return ef.getStorageBitWidth();
+  if (auto bf = dyn_cast<prime_ir::field::BinaryFieldType>(type))
+    return bf.getStorageBitWidth();
+  if (auto pt = dyn_cast<prime_ir::elliptic_curve::PointTypeInterface>(type)) {
+    auto base = pt.getBaseFieldType();
+    unsigned base_bits = 0;
+    if (auto pf = dyn_cast<prime_ir::field::PrimeFieldType>(base))
+      base_bits = pf.getStorageBitWidth();
+    else if (auto ef = dyn_cast<prime_ir::field::ExtensionFieldType>(base))
+      base_bits = ef.getStorageBitWidth();
+    return pt.getNumCoords() * base_bits;
+  }
   return type.getIntOrFloatBitWidth();
 }
 
@@ -480,6 +501,18 @@ bool isPromotableElementType(Type type1, Type type2,
                     matchesType<FloatType>(tensorEl1, tensorEl2) ||
                     matchesType<ComplexType>(tensorEl1, tensorEl2) ||
                     matchesType<quant::QuantizedType>(tensorEl1, tensorEl2);
+
+  // prime-ir field/EC types: same-type if both are the same field-kind
+  // and equal as types (modulus, mont, degree, etc. all match).
+  if (!isSameType) {
+    if (isa<prime_ir::field::PrimeFieldType,
+            prime_ir::field::ExtensionFieldType,
+            prime_ir::field::BinaryFieldType,
+            prime_ir::elliptic_curve::PointTypeInterface>(tensorEl1) &&
+        tensorEl1 == tensorEl2) {
+      return true;
+    }
+  }
 
   if (!isSameType) return false;
 
@@ -613,8 +646,26 @@ LogicalResult verifyAddOp(std::optional<Location> location, Operation* op,
     return verifyBinaryOpQuantizationConstraints(location, lhsType, rhsType,
                                                  resultType);
 
-  if (getElementTypeOrSelf(lhsType) != getElementTypeOrSelf(rhsType) ||
-      getElementTypeOrSelf(lhsType) != getElementTypeOrSelf(resultType))
+  Type lhsEl = getElementTypeOrSelf(lhsType);
+  Type rhsEl = getElementTypeOrSelf(rhsType);
+  Type resEl = getElementTypeOrSelf(resultType);
+
+  // PF + EF (or EF + PF) is allowed when the PF is the EF's base field, and
+  // the result must keep the wider element type (the EF). Mirrors the
+  // mixed-type compat rule in
+  // Base.cpp::isCompatibleElementTypeForHloTypeInference, but stablehlo.add
+  // bypasses that path — it has its own verifier.
+  using PFType = prime_ir::field::PrimeFieldType;
+  using EFType = prime_ir::field::ExtensionFieldType;
+  if (auto pf = dyn_cast<PFType>(lhsEl)) {
+    if (auto ef = dyn_cast<EFType>(rhsEl))
+      if (ef.getBaseField() == pf && resEl == rhsEl) return success();
+  } else if (auto ef = dyn_cast<EFType>(lhsEl)) {
+    if (auto pf = dyn_cast<PFType>(rhsEl))
+      if (ef.getBaseField() == pf && resEl == lhsEl) return success();
+  }
+
+  if (lhsEl != rhsEl || lhsEl != resEl)
     return emitOptionalError(
         location,
         "op requires the same element type for all operands and results");

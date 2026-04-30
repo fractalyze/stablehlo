@@ -52,6 +52,10 @@ cc_library(
         "@llvm-project//mlir:ShapeDialect",
         "@llvm-project//mlir:SideEffectInterfaces",
         "@llvm-project//mlir:Support",
+        # Mixed-type compat in isCompatibleElementTypeForHloTypeInference
+        # checks Field/EC type interfaces (Tier C.5+ widening).
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
+        "@prime_ir//prime_ir/Dialect/Field/IR:Field",
     ],
 )
 
@@ -1185,6 +1189,20 @@ cc_library(
 )
 
 cc_library(
+    name = "stablehlo_to_prime_ir_conversion",
+    srcs = ["stablehlo/conversions/StablehloToPrimeIR/StablehloToPrimeIR.cpp"],
+    hdrs = ["stablehlo/conversions/StablehloToPrimeIR/StablehloToPrimeIR.h"],
+    strip_include_prefix = ".",
+    deps = [
+        ":stablehlo_ops",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Rewrite",
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
+        "@prime_ir//prime_ir/Dialect/Field/IR:Field",
+    ],
+)
+
+cc_library(
     name = "stablehlo_passes",
     srcs = [
         "stablehlo/transforms/ChloLegalizeToStablehlo.cpp",
@@ -1203,6 +1221,7 @@ cc_library(
         "stablehlo/transforms/StablehloLegalizeToVhlo.cpp",
         "stablehlo/transforms/StablehloRefineArguments.cpp",
         "stablehlo/transforms/StablehloRefineShapes.cpp",
+        "stablehlo/transforms/StablehloToPrimeIR.cpp",
         "stablehlo/transforms/StablehloWrapInComposite.cpp",
         "stablehlo/transforms/VhloLegalizeToStablehlo.cpp",
         "stablehlo/transforms/VhloToVersion.cpp",
@@ -1231,6 +1250,7 @@ cc_library(
         ":stablehlo_pass_inc_gen",
         ":stablehlo_pass_utils",
         ":stablehlo_passes_optimization",
+        ":stablehlo_to_prime_ir_conversion",
         ":stablehlo_type_conversions",
         ":stablehlo_type_inference",
         ":version",
@@ -1257,6 +1277,10 @@ cc_library(
         "@llvm-project//mlir:TensorDialect",
         "@llvm-project//mlir:TransformUtils",
         "@llvm-project//mlir:Transforms",
+        # StablehloToPrimeIR.cpp pulls in field/EC dialects via its
+        # dependentDialects list (see Passes.td).
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
+        "@prime_ir//prime_ir/Dialect/Field/IR:Field",
     ],
 )
 
@@ -1308,6 +1332,9 @@ cc_library(
         "@llvm-project//mlir:Support",
         "@llvm-project//mlir:TransformUtils",
         "@llvm-project//mlir:Transforms",
+        # AggressiveSimplification.cpp predicates ZK ops on field/EC types.
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
+        "@prime_ir//prime_ir/Dialect/Field/IR:Field",
     ],
 )
 
@@ -1393,6 +1420,10 @@ cc_library(
         "@llvm-project//mlir:InferTypeOpInterface",
         "@llvm-project//mlir:QuantOps",
         "@llvm-project//mlir:Support",
+        # verifyAddOp recognizes PF + EF mixed-type adds; TypeInference.cpp
+        # also includes EllipticCurveTypes.h directly (strict-deps).
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
+        "@prime_ir//prime_ir/Dialect/Field/IR:Field",
     ],
 )
 
