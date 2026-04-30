@@ -30,6 +30,17 @@ def AllDimsNonExpanding : Constraint<
     CPred<"$0 && cast<DenseI64ArrayAttr>($0).size() == llvm::cast<ShapedType>($1.getType()).getRank()">,
     "all dims are non-expanding">;
 
+// Constraint: element type is NOT a prime-ir field/EC type. Used by patterns
+// that fold to stablehlo::ConstantOp with a DenseElementsAttr — which doesn't
+// support field/EC element types.
+def NotPrimeIrFieldOrEcType : Constraint<
+    CPred<"!llvm::isa<mlir::prime_ir::field::PrimeFieldType, "
+          "mlir::prime_ir::field::ExtensionFieldType, "
+          "mlir::prime_ir::field::BinaryFieldType, "
+          "mlir::prime_ir::elliptic_curve::PointTypeInterface>("
+          "mlir::getElementTypeOrSelf($0.getType()))">,
+    "element type is not a prime-ir field/EC type">;
+
 def AllZero : Constraint<
     CPred<"llvm::all_of($0, [](Value operand) {return matchPattern(operand, m_Zero()); })">,
     "is all zero">;
@@ -472,7 +483,8 @@ def ImagOp_CancelOutComposedOps
 def IotaOp_FoldScalarToZero
   : Pat<(StableHLO_IotaOp:$iota $dim),
         (StableHLO_ConstantLike<"0"> $iota),
-        [(DimSizeEquals<1> $iota, $dim)]>;
+        [(DimSizeEquals<1> $iota, $dim),
+         (NotPrimeIrFieldOrEcType $iota)]>;
 
 
 ////////
