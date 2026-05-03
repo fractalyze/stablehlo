@@ -205,6 +205,10 @@ def HLO_ComplexTensor : RankedTensorOf<[HLO_Complex]>;
 // because NTT semantics are defined exclusively over Z/pZ.
 def HLO_FieldTensor : RankedTensorOf<[Field_AnyFieldType]>;
 
+// Elliptic-curve point tensor — pairing-check / scalar-mul input. Restricts
+// element type to prime-ir EC point types (any curve, any representation).
+def HLO_ECTensor : RankedTensorOf<[PointType]>;
+
 def HLO_Buffer : MemRefOf<[HLO_Float, HLO_Pred, HLO_Int, HLO_Complex, HLO_QuantizedInt]>;
 
 def HLO_Tuple : NestedTupleOf<[HLO_Tensor, HLO_Buffer, HLO_PerAxisQuantizedIntTensor, HLO_Token]>;

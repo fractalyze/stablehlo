@@ -199,3 +199,46 @@ func.func @float_add_unchanged(%a: tensor<4xf32>, %b: tensor<4xf32>)
   %0 = stablehlo.add %a, %b : tensor<4xf32>
   func.return %0 : tensor<4xf32>
 }
+
+// -----
+
+// Non-affine inputs (jacobian here) leave the op untouched: prime-ir's
+// PairingCheckOp requires affine, and upstream is expected to insert
+// convert_point_type ops to materialize affine coordinates.
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+
+// CHECK-LABEL: func @pairing_check_jacobian_unchanged
+func.func @pairing_check_jacobian_unchanged(%g1: tensor<4x!jac>,
+                                            %g2: tensor<4x!jac>)
+    -> tensor<i1> {
+  // CHECK: stablehlo.pairing_check
+  // CHECK-NOT: elliptic_curve.pairing_check
+  %0 = stablehlo.pairing_check %g1, %g2
+      : (tensor<4x!jac>, tensor<4x!jac>) -> tensor<i1>
+  func.return %0 : tensor<i1>
+}
+
+// -----
+
+// G1 affine × G1 affine (both over the prime base field) doesn't fire:
+// prime-ir's PairingCheckOp requires the second operand to be over a
+// degree-2 extension base field. The pre-check in ConvertPairingCheck
+// avoids producing IR that the EC verifier would reject. The happy
+// path (G1×G2 with proper Fp2 G2 curve) needs G2 PrimitiveType support;
+// this case lands once G2 storage widths are added at the xla layer.
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!aff = !elliptic_curve.affine<#curve>
+
+// CHECK-LABEL: func @pairing_check_g1xg1_pf_unchanged
+func.func @pairing_check_g1xg1_pf_unchanged(%g1: tensor<4x!aff>,
+                                            %g2: tensor<4x!aff>)
+    -> tensor<i1> {
+  // CHECK: stablehlo.pairing_check
+  // CHECK-NOT: elliptic_curve.pairing_check
+  %0 = stablehlo.pairing_check %g1, %g2
+      : (tensor<4x!aff>, tensor<4x!aff>) -> tensor<i1>
+  func.return %0 : tensor<i1>
+}

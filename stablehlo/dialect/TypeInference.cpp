@@ -2914,6 +2914,37 @@ LogicalResult inferFftOp(
   return success();
 }
 
+// PointType is enforced at the td level. Shape constraints: both operands
+// rank-1, lengths match (or are dynamic), element types are EC point types
+// of the same curve. Group identity (G1 vs G2) is not enforced here: the
+// prototype currently has only G1 PrimitiveTypes, so allowing same-group
+// inputs lets the op shape-check until G2 lands.
+LogicalResult inferPairingCheckOp(
+    std::optional<Location> location, Value g1Points, Value g2Points,
+    SmallVectorImpl<ShapedTypeComponents>& inferredReturnShapes) {
+  auto g1Type = cast<RankedTensorType>(g1Points.getType());
+  auto g2Type = cast<RankedTensorType>(g2Points.getType());
+  if (g1Type.getRank() != 1 || g2Type.getRank() != 1)
+    return emitOptionalError(
+        location, "pairing_check requires rank-1 operands; got ranks ",
+        g1Type.getRank(), " and ", g2Type.getRank(), ".");
+  int64_t n1 = g1Type.getDimSize(0);
+  int64_t n2 = g2Type.getDimSize(0);
+  if (!ShapedType::isDynamic(n1) && !ShapedType::isDynamic(n2) && n1 != n2)
+    return emitOptionalError(
+        location, "pairing_check requires matching operand lengths; got ", n1,
+        " and ", n2, ".");
+  if (!isCompatibleElementTypeForHloTypeInference(g1Type.getElementType(),
+                                                  g2Type.getElementType()))
+    return emitOptionalError(
+        location,
+        "pairing_check operands must be EC points on the same curve; got ",
+        g1Type.getElementType(), " and ", g2Type.getElementType(), ".");
+  inferredReturnShapes.emplace_back(ArrayRef<int64_t>{},
+                                    IntegerType::get(g1Points.getContext(), 1));
+  return success();
+}
+
 LogicalResult inferGatherOp(
     std::optional<Location> location, Value operand, Value startIndices,
     ArrayRef<int64_t> offsetDims, ArrayRef<int64_t> collapsedSliceDims,

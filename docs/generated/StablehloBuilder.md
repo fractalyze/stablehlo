@@ -651,6 +651,15 @@ operation.
 MlirOp Pad(MlirOp &operand, MlirOp &padding_value, ::llvm::ArrayRef<int64_t> edge_padding_low, ::llvm::ArrayRef<int64_t> edge_padding_high, ::llvm::ArrayRef<int64_t> interior_padding);
 ```
 
+### `stablehlo::PairingCheckOp`
+
+Creates a new [`stablehlo.pairing_check`](https://openxla.org/stablehlo/spec#pairing_check)
+operation.
+
+```c++
+MlirOp PairingCheck(MlirOp &g1_points, MlirOp &g2_points);
+```
+
 ### `stablehlo::PartitionIdOp`
 
 Creates a new [`stablehlo.partition_id`](https://openxla.org/stablehlo/spec#partition_id)

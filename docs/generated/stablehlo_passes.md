@@ -409,6 +409,11 @@ multiply by accident):
   stablehlo.negate(point)   -> elliptic_curve.negate
   stablehlo.multiply(scalar, point) -> elliptic_curve.scalar_mul
 
+PairingCheck rewrite (lowers to the existing prime-ir EC op; the
+scalar i1 result is wrapped back into a tensor<i1> via
+tensor.from_elements to satisfy the stablehlo result type):
+  stablehlo.pairing_check(g1, g2) -> elliptic_curve.pairing_check
+
 ### `-stablehlo-wrap-in-composite`
 
 _Wraps a non-composite  StableHLO op in a composite op._
