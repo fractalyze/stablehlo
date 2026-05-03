@@ -606,6 +606,15 @@ operation.
 MlirOp Not(MlirOp &operand);
 ```
 
+### `stablehlo::NttOp`
+
+Creates a new [`stablehlo.ntt`](https://openxla.org/stablehlo/spec#ntt)
+operation.
+
+```c++
+MlirOp Ntt(Type resultType, MlirOp &operand, ::mlir::stablehlo::NttType ntt_type, uint64_t ntt_length, /*optional*/::mlir::IntegerAttr generator = {});
+```
+
 ### `stablehlo::OptimizationBarrierOp`
 
 Creates a new [`stablehlo.optimization_barrier`](https://openxla.org/stablehlo/spec#optimization_barrier)

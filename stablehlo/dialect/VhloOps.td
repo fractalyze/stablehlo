@@ -854,6 +854,16 @@ def VHLO_NotOpV1 : VHLO_Op<"not_v1", "0.9.0", "current"> {
   let results = (outs VHLO_AnyType:$result);
 }
 
+def VHLO_NttOpV1 : VHLO_Op<"ntt_v1", "1.16.0", "current"> {
+  let arguments = (ins
+    VHLO_AnyType:$operand,
+    VHLO_AnyAttr:$ntt_type,
+    VHLO_AnyAttr:$ntt_length,
+    VHLO_AnyAttr:$generator
+  );
+  let results = (outs VHLO_AnyType:$result);
+}
+
 def VHLO_OptimizationBarrierOpV1 : VHLO_Op<"optimization_barrier_v1", "0.9.0", "current"> {
   let arguments = (ins Variadic<VHLO_AnyType>:$operand);
   let results = (outs Variadic<VHLO_AnyType>:$result);

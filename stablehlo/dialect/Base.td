@@ -201,6 +201,10 @@ def HLO_FloatOrQuantizedIntOrPerAxisQuantizedIntTensor : RankedTensorOf<[HLO_Flo
 
 def HLO_ComplexTensor : RankedTensorOf<[HLO_Complex]>;
 
+// Prime-field tensor — NTT input/output. Field-only (no FP/int/complex)
+// because NTT semantics are defined exclusively over Z/pZ.
+def HLO_FieldTensor : RankedTensorOf<[Field_AnyFieldType]>;
+
 def HLO_Buffer : MemRefOf<[HLO_Float, HLO_Pred, HLO_Int, HLO_Complex, HLO_QuantizedInt]>;
 
 def HLO_Tuple : NestedTupleOf<[HLO_Tensor, HLO_Buffer, HLO_PerAxisQuantizedIntTensor, HLO_Token]>;

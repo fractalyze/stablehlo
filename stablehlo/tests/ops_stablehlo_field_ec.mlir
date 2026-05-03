@@ -219,3 +219,36 @@ func.func @field_optimization_barrier(%a: tensor<4x!field.pf<7681:i32>>)
   %0 = stablehlo.optimization_barrier %a : tensor<4x!field.pf<7681:i32>>
   func.return %0 : tensor<4x!field.pf<7681:i32>>
 }
+
+// -----
+
+// CHECK-LABEL: func @field_ntt_forward
+// CHECK: stablehlo.ntt %{{.*}}, type = NTT, length = 4
+func.func @field_ntt_forward(%a: tensor<4x!field.pf<7681:i32>>)
+    -> tensor<4x!field.pf<7681:i32>> {
+  %0 = stablehlo.ntt %a, type = NTT, length = 4
+      : tensor<4x!field.pf<7681:i32>>
+  func.return %0 : tensor<4x!field.pf<7681:i32>>
+}
+
+// -----
+
+// CHECK-LABEL: func @field_ntt_inverse
+// CHECK: stablehlo.ntt %{{.*}}, type = INTT, length = 4
+func.func @field_ntt_inverse(%a: tensor<4x!field.pf<7681:i32>>)
+    -> tensor<4x!field.pf<7681:i32>> {
+  %0 = stablehlo.ntt %a, type = INTT, length = 4
+      : tensor<4x!field.pf<7681:i32>>
+  func.return %0 : tensor<4x!field.pf<7681:i32>>
+}
+
+// -----
+
+// Operand element type is constrained at parse time to a field tensor.
+
+func.func @ntt_non_field_rejected(%a: tensor<4xf32>) -> tensor<4xf32> {
+  // expected-error@+1 {{operand #0 must be ranked tensor of}}
+  %0 = "stablehlo.ntt"(%a) <{ntt_type = #stablehlo<ntt_type NTT>, ntt_length = 4 : i64}>
+      : (tensor<4xf32>) -> tensor<4xf32>
+  func.return %0 : tensor<4xf32>
+}
