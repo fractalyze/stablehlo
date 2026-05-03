@@ -579,6 +579,15 @@ operation.
 MlirOp Min(MlirOp &lhs, MlirOp &rhs);
 ```
 
+### `stablehlo::MsmOp`
+
+Creates a new [`stablehlo.msm`](https://openxla.org/stablehlo/spec#msm)
+operation.
+
+```c++
+MlirOp Msm(MlirOp &scalars, MlirOp &bases, /*optional*/uint32_t window_bits = 0, /*optional*/uint32_t precompute_factor = 0, /*optional*/uint32_t bitsize = 0, /*optional*/uint32_t batch_size = 0, /*optional*/bool are_points_shared = false);
+```
+
 ### `stablehlo::MulOp`
 
 Creates a new [`stablehlo.multiply`](https://openxla.org/stablehlo/spec#multiply)

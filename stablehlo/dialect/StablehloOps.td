@@ -2824,6 +2824,46 @@ def StableHLO_FftOp: StableHLO_Op<"fft",
   }];
 }
 
+def StableHLO_MsmOp: StableHLO_Op<"msm",
+    [ConditionallySpeculatable, NoMemoryEffect, InferTensorType]> {
+  let summary = "Multi-scalar multiplication (MSM) operation";
+  let description = [{
+    Computes the multi-scalar multiplication of an EC point tensor against
+    a scalar tensor:
+      result = sum_i scalars[i] * bases[i].
+
+    Operands are 1-D tensors of equal length: scalars are field elements,
+    bases are EC points. The result element type matches the bases.
+
+    For batch_size > 1, the operands are interpreted as batch_size
+    interleaved MSMs of length N/batch_size, returning a 1-D tensor of
+    batch_size result points. window_bits / precompute_factor / bitsize
+    are runtime hints for Pippenger window selection (zero = "backend
+    chooses"); are_points_shared marks a batched MSM that uses the same
+    base points across all MSMs.
+  }];
+  let arguments = (ins
+    HLO_FieldTensor:$scalars,
+    HLO_ECTensor:$bases,
+    DefaultValuedOptionalAttr<I32Attr, "0">:$window_bits,
+    DefaultValuedOptionalAttr<I32Attr, "0">:$precompute_factor,
+    DefaultValuedOptionalAttr<I32Attr, "0">:$bitsize,
+    DefaultValuedOptionalAttr<I32Attr, "0">:$batch_size,
+    DefaultValuedOptionalAttr<BoolAttr, "false">:$are_points_shared
+  );
+
+  let results = (outs HLO_ECTensor:$result);
+
+  let assemblyFormat = [{
+    operands attr-dict `:` functional-type(operands, results)
+  }];
+
+  let extraClassDeclaration = commonClassDeclaration # [{
+    /// Interface method for ConditionallySpeculatable.
+    mlir::Speculation::Speculatability getSpeculatability();
+  }];
+}
+
 def StableHLO_PairingCheckOp: StableHLO_Op<"pairing_check",
     [ConditionallySpeculatable, NoMemoryEffect, InferTensorType]> {
   let summary = "PairingCheck operation";

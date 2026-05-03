@@ -314,3 +314,77 @@ func.func @pairing_check_non_ec_rejected(%g1: tensor<4xf32>, %g2: tensor<4xf32>)
       : (tensor<4xf32>, tensor<4xf32>) -> tensor<i1>
   func.return %0 : tensor<i1>
 }
+
+// -----
+// stablehlo.msm happy path: rank-1 scalars × rank-1 bases reduces to a
+// scalar EC point.
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+
+// CHECK-LABEL: func @msm_single
+// CHECK: stablehlo.msm
+func.func @msm_single(%scalars: tensor<4x!field.pf<7681:i32>>,
+                      %bases: tensor<4x!jac>) -> tensor<!jac> {
+  %0 = stablehlo.msm %scalars, %bases
+      : (tensor<4x!field.pf<7681:i32>>, tensor<4x!jac>) -> tensor<!jac>
+  func.return %0 : tensor<!jac>
+}
+
+// -----
+// stablehlo.msm batched: batch_size=2 over an 8-element operand returns
+// a 2-element tensor of points.
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+
+// CHECK-LABEL: func @msm_batched
+// CHECK: stablehlo.msm
+func.func @msm_batched(%scalars: tensor<8x!field.pf<7681:i32>>,
+                       %bases: tensor<8x!jac>) -> tensor<2x!jac> {
+  %0 = "stablehlo.msm"(%scalars, %bases) <{batch_size = 2 : i32}>
+      : (tensor<8x!field.pf<7681:i32>>, tensor<8x!jac>) -> tensor<2x!jac>
+  func.return %0 : tensor<2x!jac>
+}
+
+// -----
+// Verifier rejects: length mismatch between scalars and bases.
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+
+func.func @msm_length_rejected(%scalars: tensor<4x!field.pf<7681:i32>>,
+                               %bases: tensor<8x!jac>) -> tensor<!jac> {
+  // expected-error@+2 {{failed to infer returned types}}
+  // expected-error@+1 {{requires matching operand lengths}}
+  %0 = stablehlo.msm %scalars, %bases
+      : (tensor<4x!field.pf<7681:i32>>, tensor<8x!jac>) -> tensor<!jac>
+  func.return %0 : tensor<!jac>
+}
+
+// -----
+// Verifier rejects: batch_size that doesn't divide the operand length.
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+
+func.func @msm_uneven_batch_rejected(%scalars: tensor<7x!field.pf<7681:i32>>,
+                                     %bases: tensor<7x!jac>) -> tensor<2x!jac> {
+  // expected-error@+2 {{failed to infer returned types}}
+  // expected-error@+1 {{batch_size 2 must divide the operand length 7}}
+  %0 = "stablehlo.msm"(%scalars, %bases) <{batch_size = 2 : i32}>
+      : (tensor<7x!field.pf<7681:i32>>, tensor<7x!jac>) -> tensor<2x!jac>
+  func.return %0 : tensor<2x!jac>
+}
+
+// -----
+// Verifier rejects: non-field scalar operand. Uses generic op form
+// because the assembly format would type-check at parse time.
+
+func.func @msm_non_field_scalar_rejected(%scalars: tensor<4xf32>,
+                                          %bases: tensor<4xf32>) -> tensor<f32> {
+  // expected-error@+1 {{operand #0 must be ranked tensor of}}
+  %0 = "stablehlo.msm"(%scalars, %bases)
+      : (tensor<4xf32>, tensor<4xf32>) -> tensor<f32>
+  func.return %0 : tensor<f32>
+}
