@@ -414,6 +414,11 @@ scalar i1 result is wrapped back into a tensor<i1> via
 tensor.from_elements to satisfy the stablehlo result type):
   stablehlo.pairing_check(g1, g2) -> elliptic_curve.pairing_check
 
+MSM stage 1 rewrite (slow correctness baseline — unrolls into a
+chain of N scalar_mul + (N-1) add ops; restricted to single-batch
+jacobian inputs to avoid coordinate-system conversion):
+  stablehlo.msm(scalars, bases) -> chain of scalar_mul + add
+
 ### `-stablehlo-wrap-in-composite`
 
 _Wraps a non-composite  StableHLO op in a composite op._

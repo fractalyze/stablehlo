@@ -208,3 +208,66 @@ func.func @pairing_check_g1xg1_pf_unchanged(%g1: tensor<4x!aff>,
       : (tensor<4x!aff>, tensor<4x!aff>) -> tensor<i1>
   func.return %0 : tensor<i1>
 }
+
+// -----
+
+// stablehlo.msm on jacobian inputs unrolls into a chain of scalar_mul +
+// add ops. This is the "slow correctness baseline" — Stage 2 will
+// replace it with a Pippenger CUDA runtime custom_call.
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+
+// CHECK-LABEL: func @msm_jacobian_unrolls
+func.func @msm_jacobian_unrolls(%scalars: tensor<3x!field.pf<7681:i32>>,
+                                %bases: tensor<3x!jac>) -> tensor<!jac> {
+  // CHECK: elliptic_curve.scalar_mul
+  // CHECK: elliptic_curve.scalar_mul
+  // CHECK: elliptic_curve.add
+  // CHECK: elliptic_curve.scalar_mul
+  // CHECK: elliptic_curve.add
+  // CHECK: tensor.from_elements
+  // CHECK-NOT: stablehlo.msm
+  %0 = stablehlo.msm %scalars, %bases
+      : (tensor<3x!field.pf<7681:i32>>, tensor<3x!jac>) -> tensor<!jac>
+  func.return %0 : tensor<!jac>
+}
+
+// -----
+
+// Affine bases leave the op untouched: scalar_mul on affine returns
+// jacobian, so unrolling into the same coordinate system as the
+// operand requires a final convert_point_type that this stage-1 pass
+// doesn't emit. Caller is expected to convert to jacobian first.
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!aff = !elliptic_curve.affine<#curve>
+
+// CHECK-LABEL: func @msm_affine_unchanged
+func.func @msm_affine_unchanged(%scalars: tensor<3x!field.pf<7681:i32>>,
+                                %bases: tensor<3x!aff>) -> tensor<!aff> {
+  // CHECK: stablehlo.msm
+  // CHECK-NOT: elliptic_curve.scalar_mul
+  %0 = stablehlo.msm %scalars, %bases
+      : (tensor<3x!field.pf<7681:i32>>, tensor<3x!aff>) -> tensor<!aff>
+  func.return %0 : tensor<!aff>
+}
+
+// -----
+
+// Batched MSM (batch_size > 1) is out of scope for stage 1 — the
+// unroll pattern only handles scalar-result single MSM. Stage 2 (CUDA
+// runtime) will cover batching.
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+
+// CHECK-LABEL: func @msm_batched_unchanged
+func.func @msm_batched_unchanged(%scalars: tensor<8x!field.pf<7681:i32>>,
+                                 %bases: tensor<8x!jac>) -> tensor<2x!jac> {
+  // CHECK: stablehlo.msm
+  // CHECK-NOT: elliptic_curve.scalar_mul
+  %0 = "stablehlo.msm"(%scalars, %bases) <{batch_size = 2 : i32}>
+      : (tensor<8x!field.pf<7681:i32>>, tensor<8x!jac>) -> tensor<2x!jac>
+  func.return %0 : tensor<2x!jac>
+}

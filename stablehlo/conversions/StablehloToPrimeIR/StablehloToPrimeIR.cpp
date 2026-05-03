@@ -15,6 +15,7 @@ limitations under the License.
 
 #include "stablehlo/conversions/StablehloToPrimeIR/StablehloToPrimeIR.h"
 
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/PatternMatch.h"
 #include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveOps.h"
@@ -178,6 +179,55 @@ struct ConvertECScalarMul : public OpRewritePattern<MulOp> {
   }
 };
 
+// Stage 1 (slow correctness baseline) lowering for MSM: unroll into a
+// chain of N scalar_mul + (N-1) add ops. Constraints:
+//   - batch_size <= 1 (single MSM, scalar result).
+//   - bases element type is jacobian — scalar_mul on jacobian returns
+//     jacobian and add(jacobian, jacobian) returns jacobian, so the chain
+//     stays in the same coordinate system as the operand. Affine inputs
+//     would force scalar_mul to produce jacobian and require a final
+//     convert_point_type back to affine; affine bases fail the rewrite
+//     for now (caller responsibility).
+//   - Static N (we unroll at compile time; dynamic N would need scf.for).
+//
+// Stage 2 (Pippenger CUDA runtime) replaces this with a custom_call
+// dispatch — separate followup memo entry once the slow baseline soaks.
+struct ConvertMsm : public OpRewritePattern<MsmOp> {
+  using OpRewritePattern::OpRewritePattern;
+  LogicalResult matchAndRewrite(MsmOp op,
+                                PatternRewriter &rewriter) const override {
+    if (op.getBatchSize() > 1) return failure();
+    auto scalarsType = cast<RankedTensorType>(op.getScalars().getType());
+    auto basesType = cast<RankedTensorType>(op.getBases().getType());
+    if (scalarsType.isDynamicDim(0) || basesType.isDynamicDim(0))
+      return failure();
+    auto jacType = dyn_cast<prime_ir::elliptic_curve::JacobianType>(
+        basesType.getElementType());
+    if (!jacType) return failure();
+    int64_t n = scalarsType.getDimSize(0);
+    if (n == 0) return failure();
+
+    Location loc = op.getLoc();
+    Value running;
+    for (int64_t i = 0; i < n; ++i) {
+      Value idx = arith::ConstantIndexOp::create(rewriter, loc, i);
+      Value scalar = tensor::ExtractOp::create(rewriter, loc, op.getScalars(),
+                                               ValueRange{idx});
+      Value base = tensor::ExtractOp::create(rewriter, loc, op.getBases(),
+                                             ValueRange{idx});
+      Value product = prime_ir::elliptic_curve::ScalarMulOp::create(
+          rewriter, loc, jacType, scalar, base);
+      running = i == 0 ? product
+                       : prime_ir::elliptic_curve::AddOp::create(
+                             rewriter, loc, jacType, running, product)
+                             .getResult();
+    }
+    rewriter.replaceOpWithNewOp<tensor::FromElementsOp>(op, op.getType(),
+                                                        running);
+    return success();
+  }
+};
+
 // Lowers stablehlo.pairing_check → prime_ir::elliptic_curve::PairingCheckOp.
 // prime_ir's op requires affine inputs with G1 over a prime base field and
 // G2 over a degree-2 extension field; the verifier additionally checks
@@ -221,7 +271,7 @@ void populateStablehloToPrimeIRPatterns(RewritePatternSet &patterns) {
                ConvertFieldDiv, ConvertFieldNeg, ConvertFieldConstant>(ctx);
   patterns.add<ConvertECAdd, ConvertECSub, ConvertECNeg, ConvertECScalarMul>(
       ctx);
-  patterns.add<ConvertPairingCheck>(ctx);
+  patterns.add<ConvertPairingCheck, ConvertMsm>(ctx);
 }
 
 }  // namespace mlir::stablehlo
