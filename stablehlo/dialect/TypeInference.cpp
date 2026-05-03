@@ -2945,6 +2945,41 @@ LogicalResult inferPairingCheckOp(
   return success();
 }
 
+// Element types are constrained at the td level (HLO_FieldTensor for
+// scalars, HLO_ECTensor for bases). Shape constraints: both rank-1,
+// lengths match (or are dynamic), batch_size > 1 must divide the operand
+// length; result is rank-0 when batch_size <= 1, rank-1 of size batch_size
+// otherwise.
+LogicalResult inferMsmOp(
+    std::optional<Location> location, Value scalars, Value bases,
+    int32_t batchSize,
+    SmallVectorImpl<ShapedTypeComponents>& inferredReturnShapes) {
+  auto scalarsType = cast<RankedTensorType>(scalars.getType());
+  auto basesType = cast<RankedTensorType>(bases.getType());
+  if (scalarsType.getRank() != 1 || basesType.getRank() != 1)
+    return emitOptionalError(
+        location, "msm requires rank-1 operands; got ranks ",
+        scalarsType.getRank(), " and ", basesType.getRank(), ".");
+  int64_t nScalars = scalarsType.getDimSize(0);
+  int64_t nBases = basesType.getDimSize(0);
+  if (!ShapedType::isDynamic(nScalars) && !ShapedType::isDynamic(nBases) &&
+      nScalars != nBases)
+    return emitOptionalError(location,
+                             "msm requires matching operand lengths; got ",
+                             nScalars, " and ", nBases, ".");
+  Type baseElement = basesType.getElementType();
+  if (batchSize > 1) {
+    if (!ShapedType::isDynamic(nBases) && nBases % batchSize != 0)
+      return emitOptionalError(location, "msm batch_size ", batchSize,
+                               " must divide the operand length ", nBases, ".");
+    inferredReturnShapes.emplace_back(ArrayRef<int64_t>{batchSize},
+                                      baseElement);
+    return success();
+  }
+  inferredReturnShapes.emplace_back(ArrayRef<int64_t>{}, baseElement);
+  return success();
+}
+
 LogicalResult inferGatherOp(
     std::optional<Location> location, Value operand, Value startIndices,
     ArrayRef<int64_t> offsetDims, ArrayRef<int64_t> collapsedSliceDims,

@@ -1291,6 +1291,27 @@ mlir::Speculation::Speculatability FftOp::getSpeculatability() {
 }
 
 //===----------------------------------------------------------------------===//
+// MsmOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult MsmOp::inferReturnTypeComponents(
+    MLIRContext*, std::optional<Location> location, ValueShapeRange operands,
+    DictionaryAttr attributes, PropertyRef properties, RegionRange regions,
+    SmallVectorImpl<ShapedTypeComponents>& inferredReturnShapes) {
+  MsmOp::Adaptor adaptor(operands, attributes, properties, regions);
+  return hlo::inferMsmOp(location, adaptor.getScalars(), adaptor.getBases(),
+                         adaptor.getBatchSize(), inferredReturnShapes);
+}
+
+mlir::Speculation::Speculatability MsmOp::getSpeculatability() {
+  // Result shape depends on batch_size (compile-time attr) plus the
+  // operand length, both of which the verifier has already checked. A
+  // dynamic operand length would propagate to a dynamic batch slot,
+  // which is safe to speculate. Speculatable.
+  return mlir::Speculation::Speculatable;
+}
+
+//===----------------------------------------------------------------------===//
 // PairingCheckOp
 //===----------------------------------------------------------------------===//
 
