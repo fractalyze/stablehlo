@@ -141,6 +141,9 @@ Attribute convertGeneric(Attribute vhloAttr,
   if (auto attr = dyn_cast<vhlo::FftTypeV1Attr>(vhloAttr)) {
     RETURN_CONVERTED_ENUM_ATTR(FftType, V1);
   }
+  if (auto attr = dyn_cast<vhlo::NttTypeV1Attr>(vhloAttr)) {
+    RETURN_CONVERTED_ENUM_ATTR(NttType, V1);
+  }
   if (auto attr = dyn_cast<vhlo::FloatV1Attr>(vhloAttr)) {
     auto builtinFloatType = typeConverter->convertType(attr.getType());
     if (!builtinFloatType) return {};
@@ -693,6 +696,11 @@ SpecialResult convertSpecial(const OpConversionPattern<VhloOpTy>& pattern,
   }
   if constexpr (std::is_same<VhloOpTy, vhlo::FftOpV1>::value) {
     if (vhloName == "fft_length")
+      return convertDenseI64Array(typeConverter, vhloName, vhloAttr,
+                                  stablehloAttrs);
+  }
+  if constexpr (std::is_same<VhloOpTy, vhlo::NttOpV1>::value) {
+    if (vhloName == "ntt_length")
       return convertDenseI64Array(typeConverter, vhloName, vhloAttr,
                                   stablehloAttrs);
   }

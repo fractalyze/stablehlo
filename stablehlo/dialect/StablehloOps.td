@@ -2824,6 +2824,52 @@ def StableHLO_FftOp: StableHLO_Op<"fft",
   }];
 }
 
+def StableHLO_NttOp: StableHLO_Op<"ntt", [NoMemoryEffect,
+    SameOperandsAndResultElementType,
+    SameOperandsAndResultShape]> {
+  let summary = "Number-Theoretic Transform operation";
+  let description = [{
+    Computes the Number-Theoretic Transform of the input tensor along
+    the last dimension. Supports forward (NTT) and inverse (INTT)
+    transforms on prime-field tensors.
+
+    For a 1-D input of length n, computes the standard NTT/INTT.
+    For a 2-D input of shape (w, n), computes w independent NTTs of
+    length n (batched on the last dimension).
+
+    The `ntt_length` attribute must equal the last dimension size and
+    must be a power of 2.
+
+    The optional `generator` attribute specifies the multiplicative
+    subgroup generator used to derive the NTT root of unity. The root
+    is computed as `gen^((p - 1) / ntt_length) mod p`. Different
+    proving systems use different generators. When omitted, the
+    canonical root from zk_dtypes is used.
+
+    Example:
+    ```mlir
+    %result = stablehlo.ntt %operand, type = NTT, length = 1024
+        : tensor<1024x!field.pf<2013265921 : i32>>
+
+    // With explicit generator
+    %result2 = stablehlo.ntt %operand, type = NTT, length = 1024, generator = 5
+        : tensor<1024x!field.pf<2013265921 : i32>>
+    ```
+  }];
+  let arguments = (ins
+    HLO_FieldTensor:$operand,
+    StableHLO_NttTypeAttr:$ntt_type,
+    ConfinedAttr<I64Attr, [IntNonNegative]>:$ntt_length,
+    OptionalAttr<I64Attr>:$generator
+  );
+  let results = (outs HLO_FieldTensor:$result);
+  let assemblyFormat = [{
+    $operand `,` `type` `=` $ntt_type `,` `length` `=` $ntt_length
+      (`,` `generator` `=` $generator^)?
+      attr-dict `:` custom<SameOperandsAndResultType>(type($operand), type($result))
+  }];
+}
+
 def StableHLO_GatherOp: StableHLO_Op<"gather",
     [ConditionallySpeculatable, NoMemoryEffect,
     InferTensorTypeWithReify /*gather_c22*/,

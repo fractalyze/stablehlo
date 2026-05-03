@@ -143,6 +143,21 @@ def VHLO_FftTypeAttrV1
   : VHLO_EnumAttr<VHLO_FftTypeV1, "fft_type_v1", "0.9.0", "current">;
 
 //===----------------------------------------------------------------------===//
+// NttType
+//===----------------------------------------------------------------------===//
+
+def VHLO_NTT_TYPE_V1_NTT : I32EnumAttrCase<"NTT", 0>;
+def VHLO_NTT_TYPE_V1_INTT : I32EnumAttrCase<"INTT", 1>;
+
+def VHLO_NttTypeV1 : VHLO_I32EnumAttr<"NttTypeV1", [
+  VHLO_NTT_TYPE_V1_NTT,
+  VHLO_NTT_TYPE_V1_INTT
+]> {}
+
+def VHLO_NttTypeAttrV1
+  : VHLO_EnumAttr<VHLO_NttTypeV1, "ntt_type_v1", "1.16.0", "current">;
+
+//===----------------------------------------------------------------------===//
 // Precision
 //===----------------------------------------------------------------------===//
 

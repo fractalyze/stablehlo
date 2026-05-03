@@ -94,6 +94,29 @@ def StableHLO_FftType : I32EnumAttr<"FftType",
 def StableHLO_FftTypeAttr : EnumAttr<StableHLO_Dialect, StableHLO_FftType, "fft_type">;
 
 //===----------------------------------------------------------------------===//
+// Number-Theoretic Transform Type enum definitions.
+//===----------------------------------------------------------------------===//
+
+// These mirror the XLA NttType proto enum. NTT operates on prime-field
+// element types and is shape-preserving; there is no real-extension
+// analog (RNTT/IRNTT do not exist), so the enum has only forward and
+// inverse cases.
+def STABLEHLO_NTT_TYPE_NTT : I32EnumAttrCase<"NTT", 0>;
+def STABLEHLO_NTT_TYPE_INTT : I32EnumAttrCase<"INTT", 1>;
+
+def StableHLO_NttType : I32EnumAttr<"NttType",
+    "XLA number-theoretic transform type.",
+    [
+      STABLEHLO_NTT_TYPE_NTT,
+      STABLEHLO_NTT_TYPE_INTT
+    ]> {
+  let genSpecializedAttr = 0;
+  let cppNamespace = "::mlir::stablehlo";
+}
+
+def StableHLO_NttTypeAttr : EnumAttr<StableHLO_Dialect, StableHLO_NttType, "ntt_type">;
+
+//===----------------------------------------------------------------------===//
 // Custom call enum definitions.
 //===----------------------------------------------------------------------===//
 

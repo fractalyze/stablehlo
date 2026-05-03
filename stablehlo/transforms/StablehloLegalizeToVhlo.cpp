@@ -159,6 +159,9 @@ Attribute convertGeneric(Attribute stablehloAttr,
   if (auto attr = dyn_cast<stablehlo::FftTypeAttr>(stablehloAttr)) {
     RETURN_CONVERTED_ENUM_ATTR(FftType, V1);
   }
+  if (auto attr = dyn_cast<stablehlo::NttTypeAttr>(stablehloAttr)) {
+    RETURN_CONVERTED_ENUM_ATTR(NttType, V1);
+  }
   if (auto attr = dyn_cast<stablehlo::OutputOperandAliasAttr>(stablehloAttr)) {
     return vhlo::OutputOperandAliasV1Attr::get(
         attr.getContext(), attr.getOutputTupleIndices(), attr.getOperandIndex(),
