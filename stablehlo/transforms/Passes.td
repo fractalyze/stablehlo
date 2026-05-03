@@ -37,8 +37,14 @@ def StablehloToPrimeIRPass : Pass<"stablehlo-to-prime-ir"> {
       stablehlo.subtract(point) -> elliptic_curve.sub
       stablehlo.negate(point)   -> elliptic_curve.negate
       stablehlo.multiply(scalar, point) -> elliptic_curve.scalar_mul
+
+    PairingCheck rewrite (lowers to the existing prime-ir EC op; the
+    scalar i1 result is wrapped back into a tensor<i1> via
+    tensor.from_elements to satisfy the stablehlo result type):
+      stablehlo.pairing_check(g1, g2) -> elliptic_curve.pairing_check
   }];
   let dependentDialects = [
+    "mlir::tensor::TensorDialect",
     "mlir::prime_ir::field::FieldDialect",
     "mlir::prime_ir::elliptic_curve::EllipticCurveDialect",
   ];

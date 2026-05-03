@@ -15,6 +15,7 @@ limitations under the License.
 
 #include "stablehlo/conversions/StablehloToPrimeIR/StablehloToPrimeIR.h"
 
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/PatternMatch.h"
 #include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveOps.h"
 #include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveTypes.h"
@@ -177,6 +178,41 @@ struct ConvertECScalarMul : public OpRewritePattern<MulOp> {
   }
 };
 
+// Lowers stablehlo.pairing_check → prime_ir::elliptic_curve::PairingCheckOp.
+// prime_ir's op requires affine inputs with G1 over a prime base field and
+// G2 over a degree-2 extension field; the verifier additionally checks
+// that the curve params alias to a known pairing-friendly family. We
+// pre-check the base field shape so this rewrite never produces IR that
+// the EC verifier will reject — non-matching inputs leave the op
+// untouched (upstream code is expected to insert convert_point_type ops
+// or wait for G2 PrimitiveType support).
+//
+// Result wrapping: prime_ir's op returns scalar i1; stablehlo's result
+// is tensor<i1>, so we wrap via tensor.from_elements.
+struct ConvertPairingCheck : public OpRewritePattern<PairingCheckOp> {
+  using OpRewritePattern::OpRewritePattern;
+  LogicalResult matchAndRewrite(PairingCheckOp op,
+                                PatternRewriter &rewriter) const override {
+    auto g1Type = cast<RankedTensorType>(op.getG1Points().getType());
+    auto g2Type = cast<RankedTensorType>(op.getG2Points().getType());
+    using AffineType = prime_ir::elliptic_curve::AffineType;
+    auto g1Aff = dyn_cast<AffineType>(g1Type.getElementType());
+    auto g2Aff = dyn_cast<AffineType>(g2Type.getElementType());
+    if (!g1Aff || !g2Aff) return failure();
+    if (!isa<prime_ir::field::PrimeFieldType>(g1Aff.getBaseFieldType()))
+      return failure();
+    auto g2Ext =
+        dyn_cast<prime_ir::field::ExtensionFieldType>(g2Aff.getBaseFieldType());
+    if (!g2Ext || g2Ext.getDegree() != 2) return failure();
+    auto i1 = rewriter.getI1Type();
+    auto pairing = prime_ir::elliptic_curve::PairingCheckOp::create(
+        rewriter, op.getLoc(), i1, op.getG1Points(), op.getG2Points());
+    rewriter.replaceOpWithNewOp<tensor::FromElementsOp>(
+        op, op.getType(), ValueRange{pairing.getOutput()});
+    return success();
+  }
+};
+
 }  // namespace
 
 void populateStablehloToPrimeIRPatterns(RewritePatternSet &patterns) {
@@ -185,6 +221,7 @@ void populateStablehloToPrimeIRPatterns(RewritePatternSet &patterns) {
                ConvertFieldDiv, ConvertFieldNeg, ConvertFieldConstant>(ctx);
   patterns.add<ConvertECAdd, ConvertECSub, ConvertECNeg, ConvertECScalarMul>(
       ctx);
+  patterns.add<ConvertPairingCheck>(ctx);
 }
 
 }  // namespace mlir::stablehlo
