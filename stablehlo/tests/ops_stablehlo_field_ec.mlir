@@ -252,3 +252,65 @@ func.func @ntt_non_field_rejected(%a: tensor<4xf32>) -> tensor<4xf32> {
       : (tensor<4xf32>) -> tensor<4xf32>
   func.return %0 : tensor<4xf32>
 }
+
+// -----
+// stablehlo.pairing_check happy path. BN254 G1xG1 is semantically wrong
+// (real pairing wants G1xG2) but exercises the IR machinery; G1xG2
+// typing locks down once G2 PrimitiveTypes land.
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+
+// CHECK-LABEL: func @pairing_check
+// CHECK: stablehlo.pairing_check
+func.func @pairing_check(%g1: tensor<4x!jac>, %g2: tensor<4x!jac>)
+    -> tensor<i1> {
+  %0 = stablehlo.pairing_check %g1, %g2
+      : (tensor<4x!jac>, tensor<4x!jac>) -> tensor<i1>
+  func.return %0 : tensor<i1>
+}
+
+// -----
+// Verifier rejects: rank mismatch — pairing_check requires rank-1.
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+
+func.func @pairing_check_rank_rejected(%g1: tensor<2x4x!jac>,
+                                       %g2: tensor<2x4x!jac>)
+    -> tensor<i1> {
+  // expected-error@+2 {{failed to infer returned types}}
+  // expected-error@+1 {{requires rank-1 operands}}
+  %0 = stablehlo.pairing_check %g1, %g2
+      : (tensor<2x4x!jac>, tensor<2x4x!jac>) -> tensor<i1>
+  func.return %0 : tensor<i1>
+}
+
+// -----
+// Verifier rejects: length mismatch between the two operand tensors.
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+
+func.func @pairing_check_length_rejected(%g1: tensor<4x!jac>,
+                                         %g2: tensor<8x!jac>)
+    -> tensor<i1> {
+  // expected-error@+2 {{failed to infer returned types}}
+  // expected-error@+1 {{requires matching operand lengths}}
+  %0 = stablehlo.pairing_check %g1, %g2
+      : (tensor<4x!jac>, tensor<8x!jac>) -> tensor<i1>
+  func.return %0 : tensor<i1>
+}
+
+// -----
+// Verifier rejects: non-EC operand element type. Uses the generic op
+// form because the assembly format would type-check the operand against
+// HLO_ECTensor at parse time before the verifier ever runs.
+
+func.func @pairing_check_non_ec_rejected(%g1: tensor<4xf32>, %g2: tensor<4xf32>)
+    -> tensor<i1> {
+  // expected-error@+1 {{operand #0 must be ranked tensor of}}
+  %0 = "stablehlo.pairing_check"(%g1, %g2)
+      : (tensor<4xf32>, tensor<4xf32>) -> tensor<i1>
+  func.return %0 : tensor<i1>
+}

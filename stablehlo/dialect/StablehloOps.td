@@ -2824,6 +2824,42 @@ def StableHLO_FftOp: StableHLO_Op<"fft",
   }];
 }
 
+def StableHLO_PairingCheckOp: StableHLO_Op<"pairing_check",
+    [ConditionallySpeculatable, NoMemoryEffect, InferTensorType]> {
+  let summary = "PairingCheck operation";
+  let description = [{
+    Multi-pairing check on a pairing-friendly elliptic curve. Verifies
+    that the product of pairings equals the identity in GT:
+      e(P[0], Q[0]) * e(P[1], Q[1]) * ... * e(P[n], Q[n]) = 1
+
+    Both inputs are 1-D tensors of EC affine points on compatible groups
+    of the same curve (e.g., BN254 G1 and G2). Operand lengths must
+    match. The result is a scalar PRED tensor.
+
+    Example (BN254 G1×G1 placeholder until G2 PrimitiveTypes land):
+    ```mlir
+    %ok = stablehlo.pairing_check %g1, %g2
+        : (tensor<4x!elliptic_curve.bn254_g1_affine>,
+           tensor<4x!elliptic_curve.bn254_g1_affine>) -> tensor<i1>
+    ```
+  }];
+  let arguments = (ins
+    HLO_ECTensor:$g1_points,
+    HLO_ECTensor:$g2_points
+  );
+
+  let results = (outs HLO_PredTensor:$result);
+
+  let assemblyFormat = [{
+    operands attr-dict `:` functional-type(operands, results)
+  }];
+
+  let extraClassDeclaration = commonClassDeclaration # [{
+    /// Interface method for ConditionallySpeculatable.
+    mlir::Speculation::Speculatability getSpeculatability();
+  }];
+}
+
 def StableHLO_NttOp: StableHLO_Op<"ntt", [NoMemoryEffect,
     SameOperandsAndResultElementType,
     SameOperandsAndResultShape]> {

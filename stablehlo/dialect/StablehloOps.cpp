@@ -1245,6 +1245,27 @@ mlir::Speculation::Speculatability FftOp::getSpeculatability() {
 }
 
 //===----------------------------------------------------------------------===//
+// PairingCheckOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult PairingCheckOp::inferReturnTypeComponents(
+    MLIRContext*, std::optional<Location> location, ValueShapeRange operands,
+    DictionaryAttr attributes, PropertyRef properties, RegionRange regions,
+    SmallVectorImpl<ShapedTypeComponents>& inferredReturnShapes) {
+  PairingCheckOp::Adaptor adaptor(operands, attributes, properties, regions);
+  return hlo::inferPairingCheckOp(location, adaptor.getG1Points(),
+                                  adaptor.getG2Points(), inferredReturnShapes);
+}
+
+mlir::Speculation::Speculatability PairingCheckOp::getSpeculatability() {
+  // The result is a fixed scalar PRED regardless of operand shapes, so
+  // shape speculation cannot fail. Treating it as Speculatable lets the
+  // op be hoisted by canonicalizers; correctness of the computation
+  // itself is the lowering's responsibility.
+  return mlir::Speculation::Speculatable;
+}
+
+//===----------------------------------------------------------------------===//
 // GatherOp
 //===----------------------------------------------------------------------===//
 
