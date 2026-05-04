@@ -125,6 +125,15 @@ operation.
 SmallVector<MlirOp, 3> BatchNormTraining(MlirOp &operand, MlirOp &scale, MlirOp &offset, ::llvm::APFloat epsilon, uint64_t feature_index);
 ```
 
+### `stablehlo::BitReverseOp`
+
+Creates a new [`stablehlo.bit_reverse`](https://openxla.org/stablehlo/spec#bit_reverse)
+operation.
+
+```c++
+MlirOp BitReverse(MlirOp &operand, ::llvm::ArrayRef<int64_t> dimensions);
+```
+
 ### `stablehlo::BitcastConvertOp`
 
 Creates a new [`stablehlo.bitcast_convert`](https://openxla.org/stablehlo/spec#bitcast_convert)
