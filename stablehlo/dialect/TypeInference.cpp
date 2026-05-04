@@ -72,6 +72,7 @@ limitations under the License.
 #include "mlir/Interfaces/InferTypeOpInterface.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/LogicalResult.h"
+#include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveAttributes.h"
 #include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveTypes.h"
 #include "prime_ir/Dialect/Field/IR/FieldTypes.h"
 #include "stablehlo/dialect/AssemblyFormat.h"
@@ -2967,11 +2968,38 @@ LogicalResult inferPairingCheckOp(
     return emitOptionalError(
         location, "pairing_check requires matching operand lengths; got ", n1,
         " and ", n2, ".");
-  if (!isCompatibleElementTypeForHloTypeInference(g1Type.getElementType(),
-                                                  g2Type.getElementType()))
+  // Both element types must be EC points; same curve is allowed, or a
+  // bilinear pair where G1 is EC(PF) and G2 is EC(EF) and EF's base field
+  // equals G1's prime field — the BN254-style G1×G2 pairing shape.
+  using PointTypeInterface = prime_ir::elliptic_curve::PointTypeInterface;
+  using PFType = prime_ir::field::PrimeFieldType;
+  using EFType = prime_ir::field::ExtensionFieldType;
+  auto g1Pt = dyn_cast<PointTypeInterface>(g1Type.getElementType());
+  auto g2Pt = dyn_cast<PointTypeInterface>(g2Type.getElementType());
+  if (!g1Pt || !g2Pt)
+    return emitOptionalError(
+        location, "pairing_check operands must be EC point tensors; got ",
+        g1Type.getElementType(), " and ", g2Type.getElementType(), ".");
+  using ShortWeierstrassAttr = prime_ir::elliptic_curve::ShortWeierstrassAttr;
+  auto g1Curve = dyn_cast<ShortWeierstrassAttr>(g1Pt.getCurveAttr());
+  auto g2Curve = dyn_cast<ShortWeierstrassAttr>(g2Pt.getCurveAttr());
+  bool sameCurve = g1Curve && g2Curve && g1Curve == g2Curve;
+  bool bilinearPair = false;
+  // Bilinear shape: G1 over a prime field, G2 over an extension whose base
+  // is that same prime field. Read each curve's underlying field off the
+  // ShortWeierstrassAttr.
+  if (g1Curve && g2Curve) {
+    if (auto pf = dyn_cast<PFType>(g1Curve.getBaseField())) {
+      if (auto ef = dyn_cast<EFType>(g2Curve.getBaseField()))
+        bilinearPair = (ef.getBaseField() == pf);
+    }
+  }
+  if (!sameCurve && !bilinearPair)
     return emitOptionalError(
         location,
-        "pairing_check operands must be EC points on the same curve; got ",
+        "pairing_check operands must be on the same curve, or form a "
+        "bilinear pair (G1 on a prime field, G2 on a degree>=2 extension "
+        "of that prime field); got ",
         g1Type.getElementType(), " and ", g2Type.getElementType(), ".");
   inferredReturnShapes.emplace_back(ArrayRef<int64_t>{},
                                     IntegerType::get(g1Points.getContext(), 1));
