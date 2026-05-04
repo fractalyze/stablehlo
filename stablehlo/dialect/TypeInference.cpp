@@ -665,6 +665,39 @@ LogicalResult verifyAddOp(std::optional<Location> location, Operation* op,
       if (ef.getBaseField() == pf && resEl == lhsEl) return success();
   }
 
+  // EC point + EC point: at least one of {lhs, rhs, result} must be a
+  // PointTypeInterface => all three must be, on the same curve, and in
+  // a coordinate combination that the group law can realize.
+  using PointTypeInterface = prime_ir::elliptic_curve::PointTypeInterface;
+  auto lhsPt = dyn_cast<PointTypeInterface>(lhsEl);
+  auto rhsPt = dyn_cast<PointTypeInterface>(rhsEl);
+  auto resPt = dyn_cast<PointTypeInterface>(resEl);
+  if (lhsPt || rhsPt || resPt) {
+    if (!lhsPt || !rhsPt || !resPt)
+      return emitOptionalError(location,
+                               "EC types cannot be mixed with non-EC types");
+    auto curve = lhsPt.getCurveAttr();
+    if (rhsPt.getCurveAttr() != curve || resPt.getCurveAttr() != curve)
+      return emitOptionalError(
+          location, "EC operands and result must be on the same curve");
+    using namespace prime_ir::elliptic_curve;
+    // Rule 1: same lhs/rhs type, result is jacobian or xyzz
+    //   affine+affine → jacobian/xyzz
+    //   jacobian+jacobian → jacobian
+    //   xyzz+xyzz → xyzz
+    if (Type(lhsPt) == Type(rhsPt) && isa<JacobianType, XYZZType>(resPt))
+      return success();
+    // Rule 2: one operand is affine, result matches the other (non-affine).
+    //   affine+jacobian → jacobian
+    //   xyzz+affine → xyzz
+    bool resAffine = isa<AffineType>(resPt);
+    if (!resAffine &&
+        (Type(lhsPt) == Type(resPt) || Type(rhsPt) == Type(resPt)))
+      return success();
+    return emitOptionalError(
+        location, "invalid EC point type combination for binary operation");
+  }
+
   if (lhsEl != rhsEl || lhsEl != resEl)
     return emitOptionalError(
         location,
