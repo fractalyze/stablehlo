@@ -3338,6 +3338,23 @@ LogicalResult CompareOp::inferReturnTypeComponents(
                              inferredReturnShapes);
 }
 
+LogicalResult CompareOp::verify() {
+  // Ordered comparisons (LT/LE/GE/GT) are not meaningful on EC point or
+  // extension-field element types — those types form fields/groups
+  // without a canonical total order. Restrict to EQ/NE, matching the
+  // upstream zk policy for these element types.
+  Type lhsEl = getElementTypeOrSelf(getLhs().getType());
+  auto dir = getComparisonDirection();
+  if (dir == ComparisonDirection::EQ || dir == ComparisonDirection::NE)
+    return success();
+  if (isa<prime_ir::elliptic_curve::PointTypeInterface>(lhsEl))
+    return emitOpError("EC point types only support EQ and NE comparisons");
+  if (isa<prime_ir::field::ExtensionFieldType>(lhsEl))
+    return emitOpError(
+        "extension field types only support EQ and NE comparisons");
+  return success();
+}
+
 LogicalResult CompareOp::reifyReturnTypeShapes(
     OpBuilder& builder, ValueRange operands,
     SmallVectorImpl<Value>& reifiedReturnShapes) {
