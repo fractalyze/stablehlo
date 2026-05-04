@@ -357,6 +357,10 @@ LogicalResult inferReduceWindowOp(
 LogicalResult inferReplicaIdOp(MLIRContext* context, std::optional<Location>,
                                SmallVectorImpl<Type>& inferredReturnTypes);
 
+LogicalResult inferBitReverseOp(std::optional<Location> location,
+                                Type operandType,
+                                SmallVectorImpl<Type>& inferredReturnTypes);
+
 LogicalResult inferReverseOp(std::optional<Location> location, Type operandType,
                              SmallVectorImpl<Type>& inferredReturnTypes);
 
@@ -570,6 +574,10 @@ LogicalResult verifyReduceWindowOp(
 
 LogicalResult verifyReshapeOp(std::optional<Location> location, Value operand,
                               Value result);
+
+LogicalResult verifyBitReverseOp(std::optional<Location> location,
+                                 Value operand,
+                                 llvm::ArrayRef<int64_t> dimensions);
 
 LogicalResult verifyReverseOp(std::optional<Location> location, Value operand,
                               llvm::ArrayRef<int64_t> dimensions);

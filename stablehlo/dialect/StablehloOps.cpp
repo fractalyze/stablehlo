@@ -2707,6 +2707,30 @@ LogicalResult OptimizationBarrierOp::inferReturnTypes(
 }
 
 //===----------------------------------------------------------------------===//
+// BitReverseOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult BitReverseOp::verify() {
+  return hlo::verifyBitReverseOp(getLoc(), getOperand(), getDimensions());
+}
+
+LogicalResult BitReverseOp::inferReturnTypes(
+    MLIRContext*, std::optional<Location> location, ValueRange operands,
+    DictionaryAttr attributes, PropertyRef properties, RegionRange regions,
+    SmallVectorImpl<Type>& inferredReturnTypes) {
+  BitReverseOp::Adaptor adaptor(operands, attributes, properties, regions);
+  return hlo::inferBitReverseOp(location, adaptor.getOperand().getType(),
+                                inferredReturnTypes);
+}
+
+LogicalResult BitReverseOp::reifyReturnTypeShapes(
+    OpBuilder& builder, ValueRange operands,
+    SmallVectorImpl<Value>& reifiedReturnShapes) {
+  return hlo::deriveShapeFromOperand(&builder, getOperation(), operands.front(),
+                                     &reifiedReturnShapes);
+}
+
+//===----------------------------------------------------------------------===//
 // ReverseOp
 //===----------------------------------------------------------------------===//
 LogicalResult ReverseOp::verify() {

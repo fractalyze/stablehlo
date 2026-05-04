@@ -3339,6 +3339,13 @@ LogicalResult inferReplicaIdOp(MLIRContext* context, std::optional<Location>,
   return success();
 }
 
+LogicalResult inferBitReverseOp(std::optional<Location> location,
+                                Type operandType,
+                                SmallVectorImpl<Type>& inferredReturnTypes) {
+  inferredReturnTypes.push_back(operandType);
+  return success();
+}
+
 LogicalResult inferReverseOp(std::optional<Location> location, Type operandType,
                              SmallVectorImpl<Type>& inferredReturnTypes) {
   inferredReturnTypes.push_back(operandType);
@@ -4878,6 +4885,31 @@ LogicalResult verifyReshapeOp(std::optional<Location> location, Value operand,
     return verifyReshapeOpQuantizationConstraints(location, operand.getType(),
                                                   result.getType());
 
+  return success();
+}
+
+LogicalResult verifyBitReverseOp(std::optional<Location> location,
+                                 Value operand, ArrayRef<int64_t> dimensions) {
+  llvm::SmallDenseSet<int64_t> uniqueDims(dimensions.begin(), dimensions.end());
+  if (uniqueDims.size() != dimensions.size())
+    return emitOptionalError(location,
+                             "dimensions should be unique. Got: ", dimensions);
+  auto operandTy = cast<RankedTensorType>(operand.getType());
+  for (int64_t dim : dimensions) {
+    if (dim < 0)
+      return emitOptionalError(
+          location,
+          "all dimensions should be non-negative. Got dimension: ", dim, ".");
+    if (dim >= operandTy.getRank())
+      return emitOptionalError(
+          location, "all dimensions should be between [0, ",
+          operandTy.getRank(), "). Got dimension: ", dim, ".");
+    int64_t dimSize = operandTy.getDimSize(dim);
+    if (dimSize != ShapedType::kDynamic && (dimSize & (dimSize - 1)) != 0)
+      return emitOptionalError(location,
+                               "dimension size must be a power of 2, got ",
+                               dimSize, " for dimension ", dim, ".");
+  }
   return success();
 }
 
