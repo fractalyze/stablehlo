@@ -72,6 +72,7 @@ limitations under the License.
 #include "mlir/Interfaces/InferTypeOpInterface.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/LogicalResult.h"
+#include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveAttributes.h"
 #include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveTypes.h"
 #include "prime_ir/Dialect/Field/IR/FieldTypes.h"
 #include "stablehlo/dialect/AssemblyFormat.h"
@@ -663,6 +664,39 @@ LogicalResult verifyAddOp(std::optional<Location> location, Operation* op,
   } else if (auto ef = dyn_cast<EFType>(lhsEl)) {
     if (auto pf = dyn_cast<PFType>(rhsEl))
       if (ef.getBaseField() == pf && resEl == lhsEl) return success();
+  }
+
+  // EC point + EC point: at least one of {lhs, rhs, result} must be a
+  // PointTypeInterface => all three must be, on the same curve, and in
+  // a coordinate combination that the group law can realize.
+  using PointTypeInterface = prime_ir::elliptic_curve::PointTypeInterface;
+  auto lhsPt = dyn_cast<PointTypeInterface>(lhsEl);
+  auto rhsPt = dyn_cast<PointTypeInterface>(rhsEl);
+  auto resPt = dyn_cast<PointTypeInterface>(resEl);
+  if (lhsPt || rhsPt || resPt) {
+    if (!lhsPt || !rhsPt || !resPt)
+      return emitOptionalError(location,
+                               "EC types cannot be mixed with non-EC types");
+    auto curve = lhsPt.getCurveAttr();
+    if (rhsPt.getCurveAttr() != curve || resPt.getCurveAttr() != curve)
+      return emitOptionalError(
+          location, "EC operands and result must be on the same curve");
+    using namespace prime_ir::elliptic_curve;
+    // Rule 1: same lhs/rhs type, result is jacobian or xyzz
+    //   affine+affine → jacobian/xyzz
+    //   jacobian+jacobian → jacobian
+    //   xyzz+xyzz → xyzz
+    if (Type(lhsPt) == Type(rhsPt) && isa<JacobianType, XYZZType>(resPt))
+      return success();
+    // Rule 2: one operand is affine, result matches the other (non-affine).
+    //   affine+jacobian → jacobian
+    //   xyzz+affine → xyzz
+    bool resAffine = isa<AffineType>(resPt);
+    if (!resAffine &&
+        (Type(lhsPt) == Type(resPt) || Type(rhsPt) == Type(resPt)))
+      return success();
+    return emitOptionalError(
+        location, "invalid EC point type combination for binary operation");
   }
 
   if (lhsEl != rhsEl || lhsEl != resEl)
@@ -2934,11 +2968,38 @@ LogicalResult inferPairingCheckOp(
     return emitOptionalError(
         location, "pairing_check requires matching operand lengths; got ", n1,
         " and ", n2, ".");
-  if (!isCompatibleElementTypeForHloTypeInference(g1Type.getElementType(),
-                                                  g2Type.getElementType()))
+  // Both element types must be EC points; same curve is allowed, or a
+  // bilinear pair where G1 is EC(PF) and G2 is EC(EF) and EF's base field
+  // equals G1's prime field — the BN254-style G1×G2 pairing shape.
+  using PointTypeInterface = prime_ir::elliptic_curve::PointTypeInterface;
+  using PFType = prime_ir::field::PrimeFieldType;
+  using EFType = prime_ir::field::ExtensionFieldType;
+  auto g1Pt = dyn_cast<PointTypeInterface>(g1Type.getElementType());
+  auto g2Pt = dyn_cast<PointTypeInterface>(g2Type.getElementType());
+  if (!g1Pt || !g2Pt)
+    return emitOptionalError(
+        location, "pairing_check operands must be EC point tensors; got ",
+        g1Type.getElementType(), " and ", g2Type.getElementType(), ".");
+  using ShortWeierstrassAttr = prime_ir::elliptic_curve::ShortWeierstrassAttr;
+  auto g1Curve = dyn_cast<ShortWeierstrassAttr>(g1Pt.getCurveAttr());
+  auto g2Curve = dyn_cast<ShortWeierstrassAttr>(g2Pt.getCurveAttr());
+  bool sameCurve = g1Curve && g2Curve && g1Curve == g2Curve;
+  bool bilinearPair = false;
+  // Bilinear shape: G1 over a prime field, G2 over an extension whose base
+  // is that same prime field. Read each curve's underlying field off the
+  // ShortWeierstrassAttr.
+  if (g1Curve && g2Curve) {
+    if (auto pf = dyn_cast<PFType>(g1Curve.getBaseField())) {
+      if (auto ef = dyn_cast<EFType>(g2Curve.getBaseField()))
+        bilinearPair = (ef.getBaseField() == pf);
+    }
+  }
+  if (!sameCurve && !bilinearPair)
     return emitOptionalError(
         location,
-        "pairing_check operands must be EC points on the same curve; got ",
+        "pairing_check operands must be on the same curve, or form a "
+        "bilinear pair (G1 on a prime field, G2 on a degree>=2 extension "
+        "of that prime field); got ",
         g1Type.getElementType(), " and ", g2Type.getElementType(), ".");
   inferredReturnShapes.emplace_back(ArrayRef<int64_t>{},
                                     IntegerType::get(g1Points.getContext(), 1));
@@ -2952,7 +3013,7 @@ LogicalResult inferPairingCheckOp(
 // otherwise.
 LogicalResult inferMsmOp(
     std::optional<Location> location, Value scalars, Value bases,
-    int32_t batchSize,
+    int32_t batchSize, bool arePointsShared,
     SmallVectorImpl<ShapedTypeComponents>& inferredReturnShapes) {
   auto scalarsType = cast<RankedTensorType>(scalars.getType());
   auto basesType = cast<RankedTensorType>(bases.getType());
@@ -2962,14 +3023,36 @@ LogicalResult inferMsmOp(
         scalarsType.getRank(), " and ", basesType.getRank(), ".");
   int64_t nScalars = scalarsType.getDimSize(0);
   int64_t nBases = basesType.getDimSize(0);
-  if (!ShapedType::isDynamic(nScalars) && !ShapedType::isDynamic(nBases) &&
-      nScalars != nBases)
+  Type baseElement = basesType.getElementType();
+  bool nScalarsKnown = !ShapedType::isDynamic(nScalars);
+  bool nBasesKnown = !ShapedType::isDynamic(nBases);
+
+  // Length relationship depends on batch_size and are_points_shared:
+  //   batch_size <= 1                        : nScalars == nBases, result
+  //   rank-0. batch_size  > 1 && !are_points_shared  : nScalars == nBases, both
+  //                                            divisible by batch_size,
+  //                                            result rank-1 of size
+  //                                            batch_size.
+  //   batch_size  > 1 &&  are_points_shared  : nScalars == batch_size * nBases,
+  //                                            result rank-1 of size
+  //                                            batch_size.
+  if (batchSize > 1 && arePointsShared) {
+    if (nScalarsKnown && nBasesKnown && nScalars != int64_t(batchSize) * nBases)
+      return emitOptionalError(
+          location, "msm with batch_size=", batchSize,
+          " and are_points_shared=true requires scalars length == "
+          "batch_size * bases length; got ",
+          nScalars, " and ", nBases, ".");
+    inferredReturnShapes.emplace_back(ArrayRef<int64_t>{batchSize},
+                                      baseElement);
+    return success();
+  }
+  if (nScalarsKnown && nBasesKnown && nScalars != nBases)
     return emitOptionalError(location,
                              "msm requires matching operand lengths; got ",
                              nScalars, " and ", nBases, ".");
-  Type baseElement = basesType.getElementType();
   if (batchSize > 1) {
-    if (!ShapedType::isDynamic(nBases) && nBases % batchSize != 0)
+    if (nBasesKnown && nBases % batchSize != 0)
       return emitOptionalError(location, "msm batch_size ", batchSize,
                                " must divide the operand length ", nBases, ".");
     inferredReturnShapes.emplace_back(ArrayRef<int64_t>{batchSize},

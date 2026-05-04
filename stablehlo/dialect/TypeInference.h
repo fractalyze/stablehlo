@@ -283,7 +283,7 @@ LogicalResult inferPairingCheckOp(
 
 LogicalResult inferMsmOp(
     std::optional<Location> location, Value scalars, Value bases,
-    int32_t batchSize,
+    int32_t batchSize, bool arePointsShared,
     SmallVectorImpl<ShapedTypeComponents>& inferredReturnShapes);
 
 LogicalResult inferGatherOp(
