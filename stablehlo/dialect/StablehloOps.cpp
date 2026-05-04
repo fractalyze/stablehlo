@@ -1254,7 +1254,8 @@ LogicalResult MsmOp::inferReturnTypeComponents(
     SmallVectorImpl<ShapedTypeComponents>& inferredReturnShapes) {
   MsmOp::Adaptor adaptor(operands, attributes, properties, regions);
   return hlo::inferMsmOp(location, adaptor.getScalars(), adaptor.getBases(),
-                         adaptor.getBatchSize(), inferredReturnShapes);
+                         adaptor.getBatchSize(), adaptor.getArePointsShared(),
+                         inferredReturnShapes);
 }
 
 mlir::Speculation::Speculatability MsmOp::getSpeculatability() {

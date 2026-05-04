@@ -649,6 +649,12 @@ func.func @msm_bn254_with_config(%scalars: tensor<1024x!BN254_Fr>, %bases: tenso
   func.return %0 : tensor<!g1_xyzz>
 }
 
+// CHECK-LABEL: func @msm_bn254_batched
+func.func @msm_bn254_batched(%scalars: tensor<2048x!BN254_Fr>, %bases: tensor<1024x!g1_affine>) -> tensor<2x!g1_xyzz> {
+  %0 = stablehlo.msm %scalars, %bases {window_bits = 16 : i32, batch_size = 2 : i32, are_points_shared = true} : (tensor<2048x!BN254_Fr>, tensor<1024x!g1_affine>) -> tensor<2x!g1_xyzz>
+  func.return %0 : tensor<2x!g1_xyzz>
+}
+
 // -----
 
 // =============================================================================

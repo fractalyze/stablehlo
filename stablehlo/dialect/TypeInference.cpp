@@ -3013,7 +3013,7 @@ LogicalResult inferPairingCheckOp(
 // otherwise.
 LogicalResult inferMsmOp(
     std::optional<Location> location, Value scalars, Value bases,
-    int32_t batchSize,
+    int32_t batchSize, bool arePointsShared,
     SmallVectorImpl<ShapedTypeComponents>& inferredReturnShapes) {
   auto scalarsType = cast<RankedTensorType>(scalars.getType());
   auto basesType = cast<RankedTensorType>(bases.getType());
@@ -3023,14 +3023,36 @@ LogicalResult inferMsmOp(
         scalarsType.getRank(), " and ", basesType.getRank(), ".");
   int64_t nScalars = scalarsType.getDimSize(0);
   int64_t nBases = basesType.getDimSize(0);
-  if (!ShapedType::isDynamic(nScalars) && !ShapedType::isDynamic(nBases) &&
-      nScalars != nBases)
+  Type baseElement = basesType.getElementType();
+  bool nScalarsKnown = !ShapedType::isDynamic(nScalars);
+  bool nBasesKnown = !ShapedType::isDynamic(nBases);
+
+  // Length relationship depends on batch_size and are_points_shared:
+  //   batch_size <= 1                        : nScalars == nBases, result
+  //   rank-0. batch_size  > 1 && !are_points_shared  : nScalars == nBases, both
+  //                                            divisible by batch_size,
+  //                                            result rank-1 of size
+  //                                            batch_size.
+  //   batch_size  > 1 &&  are_points_shared  : nScalars == batch_size * nBases,
+  //                                            result rank-1 of size
+  //                                            batch_size.
+  if (batchSize > 1 && arePointsShared) {
+    if (nScalarsKnown && nBasesKnown && nScalars != int64_t(batchSize) * nBases)
+      return emitOptionalError(
+          location, "msm with batch_size=", batchSize,
+          " and are_points_shared=true requires scalars length == "
+          "batch_size * bases length; got ",
+          nScalars, " and ", nBases, ".");
+    inferredReturnShapes.emplace_back(ArrayRef<int64_t>{batchSize},
+                                      baseElement);
+    return success();
+  }
+  if (nScalarsKnown && nBasesKnown && nScalars != nBases)
     return emitOptionalError(location,
                              "msm requires matching operand lengths; got ",
                              nScalars, " and ", nBases, ".");
-  Type baseElement = basesType.getElementType();
   if (batchSize > 1) {
-    if (!ShapedType::isDynamic(nBases) && nBases % batchSize != 0)
+    if (nBasesKnown && nBases % batchSize != 0)
       return emitOptionalError(location, "msm batch_size ", batchSize,
                                " must divide the operand length ", nBases, ".");
     inferredReturnShapes.emplace_back(ArrayRef<int64_t>{batchSize},
