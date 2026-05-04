@@ -538,6 +538,22 @@ func.func @compare_ec_ne(%a: tensor<4x!g1_affine>, %b: tensor<4x!g1_affine>) -> 
 // -----
 
 // =============================================================================
+// EC Compare — ordered direction (negative test)
+// =============================================================================
+
+!pf_g1 = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+#g1_curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !pf_g1
+!g1_affine = !elliptic_curve.affine<#g1_curve>
+
+func.func @compare_ec_lt_invalid(%a: tensor<4x!g1_affine>, %b: tensor<4x!g1_affine>) -> tensor<4xi1> {
+  // expected-error @+1 {{EC point types only support EQ and NE comparisons}}
+  %0 = stablehlo.compare LT, %a, %b : (tensor<4x!g1_affine>, tensor<4x!g1_affine>) -> tensor<4xi1>
+  func.return %0 : tensor<4xi1>
+}
+
+// -----
+
+// =============================================================================
 // EC Add — invalid type combination (negative test)
 // =============================================================================
 
@@ -549,6 +565,21 @@ func.func @add_ec_affine_affine_invalid(%a: tensor<!g1_affine>, %b: tensor<!g1_a
   // expected-error @+1 {{invalid EC point type combination for binary operation}}
   %0 = "stablehlo.add"(%a, %b) : (tensor<!g1_affine>, tensor<!g1_affine>) -> tensor<!g1_affine>
   func.return %0 : tensor<!g1_affine>
+}
+
+// -----
+
+// =============================================================================
+// ExtensionField Compare — ordered direction (negative test)
+// =============================================================================
+
+!pf =!field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!ef2 = !field.ef<2x!pf, 21888242871839275222246405745257275088696311157297823662689037894645226208582:i256>
+
+func.func @compare_ef_lt_invalid(%a: tensor<4x!ef2>, %b: tensor<4x!ef2>) -> tensor<4xi1> {
+  // expected-error @+1 {{extension field types only support EQ and NE comparisons}}
+  %0 = stablehlo.compare LT, %a, %b : (tensor<4x!ef2>, tensor<4x!ef2>) -> tensor<4xi1>
+  func.return %0 : tensor<4xi1>
 }
 
 // -----

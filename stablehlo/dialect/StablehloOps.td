@@ -1903,6 +1903,8 @@ def StableHLO_CompareOp: StableHLO_Op<"compare",
     $comparison_direction `,` $lhs `,` $rhs (`,` $compare_type^)?
       attr-dict `:` functional-type(operands, results)
   }];
+
+  let hasVerifier = 1;
 }
 
 //===----------------------------------------------------------------------===//
