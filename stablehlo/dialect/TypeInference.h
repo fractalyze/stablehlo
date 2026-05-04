@@ -437,6 +437,9 @@ LogicalResult inferWhileOp(std::optional<Location> location, ValueRange operand,
 LogicalResult verifyAddOp(std::optional<Location> location, Operation* op,
                           Type lhsType, Type rhsType, Type resultType);
 
+LogicalResult verifyPowOp(std::optional<Location> location, Type lhsType,
+                          Type rhsType, Type resultType);
+
 LogicalResult verifyAllGatherOp(std::optional<Location> location,
                                 ValueRange operands, int64_t allGatherDim,
                                 Attribute replicaGroups, int64_t channelId,

@@ -707,6 +707,33 @@ LogicalResult verifyAddOp(std::optional<Location> location, Operation* op,
   return success();
 }
 
+LogicalResult verifyPowOp(std::optional<Location> location, Type lhsType,
+                          Type rhsType, Type resultType) {
+  Type lhsEl = getElementTypeOrSelf(lhsType);
+  Type rhsEl = getElementTypeOrSelf(rhsType);
+  Type resEl = getElementTypeOrSelf(resultType);
+
+  // Result element type must always match the base (lhs).
+  if (lhsEl != resEl)
+    return emitOptionalError(
+        location, "stablehlo.power result element type must match base");
+
+  // Field base + integer exponent: ZK pattern.
+  if (isa<prime_ir::field::FieldTypeInterface>(lhsEl) &&
+      isa<IntegerType>(rhsEl))
+    return success();
+
+  // Otherwise: rhs element type must match lhs (upstream homogeneous form
+  // — float/int/complex/quantized).
+  if (lhsEl != rhsEl)
+    return emitOptionalError(
+        location,
+        "stablehlo.power exponent element type must match base, or be an "
+        "integer when the base is a field type");
+
+  return success();
+}
+
 // If the shape operand is constant, checks that it is compatible with the
 // result's shape. Emits an error if the shapes are incompatible.
 LogicalResult verifyShapeOperandIsCompatibleWithResultType(

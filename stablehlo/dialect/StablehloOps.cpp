@@ -249,7 +249,6 @@ INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(NegOp)
 INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(NotOp)
 INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(OrOp)
 INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(PopulationCountOp)
-INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(PowOp)
 INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(ReducePrecisionOp)
 INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(RemOp)
 INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(RoundNearestEvenOp)
@@ -290,6 +289,22 @@ LogicalResult AddOp::inferReturnTypeComponents(
 LogicalResult AddOp::verify() {
   return hlo::verifyAddOp(getLoc(), getOperation(), getLhs().getType(),
                           getRhs().getType(), getResult().getType());
+}
+
+//===----------------------------------------------------------------------===//
+// PowOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult PowOp::verify() {
+  return hlo::verifyPowOp(getLoc(), getLhs().getType(), getRhs().getType(),
+                          getResult().getType());
+}
+
+LogicalResult PowOp::reifyReturnTypeShapes(
+    OpBuilder& builder, ValueRange operands,
+    SmallVectorImpl<Value>& reifiedReturnShapes) {
+  return ::mlir::hlo::deriveShapeFromOperand(
+      &builder, getOperation(), operands.front(), &reifiedReturnShapes);
 }
 
 //===----------------------------------------------------------------------===//

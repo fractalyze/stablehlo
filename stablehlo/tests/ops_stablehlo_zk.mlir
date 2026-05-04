@@ -92,6 +92,28 @@ func.func @power_i32(%arg0: tensor<4xi32>, %arg1: tensor<4xi32>) -> tensor<4xi32
 
 // -----
 
+!pf = !field.pf<2013265921 : i32, true>
+
+// CHECK-LABEL: func @power_field_with_int_exponent
+func.func @power_field_with_int_exponent(%base: tensor<4x!pf>, %exp: tensor<4xi32>) -> tensor<4x!pf> {
+  // Field base with integer exponent (ZK power pattern)
+  %0 = stablehlo.power %base, %exp : (tensor<4x!pf>, tensor<4xi32>) -> tensor<4x!pf>
+  func.return %0 : tensor<4x!pf>
+}
+
+// -----
+
+!pf2 = !field.pf<2013265921 : i32, true>
+
+// CHECK-LABEL: func @power_field_scalar
+func.func @power_field_scalar(%base: tensor<!pf2>, %exp: tensor<i32>) -> tensor<!pf2> {
+  // Scalar field power
+  %0 = stablehlo.power %base, %exp : (tensor<!pf2>, tensor<i32>) -> tensor<!pf2>
+  func.return %0 : tensor<!pf2>
+}
+
+// -----
+
 // =============================================================================
 // NegateOp
 // =============================================================================
@@ -780,4 +802,13 @@ func.func @convert_i256_to_pf(%arg0: tensor<4xi256>) -> tensor<4x!pf_bn254> {
 func.func @convert_pf_to_i256(%arg0: tensor<4x!pf_bn254>) -> tensor<4xi256> {
   %0 = stablehlo.convert %arg0 : (tensor<4x!pf_bn254>) -> tensor<4xi256>
   func.return %0 : tensor<4xi256>
+}
+
+// -----
+
+// CHECK-LABEL: func @power_pf_i256
+!pf_bn254 = !field.pf<21888242871839275222246405745257275088548364400416034343698204186575808495617:i256>
+func.func @power_pf_i256(%base: tensor<!pf_bn254>, %exp: tensor<i256>) -> tensor<!pf_bn254> {
+  %0 = "stablehlo.power"(%base, %exp) : (tensor<!pf_bn254>, tensor<i256>) -> tensor<!pf_bn254>
+  func.return %0 : tensor<!pf_bn254>
 }

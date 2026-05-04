@@ -986,13 +986,25 @@ def StableHLO_MulOp : StableHLO_BinaryElementwiseOp<"multiply",
   }];
 }
 
-def StableHLO_PowOp : StableHLO_BinaryElementwiseOp<"power",
-      [HLO_CompatibleOperandsAndResultType /* pow_c1 */],
-      HLO_IntFpOrComplexOrQuantizedIntTensor /* pow_i1, pow_i2 */> {
+def StableHLO_PowOp : StableHLO_Op<"power",
+    [SameOperandsAndResultShape, Elementwise,
+     HLO_SpeculatableIfAllInputsStatic, NoMemoryEffect,
+     InferTypeOpInterface,
+     DeclareOpInterfaceMethods<InferShapedTypeOpInterface,
+                               ["reifyReturnTypeShapes"]>]> {
   let summary = "Power operation";
   let description = [{
     Performs element-wise exponentiation of `lhs` tensor by `rhs` tensor and
     produces a `result` tensor.
+
+    For float / int / complex / quantized base types, lhs, rhs, and result
+    must all share the same element type (upstream behavior).
+
+    For prime-field base types, the exponent is required to be an integer
+    tensor of the same shape; the result keeps the field element type:
+
+      %r = stablehlo.power %field_base, %int_exp
+          : (tensor<4x!field.pf<...>>, tensor<4xi32>) -> tensor<4x!field.pf<...>>
 
     See:
     https://github.com/openxla/stablehlo/blob/main/docs/spec.md#power
@@ -1001,6 +1013,35 @@ def StableHLO_PowOp : StableHLO_BinaryElementwiseOp<"power",
     ```mlir
     %result = stablehlo.power %lhs, %rhs : tensor<6xf64>
     ```
+  }];
+  let arguments = (ins
+    HLO_IntFpOrComplexOrQuantizedIntTensor:$lhs,
+    HLO_IntFpOrComplexOrQuantizedIntTensor:$rhs
+  );
+  let results = (outs HLO_IntFpOrComplexOrQuantizedIntTensor:$result);
+
+  let assemblyFormat = [{
+    $lhs `,` $rhs attr-dict
+      `:` custom<SameOperandsAndResultType>(type($lhs), type($rhs), type($result))
+  }];
+
+  let hasVerifier = 1;
+
+  let extraClassDeclaration = commonClassDeclaration # [{
+    static LogicalResult inferReturnTypes(
+        MLIRContext * /*context*/, std::optional<Location> location,
+        ValueRange operands, DictionaryAttr /*attributes*/,
+        PropertyRef /*properties*/, RegionRange /*regions*/,
+        SmallVectorImpl<Type> &inferredReturnTypes) {
+      // Result type matches the base (lhs) — that's the field+int case.
+      // For the homogeneous case, lhs == rhs anyway. The verifier later
+      // checks the lhs/rhs relationship.
+      if (operands.empty())
+        return emitOptionalError(
+            location, "Expected non-empty operands for PowOp::inferReturnTypes");
+      inferredReturnTypes.push_back(operands.front().getType());
+      return success();
+    }
   }];
 }
 
