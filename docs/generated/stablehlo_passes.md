@@ -4,6 +4,20 @@
 
 _Legalizes from CHLO ops flow to StableHLO and Shape ops_
 
+### `-prime-ir-to-stablehlo`
+
+_Convert prime-ir ops back to StableHLO ops._
+
+Converts prime-ir field and EC operations back to StableHLO.
+Specialized prime-ir ops are expanded:
+  field.double(x)            -> stablehlo.add(x, x)
+  field.square(x)            -> stablehlo.multiply(x, x)
+  field.inverse(x)           -> stablehlo.divide(1, x)
+  elliptic_curve.double(P)   -> stablehlo.add(P, P)
+Used as the second half of the `stablehlo-canonicalize` pipeline,
+which routes field/EC arithmetic through prime-ir's algebraic
+folds and then back into StableHLO.
+
 ### `-shape-legalize-to-stablehlo`
 
 _Legalize shape-related ops to StableHLO._
@@ -418,6 +432,21 @@ MSM stage 1 rewrite (slow correctness baseline — unrolls into a
 chain of N scalar_mul + (N-1) add ops; restricted to single-batch
 jacobian inputs to avoid coordinate-system conversion):
   stablehlo.msm(scalars, bases) -> chain of scalar_mul + add
+
+### `-stablehlo-to-prime-ir-arith`
+
+_Convert field/EC arithmetic StableHLO ops to prime-ir dialect ops._
+
+The arithmetic-only subset of `stablehlo-to-prime-ir`: lowers field
+add/sub/mul/div/negate/constant and EC add/sub/negate/scalar_mul --
+the ops for which `prime-ir-to-stablehlo` has an inverse pattern.
+NTT, pairing_check, and msm are intentionally left untouched.
+
+Used as the first step of `stablehlo-canonicalize`, which routes
+field/EC arithmetic through prime-ir's algebraic folds and converts
+back to StableHLO. Without this split, the canonicalize pipeline
+would lower NTT to `poly.ntt` (etc.) and leak prime-ir ops into its
+output, since no inverse pattern exists for those lowerings.
 
 ### `-stablehlo-wrap-in-composite`
 
