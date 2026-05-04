@@ -61,6 +61,22 @@ void createStablehloLowerQuantPipeline(OpPassManager &pm) {
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
 }
 
+void createStablehloCanonicalizePipeline(OpPassManager &pm) {
+  // Step 1: Convert field/EC ARITHMETIC StableHLO ops to prime-ir dialect
+  // ops. Uses the arith-only subset because non-reversible lowerings
+  // (NTT, pairing_check, msm) have no inverse in PrimeIRToStablehlo, so
+  // running them here would leak prime-ir ops into the output.
+  pm.addPass(createStablehloToPrimeIRArithPass());
+
+  // Step 2: Run MLIR canonicalizer to pick up prime-ir's canonicalization
+  // patterns (strength reduction, algebraic identities, constant folds).
+  pm.addPass(createCanonicalizerPass());
+
+  // Step 3: Convert prime-ir ops back to StableHLO. Specialized ops
+  // (double, square, inverse) expand into StableHLO equivalents.
+  pm.addPass(createPrimeIRToStablehloPass());
+}
+
 void registerPassPipelines() {
   PassPipelineRegistration<>("stablehlo-deserialize",
                              "Run an example pipeline.",
@@ -69,6 +85,10 @@ void registerPassPipelines() {
                              "Lower as much as possible to StableHLO, "
                              "including CHLO, Shape dialect, and index types.",
                              createChloPreSerializationPipeline);
+  PassPipelineRegistration<>(
+      "stablehlo-canonicalize",
+      "Canonicalize field/EC-typed StableHLO ops via prime-ir dialect.",
+      createStablehloCanonicalizePipeline);
 }
 
 }  // namespace stablehlo

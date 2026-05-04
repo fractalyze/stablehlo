@@ -56,6 +56,44 @@ def StablehloToPrimeIRPass : Pass<"stablehlo-to-prime-ir"> {
   ];
 }
 
+def StablehloToPrimeIRArithPass : Pass<"stablehlo-to-prime-ir-arith"> {
+  let summary = "Convert field/EC arithmetic StableHLO ops to prime-ir dialect ops.";
+  let description = [{
+    The arithmetic-only subset of `stablehlo-to-prime-ir`: lowers field
+    add/sub/mul/div/negate/constant and EC add/sub/negate/scalar_mul --
+    the ops for which `prime-ir-to-stablehlo` has an inverse pattern.
+    NTT, pairing_check, and msm are intentionally left untouched.
+
+    Used as the first step of `stablehlo-canonicalize`, which routes
+    field/EC arithmetic through prime-ir's algebraic folds and converts
+    back to StableHLO. Without this split, the canonicalize pipeline
+    would lower NTT to `poly.ntt` (etc.) and leak prime-ir ops into its
+    output, since no inverse pattern exists for those lowerings.
+  }];
+  let dependentDialects = [
+    "mlir::prime_ir::field::FieldDialect",
+    "mlir::prime_ir::elliptic_curve::EllipticCurveDialect",
+  ];
+}
+
+def PrimeIRToStablehloPass : Pass<"prime-ir-to-stablehlo"> {
+  let summary = "Convert prime-ir ops back to StableHLO ops.";
+  let description = [{
+    Converts prime-ir field and EC operations back to StableHLO.
+    Specialized prime-ir ops are expanded:
+      field.double(x)            -> stablehlo.add(x, x)
+      field.square(x)            -> stablehlo.multiply(x, x)
+      field.inverse(x)           -> stablehlo.divide(1, x)
+      elliptic_curve.double(P)   -> stablehlo.add(P, P)
+    Used as the second half of the `stablehlo-canonicalize` pipeline,
+    which routes field/EC arithmetic through prime-ir's algebraic
+    folds and then back into StableHLO.
+  }];
+  let dependentDialects = [
+    "mlir::stablehlo::StablehloDialect",
+  ];
+}
+
 def ChloLegalizeToStablehloPass : Pass<"chlo-legalize-to-stablehlo", "func::FuncOp"> {
   let summary = "Legalizes from CHLO ops flow to StableHLO and Shape ops";
   let dependentDialects = [

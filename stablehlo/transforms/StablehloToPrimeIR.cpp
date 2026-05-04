@@ -29,6 +29,7 @@ limitations under the License.
 namespace mlir::stablehlo {
 
 #define GEN_PASS_DEF_STABLEHLOTOPRIMEIRPASS
+#define GEN_PASS_DEF_STABLEHLOTOPRIMEIRARITHPASS
 #include "stablehlo/transforms/Passes.h.inc"
 
 namespace {
@@ -38,6 +39,18 @@ struct StablehloToPrimeIRPass
   void runOnOperation() override {
     RewritePatternSet patterns(&getContext());
     populateStablehloToPrimeIRPatterns(patterns);
+    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns)))) {
+      signalPassFailure();
+    }
+  }
+};
+
+struct StablehloToPrimeIRArithPass
+    : public impl::StablehloToPrimeIRArithPassBase<
+          StablehloToPrimeIRArithPass> {
+  void runOnOperation() override {
+    RewritePatternSet patterns(&getContext());
+    populateStablehloToPrimeIRArithPatterns(patterns);
     if (failed(applyPatternsGreedily(getOperation(), std::move(patterns)))) {
       signalPassFailure();
     }

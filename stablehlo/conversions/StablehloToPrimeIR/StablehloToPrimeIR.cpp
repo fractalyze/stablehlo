@@ -285,13 +285,22 @@ struct ConvertPairingCheck : public OpRewritePattern<PairingCheckOp> {
 
 }  // namespace
 
-void populateStablehloToPrimeIRPatterns(RewritePatternSet &patterns) {
+void populateStablehloToPrimeIRArithPatterns(RewritePatternSet &patterns) {
   MLIRContext *ctx = patterns.getContext();
   patterns.add<ConvertFieldAdd, ConvertFieldSub, ConvertFieldMul,
                ConvertFieldDiv, ConvertFieldNeg, ConvertFieldConstant>(ctx);
   patterns.add<ConvertECAdd, ConvertECSub, ConvertECNeg, ConvertECScalarMul,
                ConvertECConvert>(ctx);
+}
+
+void populateStablehloToPrimeIRLoweringPatterns(RewritePatternSet &patterns) {
+  MLIRContext *ctx = patterns.getContext();
   patterns.add<ConvertPairingCheck, ConvertMsm>(ctx);
+}
+
+void populateStablehloToPrimeIRPatterns(RewritePatternSet &patterns) {
+  populateStablehloToPrimeIRArithPatterns(patterns);
+  populateStablehloToPrimeIRLoweringPatterns(patterns);
 }
 
 }  // namespace mlir::stablehlo

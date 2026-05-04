@@ -1205,10 +1205,25 @@ cc_library(
 )
 
 cc_library(
+    name = "prime_ir_to_stablehlo_conversion",
+    srcs = ["stablehlo/conversions/PrimeIRToStablehlo/PrimeIRToStablehlo.cpp"],
+    hdrs = ["stablehlo/conversions/PrimeIRToStablehlo/PrimeIRToStablehlo.h"],
+    strip_include_prefix = ".",
+    deps = [
+        ":stablehlo_ops",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Rewrite",
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
+        "@prime_ir//prime_ir/Dialect/Field/IR:Field",
+    ],
+)
+
+cc_library(
     name = "stablehlo_passes",
     srcs = [
         "stablehlo/transforms/ChloLegalizeToStablehlo.cpp",
         "stablehlo/transforms/PassPipelines.cpp",
+        "stablehlo/transforms/PrimeIRToStablehlo.cpp",
         "stablehlo/transforms/ShapeLegalizeToStablehlo.cpp",
         "stablehlo/transforms/StablehloCanonicalizeDynamism.cpp",
         "stablehlo/transforms/StablehloCheckShapeAssertions.cpp",
@@ -1251,6 +1266,7 @@ cc_library(
         ":stablehlo_ops_inc_gen",
         ":stablehlo_pass_inc_gen",
         ":stablehlo_pass_utils",
+        ":prime_ir_to_stablehlo_conversion",
         ":stablehlo_passes_optimization",
         ":stablehlo_to_prime_ir_conversion",
         ":stablehlo_type_conversions",

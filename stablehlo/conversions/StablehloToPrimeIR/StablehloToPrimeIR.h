@@ -20,8 +20,21 @@ limitations under the License.
 
 namespace mlir::stablehlo {
 
-/// Populate patterns for converting field/EC-typed StableHLO ops to prime-ir
-/// ops.
+/// Field / EC arithmetic patterns only. Round-trippable: for every prime-ir
+/// op produced here, PrimeIRToStablehlo has an inverse pattern. Used by the
+/// `stablehlo-canonicalize` pipeline, which folds arithmetic through
+/// prime-ir's algebraic rules and converts back to StableHLO.
+void populateStablehloToPrimeIRArithPatterns(RewritePatternSet &patterns);
+
+/// Non-reversible lowerings: `stablehlo.ntt` -> `poly.ntt`,
+/// `stablehlo.pairing_check` -> `elliptic_curve.pairing_check`,
+/// `stablehlo.msm` -> `scalar_mul + add` chain. These ops don't have an
+/// inverse in PrimeIRToStablehlo and must not run inside a round-trip
+/// pipeline like `stablehlo-canonicalize`.
+void populateStablehloToPrimeIRLoweringPatterns(RewritePatternSet &patterns);
+
+/// All patterns: arith + non-reversible. Used by the standalone
+/// `stablehlo-to-prime-ir` pass for end-of-frontend lowering.
 void populateStablehloToPrimeIRPatterns(RewritePatternSet &patterns);
 
 }  // namespace mlir::stablehlo

@@ -175,6 +175,14 @@ void createStablehloRemoveDynamismPipeline(OpPassManager &pm,
 // operations into a primitive math operations.
 void createStablehloLowerQuantPipeline(OpPassManager &pm);
 
+// Routes field/EC-typed StableHLO ops through prime-ir for canonicalization,
+// then converts back to StableHLO:
+//   StableHLO (field/EC ops) -> prime-ir -> canonicalize -> StableHLO
+// Picks up prime-ir's algebraic folds (constant folding, identity
+// elimination, strength reduction, etc.) without leaving prime-ir ops
+// in the output.
+void createStablehloCanonicalizePipeline(OpPassManager &pm);
+
 /// Collection of patterns to create expander for StableHLO complex
 /// math operations.
 void populateStablehloComplexMathExpanderPatterns(MLIRContext *context,
