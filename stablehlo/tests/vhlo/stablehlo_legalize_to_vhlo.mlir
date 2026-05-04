@@ -2837,6 +2837,87 @@ func.func @type_ui64(%arg0: tensor<ui64>, %arg1: tensor<ui64>) -> tensor<ui64> {
   func.return %0 : tensor<ui64>
 }
 
+// Wide-int types — added in this fork to back ZK storage ints. Without VHLO
+// encoding the GPU PJRT plugin's `Failed to serialize StableHLO to plugin
+// version 1.16.0 ... failed to legalize ... tensor<i256>` error blocks any
+// reduce-zero-init constant on a 256-bit prime field (e.g. bn254_sf).
+// CHECK-LABEL: "type_i128"
+// CHECK-NEXT: (%[[ARG0:.*]]: {{.*}}, %[[ARG1:.*]]: {{.*}})
+func.func @type_i128(%arg0: tensor<i128>, %arg1: tensor<i128>) -> tensor<i128> {
+  // CHECK: "vhlo.add_v1"(%[[ARG0]], %[[ARG1]]) : (!vhlo.tensor_v1<!vhlo.i128_v1>, !vhlo.tensor_v1<!vhlo.i128_v1>) -> !vhlo.tensor_v1<!vhlo.i128_v1>
+  %0 = "stablehlo.add"(%arg0, %arg1) : (tensor<i128>, tensor<i128>) -> tensor<i128>
+  func.return %0 : tensor<i128>
+}
+
+// CHECK-LABEL: "type_i256"
+// CHECK-NEXT: (%[[ARG0:.*]]: {{.*}}, %[[ARG1:.*]]: {{.*}})
+func.func @type_i256(%arg0: tensor<i256>, %arg1: tensor<i256>) -> tensor<i256> {
+  // CHECK: "vhlo.add_v1"(%[[ARG0]], %[[ARG1]]) : (!vhlo.tensor_v1<!vhlo.i256_v1>, !vhlo.tensor_v1<!vhlo.i256_v1>) -> !vhlo.tensor_v1<!vhlo.i256_v1>
+  %0 = "stablehlo.add"(%arg0, %arg1) : (tensor<i256>, tensor<i256>) -> tensor<i256>
+  func.return %0 : tensor<i256>
+}
+
+// CHECK-LABEL: "type_ui128"
+// CHECK-NEXT: (%[[ARG0:.*]]: {{.*}}, %[[ARG1:.*]]: {{.*}})
+func.func @type_ui128(%arg0: tensor<ui128>, %arg1: tensor<ui128>) -> tensor<ui128> {
+  // CHECK: "vhlo.add_v1"(%[[ARG0]], %[[ARG1]]) : (!vhlo.tensor_v1<!vhlo.ui128_v1>, !vhlo.tensor_v1<!vhlo.ui128_v1>) -> !vhlo.tensor_v1<!vhlo.ui128_v1>
+  %0 = "stablehlo.add"(%arg0, %arg1) : (tensor<ui128>, tensor<ui128>) -> tensor<ui128>
+  func.return %0 : tensor<ui128>
+}
+
+// CHECK-LABEL: "type_ui256"
+// CHECK-NEXT: (%[[ARG0:.*]]: {{.*}}, %[[ARG1:.*]]: {{.*}})
+func.func @type_ui256(%arg0: tensor<ui256>, %arg1: tensor<ui256>) -> tensor<ui256> {
+  // CHECK: "vhlo.add_v1"(%[[ARG0]], %[[ARG1]]) : (!vhlo.tensor_v1<!vhlo.ui256_v1>, !vhlo.tensor_v1<!vhlo.ui256_v1>) -> !vhlo.tensor_v1<!vhlo.ui256_v1>
+  %0 = "stablehlo.add"(%arg0, %arg1) : (tensor<ui256>, tensor<ui256>) -> tensor<ui256>
+  func.return %0 : tensor<ui256>
+}
+
+// Wrap-fingerprint constants: bits set ABOVE the i64 boundary so a wrong
+// `getBitWidthForIntegerType` (e.g. returning 64 for i128) would truncate
+// the upper limbs through bytecode round-trip and the file-level
+// `diff %t.0 %t.1` test runs would fail. The bare type-roundtrip cases
+// above don't exercise the IntegerV1Attr serialization path because they
+// use parameters, not constants — only literals carry value bits to disk.
+
+// CHECK-LABEL: "op_constant_i128_wrap"
+func.func @op_constant_i128_wrap() -> tensor<i128> {
+  // 2^100 — in [2^64, 2^128); a width-64 truncation would deserialize as 0.
+  // CHECK: "vhlo.constant_v1"() <{value = #vhlo.tensor_v1<dense<1267650600228229401496703205376> : tensor<i128>>}>
+  %0 = "stablehlo.constant"() {
+    value = dense<1267650600228229401496703205376> : tensor<i128>
+  } : () -> tensor<i128>
+  func.return %0 : tensor<i128>
+}
+
+// CHECK-LABEL: "op_constant_i256_wrap"
+func.func @op_constant_i256_wrap() -> tensor<i256> {
+  // 2^200 — exceeds i128; a width-128 truncation would deserialize as 0.
+  // CHECK: "vhlo.constant_v1"() <{value = #vhlo.tensor_v1<dense<1606938044258990275541962092341162602522202993782792835301376> : tensor<i256>>}>
+  %0 = "stablehlo.constant"() {
+    value = dense<1606938044258990275541962092341162602522202993782792835301376> : tensor<i256>
+  } : () -> tensor<i256>
+  func.return %0 : tensor<i256>
+}
+
+// CHECK-LABEL: "op_constant_ui128_wrap"
+func.func @op_constant_ui128_wrap() -> tensor<ui128> {
+  // CHECK: "vhlo.constant_v1"() <{value = #vhlo.tensor_v1<dense<1267650600228229401496703205376> : tensor<ui128>>}>
+  %0 = "stablehlo.constant"() {
+    value = dense<1267650600228229401496703205376> : tensor<ui128>
+  } : () -> tensor<ui128>
+  func.return %0 : tensor<ui128>
+}
+
+// CHECK-LABEL: "op_constant_ui256_wrap"
+func.func @op_constant_ui256_wrap() -> tensor<ui256> {
+  // CHECK: "vhlo.constant_v1"() <{value = #vhlo.tensor_v1<dense<1606938044258990275541962092341162602522202993782792835301376> : tensor<ui256>>}>
+  %0 = "stablehlo.constant"() {
+    value = dense<1606938044258990275541962092341162602522202993782792835301376> : tensor<ui256>
+  } : () -> tensor<ui256>
+  func.return %0 : tensor<ui256>
+}
+
 // CHECK-LABEL: "type_f4E2M1FN"
 // CHECK-NEXT: (%[[ARG0:.*]]: {{.*}}, %[[ARG1:.*]]: {{.*}})
 func.func @type_f4E2M1FN(%arg0: tensor<f4E2M1FN>, %arg1: tensor<f4E2M1FN>) -> tensor<f4E2M1FN> {

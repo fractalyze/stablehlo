@@ -54,8 +54,8 @@ def HLO_Pred : TypeAlias<I1, "bool">;
 
 // TODO(hinsu): Use signed integers instead of signless integer which is being
 // used for legacy reasons.
-def HLO_SInt : SignlessIntOfWidths<[2, 4, 8, 16, 32, 64]>;
-def HLO_UInt : UnsignedIntOfWidths<[2, 4, 8, 16, 32, 64]>;
+def HLO_SInt : SignlessIntOfWidths<[2, 4, 8, 16, 32, 64, 128, 256]>;
+def HLO_UInt : UnsignedIntOfWidths<[2, 4, 8, 16, 32, 64, 128, 256]>;
 def HLO_Int : AnyTypeOf<[HLO_SInt, HLO_UInt], "2/4/8/16/32/64-bit integer">;
 
 def HLO_Float : AnyTypeOf<[F4E2M1FN, F6E2M3FN, F6E3M2FN, F8E3M4, F8E4M3,

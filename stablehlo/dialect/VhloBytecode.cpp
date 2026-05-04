@@ -315,6 +315,14 @@ enum TypeCode {
   ///   }
   kIntegerSI64V1Type = 14,
 
+  ///   IntegerSI128V1Type {
+  ///   }
+  kIntegerSI128V1Type = 43,
+
+  ///   IntegerSI256V1Type {
+  ///   }
+  kIntegerSI256V1Type = 44,
+
   ///   IntegerUI2V1Type {
   ///   }
   kIntegerUI2V1Type = 32,
@@ -338,6 +346,14 @@ enum TypeCode {
   ///   IntegerUI64V1Type {
   ///   }
   kIntegerUI64V1Type = 19,
+
+  ///   IntegerUI128V1Type {
+  ///   }
+  kIntegerUI128V1Type = 45,
+
+  ///   IntegerUI256V1Type {
+  ///   }
+  kIntegerUI256V1Type = 46,
 
   ///   RankedTensorV1Type {
   ///     shape: svarint[],
@@ -864,6 +880,10 @@ unsigned getBitWidthForIntegerType(Type type) {
   if (isa<IntegerSI16V1Type>(type) || isa<IntegerUI16V1Type>(type)) return 16;
   if (isa<IntegerSI32V1Type>(type) || isa<IntegerUI32V1Type>(type)) return 32;
   if (isa<IntegerSI64V1Type>(type) || isa<IntegerUI64V1Type>(type)) return 64;
+  if (isa<IntegerSI128V1Type>(type) || isa<IntegerUI128V1Type>(type))
+    return 128;
+  if (isa<IntegerSI256V1Type>(type) || isa<IntegerUI256V1Type>(type))
+    return 256;
   llvm::report_fatal_error("unsupported integer type");
 }
 }  // namespace
@@ -1212,6 +1232,10 @@ Type VhloBytecodeInterface::readType(DialectBytecodeReader& reader) const {
       return IntegerSI32V1Type::get(getContext());
     case vhlo_encoding::kIntegerSI64V1Type:
       return IntegerSI64V1Type::get(getContext());
+    case vhlo_encoding::kIntegerSI128V1Type:
+      return IntegerSI128V1Type::get(getContext());
+    case vhlo_encoding::kIntegerSI256V1Type:
+      return IntegerSI256V1Type::get(getContext());
     case vhlo_encoding::kIntegerUI2V1Type:
       return IntegerUI2V1Type::get(getContext());
     case vhlo_encoding::kIntegerUI4V1Type:
@@ -1224,6 +1248,10 @@ Type VhloBytecodeInterface::readType(DialectBytecodeReader& reader) const {
       return IntegerUI32V1Type::get(getContext());
     case vhlo_encoding::kIntegerUI64V1Type:
       return IntegerUI64V1Type::get(getContext());
+    case vhlo_encoding::kIntegerUI128V1Type:
+      return IntegerUI128V1Type::get(getContext());
+    case vhlo_encoding::kIntegerUI256V1Type:
+      return IntegerUI256V1Type::get(getContext());
     case vhlo_encoding::kNoneV1Type:
       return NoneV1Type::get(getContext());
     case vhlo_encoding::kRankedTensorV1Type:
@@ -1367,6 +1395,16 @@ LogicalResult VhloBytecodeInterface::writeType(
         LOG_WRITE_CALL;
         return writer.writeVarInt(vhlo_encoding::kIntegerSI64V1Type), success();
       })
+      .Case([&](IntegerSI128V1Type) {
+        LOG_WRITE_CALL;
+        return writer.writeVarInt(vhlo_encoding::kIntegerSI128V1Type),
+               success();
+      })
+      .Case([&](IntegerSI256V1Type) {
+        LOG_WRITE_CALL;
+        return writer.writeVarInt(vhlo_encoding::kIntegerSI256V1Type),
+               success();
+      })
       .Case([&](IntegerUI2V1Type) {
         LOG_WRITE_CALL;
         return writer.writeVarInt(vhlo_encoding::kIntegerUI2V1Type), success();
@@ -1390,6 +1428,16 @@ LogicalResult VhloBytecodeInterface::writeType(
       .Case([&](IntegerUI64V1Type) {
         LOG_WRITE_CALL;
         return writer.writeVarInt(vhlo_encoding::kIntegerUI64V1Type), success();
+      })
+      .Case([&](IntegerUI128V1Type) {
+        LOG_WRITE_CALL;
+        return writer.writeVarInt(vhlo_encoding::kIntegerUI128V1Type),
+               success();
+      })
+      .Case([&](IntegerUI256V1Type) {
+        LOG_WRITE_CALL;
+        return writer.writeVarInt(vhlo_encoding::kIntegerUI256V1Type),
+               success();
       })
       .Case([&](NoneV1Type) {
         LOG_WRITE_CALL;
