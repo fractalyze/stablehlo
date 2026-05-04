@@ -379,7 +379,53 @@ bool ConstantOp::isCompatibleReturnTypes(TypeRange l, TypeRange r) {
   // storage type.
   if (auto rhsElemTy = dyn_cast<quant::QuantizedType>(rhsTy.getElementType()))
     rhsTy = hlo::getSameShapeTensorType(rhsTy, rhsElemTy.getStorageType());
-  return lhsTy == rhsTy;
+
+  if (lhsTy == rhsTy) return true;
+
+  Type lhsElementType = getElementTypeOrSelf(lhsTy);
+  Type rhsElementType = getElementTypeOrSelf(rhsTy);
+  // Allow integer-attr (storage-int) constants to materialize as prime-field
+  // tensors. The verifier accepts the int attr; downstream passes interpret
+  // each integer as the storage encoding of the field element.
+  if (isa<IntegerType>(lhsElementType) &&
+      isa<prime_ir::field::PrimeFieldType>(rhsElementType))
+    return lhsTy.clone(rhsElementType) == rhsTy;
+  // Allow integer-attr constants to materialize as extension-field tensors.
+  // The attribute carries an int tensor of shape [resultDims..., towerDims...]
+  // — each element of the result corresponds to a flattened coefficient
+  // vector encoding a single ExtensionField value.
+  if (isa<IntegerType>(lhsElementType)) {
+    if (auto efType =
+            dyn_cast<prime_ir::field::ExtensionFieldType>(rhsElementType)) {
+      SmallVector<int64_t> expectedShape(rhsTy.getShape());
+      Type current = efType;
+      while (auto ef = dyn_cast<prime_ir::field::ExtensionFieldType>(current)) {
+        expectedShape.push_back(static_cast<int64_t>(ef.getDegree()));
+        current = ef.getBaseField();
+      }
+      return lhsTy.getShape() == ArrayRef<int64_t>(expectedShape);
+    }
+  }
+  // Allow integer-attr constants to materialize as EC point tensors. The
+  // value attr has trailing dimensions encoding the point's coordinates
+  // (and, for points over an extension field, the extension degree).
+  if (isa<IntegerType>(lhsElementType) &&
+      isa<prime_ir::elliptic_curve::PointTypeInterface>(rhsElementType)) {
+    auto ptType =
+        cast<prime_ir::elliptic_curve::PointTypeInterface>(rhsElementType);
+    auto lhsShape = lhsTy.getShape();
+    auto rhsShape = rhsTy.getShape();
+    SmallVector<int64_t> trailingDims;
+    trailingDims.push_back(static_cast<int64_t>(ptType.getNumCoords()));
+    if (auto efType = dyn_cast<prime_ir::field::ExtensionFieldType>(
+            ptType.getBaseFieldType()))
+      trailingDims.push_back(static_cast<int64_t>(efType.getDegreeOverPrime()));
+    if (lhsShape.size() != rhsShape.size() + trailingDims.size()) return false;
+    return lhsShape.drop_back(trailingDims.size()) == rhsShape &&
+           lhsShape.take_back(trailingDims.size()) ==
+               ArrayRef<int64_t>(trailingDims);
+  }
+  return false;
 }
 
 ParseResult ConstantOp::parse(OpAsmParser& parser, OperationState& result) {
