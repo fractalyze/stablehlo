@@ -34,8 +34,10 @@ concurrency:
 
 jobs:
   cmake-build:
-    # Only run scheduled CI on main repo
-    if: (github.repository == 'openxla/stablehlo' || github.event_name != 'schedule')
+    # CMake build is upstream-only: it doesn't know how to find prime-ir's
+    # TableGen include path (`prime_ir/Dialect/EllipticCurve/IR/EllipticCurveTypes.td`),
+    # which the bridge wires up only via Bazel. Skip on forks.
+    if: github.repository == 'openxla/stablehlo'
     name: "cmake-build${{ github.event_name == 'schedule' && ' (llvm-project@HEAD)' || ''}}"
     env:
       LLVM_PROJECT_DIR: "llvm-project"
