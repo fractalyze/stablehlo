@@ -26,6 +26,9 @@ on:
 
 jobs:
   test-notebooks:
+    # Upstream-only: tutorial notebooks reference upstream-only build/install
+    # paths and aren't part of this fork's prime-ir bridge surface.
+    if: github.repository == 'openxla/stablehlo'
     runs-on: ubuntu-latest
 
     steps:

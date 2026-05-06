@@ -31,8 +31,8 @@ concurrency:
 jobs:
   # TODO(fzakaria): Consider running this job only if a new commit for the day has been done
   cmake-build-wheel:
-    # Only run scheduled CI on main repo
-    if: (github.repository == 'openxla/stablehlo' || github.event_name != 'schedule')
+    # Upstream-only: wheel publishing targets openxla's PyPI namespace.
+    if: github.repository == 'openxla/stablehlo'
     name: "cmake-build ${{ github.event_name == 'schedule' && '(llvm-project@HEAD)' || ''}}"
     env:
       LLVM_PROJECT_DIR: "llvm-project"
@@ -104,6 +104,7 @@ jobs:
         path: ${{ github.sha }}
 
   upload-tarballs:
+    if: github.repository == 'openxla/stablehlo'
     runs-on: 'ubuntu-24.04'
     needs: cmake-build-wheel
     strategy:
