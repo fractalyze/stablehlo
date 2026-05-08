@@ -45,6 +45,7 @@ limitations under the License.
 #include "mlir/IR/ValueRange.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/LogicalResult.h"
+#include "prime_ir/Dialect/Field/IR/FieldOps.h"
 #include "stablehlo/dialect/Base.h"
 
 #define DEBUG_TYPE "hlo-assembly"
@@ -178,13 +179,31 @@ ParseResult parseConstantOp(OpAsmParser& parser, OperationState& result) {
     return success();
   }
 
-  ElementsAttr valueAttr;
-  if (parser.parseOptionalAttrDict(result.attributes)) return failure();
-  if (parser.parseCustomAttributeWithFallback(valueAttr, Type{}, "value",
-                                              result.attributes))
-    return failure();
-  result.addTypes(valueAttr.getType());
-  return success();
+  llvm::SMLoc startLoc = parser.getCurrentLocation();
+  const char* startPtr = startLoc.getPointer();
+
+  auto parseStandardAttribute = [&]() -> ParseResult {
+    if (parser.parseOptionalAttrDict(result.attributes)) return failure();
+    ElementsAttr valueAttr;
+    if (parser.parseCustomAttributeWithFallback(valueAttr, Type{}, "value",
+                                                result.attributes))
+      return failure();
+    result.addTypes(valueAttr.getType());
+    return success();
+  };
+
+  if (succeeded(parseStandardAttribute())) return success();
+
+  // The standard parser fails on field-typed dense literals
+  // (`dense<0> : tensor<!field.pf<...>>` triggers MLIR's "expected string
+  // token" since !field.pf isn't IntegerType/FloatType). Rewind to the
+  // start of the value attribute and delegate to prime-ir's
+  // parseOptionalFieldConstant. The fallback's diagnostics are captured
+  // and dropped, so the standard parser's original error remains the
+  // surfaced diagnostic when the input wasn't field-typed.
+  result.attributes.clear();
+  parser.resetToken(startPtr);
+  return prime_ir::field::parseOptionalFieldConstant(parser, result);
 }
 
 void printTupleOpType(OpAsmPrinter& p, Operation*, TypeRange operands,

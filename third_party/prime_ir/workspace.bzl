@@ -6,8 +6,8 @@ prime_ir provides MLIR dialects for cryptographic computations
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-PRIME_IR_COMMIT = "1c493a91025479fe7d714381967e37dd99dfffa2"
-PRIME_IR_SHA256 = "b157f9c164439b9182c064cfbbb5865e4176ebaed68fb24acbf024b6447ea23f"
+PRIME_IR_COMMIT = "da33331616409d6db5f32e5d20fee6aaa41d1719"
+PRIME_IR_SHA256 = "50e17798922801d5e5cd1f4a644eab379c81507b9605baf8a867d68bfa3e4c83"
 
 def repo():
     http_archive(
