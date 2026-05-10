@@ -68,6 +68,12 @@ Type convertBuiltinIntegerType(IntegerType type) {
     case 64:
       return isSignless ? cast<Type>(IntegerSI64V1Type::get(ctx))
                         : cast<Type>(IntegerUI64V1Type::get(ctx));
+    case 128:
+      return isSignless ? cast<Type>(IntegerSI128V1Type::get(ctx))
+                        : cast<Type>(IntegerUI128V1Type::get(ctx));
+    case 256:
+      return isSignless ? cast<Type>(IntegerSI256V1Type::get(ctx))
+                        : cast<Type>(IntegerUI256V1Type::get(ctx));
   }
   return {};
 }
@@ -267,6 +273,12 @@ void VhloTypeConverter::addVhloToBuiltinConversions() {
   addConversion([&](IntegerSI64V1Type type) {
     return IntegerType::get(type.getContext(), 64);
   });
+  addConversion([&](IntegerSI128V1Type type) {
+    return IntegerType::get(type.getContext(), 128);
+  });
+  addConversion([&](IntegerSI256V1Type type) {
+    return IntegerType::get(type.getContext(), 256);
+  });
   addConversion([&](IntegerUI2V1Type type) {
     return IntegerType::get(type.getContext(), 2, IntegerType::Unsigned);
   });
@@ -284,6 +296,12 @@ void VhloTypeConverter::addVhloToBuiltinConversions() {
   });
   addConversion([&](IntegerUI64V1Type type) {
     return IntegerType::get(type.getContext(), 64, IntegerType::Unsigned);
+  });
+  addConversion([&](IntegerUI128V1Type type) {
+    return IntegerType::get(type.getContext(), 128, IntegerType::Unsigned);
+  });
+  addConversion([&](IntegerUI256V1Type type) {
+    return IntegerType::get(type.getContext(), 256, IntegerType::Unsigned);
   });
   addConversion(
       [&](NoneV1Type type) { return NoneType::get(type.getContext()); });
