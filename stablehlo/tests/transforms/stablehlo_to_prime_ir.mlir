@@ -154,6 +154,40 @@ func.func @field_pf_ef_add(%a: tensor<4x!ef>, %b: tensor<4x!pf>)
 
 // -----
 
+// stablehlo.convert : tensor<Nx!ec.Repr1> -> tensor<Nx!ec.Repr2> lowers to
+// elliptic_curve.convert_point_type. Both operands must be EC point types
+// over the same curve.
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!aff = !elliptic_curve.affine<#curve>
+!jac = !elliptic_curve.jacobian<#curve>
+
+// CHECK-LABEL: func @ec_convert_affine_to_jacobian
+func.func @ec_convert_affine_to_jacobian(%a: tensor<4x!aff>)
+    -> tensor<4x!jac> {
+  // CHECK: elliptic_curve.convert_point_type
+  // CHECK-NOT: stablehlo.convert
+  %0 = stablehlo.convert %a : (tensor<4x!aff>) -> tensor<4x!jac>
+  func.return %0 : tensor<4x!jac>
+}
+
+// -----
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+!aff = !elliptic_curve.affine<#curve>
+
+// CHECK-LABEL: func @ec_convert_jacobian_to_affine
+func.func @ec_convert_jacobian_to_affine(%j: tensor<4x!jac>)
+    -> tensor<4x!aff> {
+  // CHECK: elliptic_curve.convert_point_type
+  // CHECK-NOT: stablehlo.convert
+  %0 = stablehlo.convert %j : (tensor<4x!jac>) -> tensor<4x!aff>
+  func.return %0 : tensor<4x!aff>
+}
+
+// -----
+
 // Negative case: float ops are not field-typed, so the pass leaves them
 // alone. Guards against an over-eager pattern that ignores element type.
 

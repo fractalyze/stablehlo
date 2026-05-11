@@ -157,6 +157,26 @@ struct ConvertECNeg : public OpRewritePattern<NegOp> {
   }
 };
 
+// stablehlo.convert : tensor<Nx!ec.Repr1> -> tensor<Nx!ec.Repr2> lowers to
+// elliptic_curve.convert_point_type. Both element types must be EC point
+// types over the same curve; the prime_ir verifier enforces curve match.
+//
+// Without this pattern, shaped EC stablehlo.convert flows through to
+// bufferization and fails with "op was not bufferized" — the elemental
+// emitter's per-lane EmitConvert carve-out (xla_fork commit 814a76d8e4)
+// only fires on the scalar path, not on shaped tensor-level converts.
+struct ConvertECConvert : public OpRewritePattern<ConvertOp> {
+  ConvertECConvert(MLIRContext *ctx) : OpRewritePattern(ctx, /*benefit=*/0) {}
+  LogicalResult matchAndRewrite(ConvertOp op,
+                                PatternRewriter &rewriter) const override {
+    if (!hasECElementType(op.getOperand())) return failure();
+    if (!hasECElementType(op.getResult())) return failure();
+    rewriter.replaceOpWithNewOp<prime_ir::elliptic_curve::ConvertPointTypeOp>(
+        op, op.getType(), op.getOperand());
+    return success();
+  }
+};
+
 // scalar*point or point*scalar lowers to elliptic_curve.scalar_mul(scalar,
 // point). Symmetric in user-facing semantics; canonicalized to scalar-first.
 struct ConvertECScalarMul : public OpRewritePattern<MulOp> {
@@ -269,8 +289,8 @@ void populateStablehloToPrimeIRArithPatterns(RewritePatternSet &patterns) {
   MLIRContext *ctx = patterns.getContext();
   patterns.add<ConvertFieldAdd, ConvertFieldSub, ConvertFieldMul,
                ConvertFieldDiv, ConvertFieldNeg, ConvertFieldConstant>(ctx);
-  patterns.add<ConvertECAdd, ConvertECSub, ConvertECNeg, ConvertECScalarMul>(
-      ctx);
+  patterns.add<ConvertECAdd, ConvertECSub, ConvertECNeg, ConvertECScalarMul,
+               ConvertECConvert>(ctx);
 }
 
 void populateStablehloToPrimeIRLoweringPatterns(RewritePatternSet &patterns) {
