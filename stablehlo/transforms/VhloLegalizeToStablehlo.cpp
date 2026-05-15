@@ -699,11 +699,9 @@ SpecialResult convertSpecial(const OpConversionPattern<VhloOpTy>& pattern,
       return convertDenseI64Array(typeConverter, vhloName, vhloAttr,
                                   stablehloAttrs);
   }
-  if constexpr (std::is_same<VhloOpTy, vhlo::NttOpV1>::value) {
-    if (vhloName == "ntt_length")
-      return convertDenseI64Array(typeConverter, vhloName, vhloAttr,
-                                  stablehloAttrs);
-  }
+  // stablehlo.ntt's ntt_length is a single ConfinedAttr<I64Attr, ...> (see
+  // StablehloOps.td) — not an array like fft_length. The default attr
+  // converter handles i64 round-tripping; no special case needed.
   if constexpr (std::is_same<VhloOpTy, vhlo::BroadcastOpV1>::value) {
     if (vhloName == "broadcast_sizes")
       return convertDenseI64Array(typeConverter, vhloName, vhloAttr,
