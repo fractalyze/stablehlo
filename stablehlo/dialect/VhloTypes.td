@@ -371,4 +371,45 @@ def VHLO_RankedBufferV1 : VHLO_TypeDef<"RankedBufferV1", "buffer_v1", "1.13.0", 
   let assemblyFormat = "`<` custom<Shape>($shape) `` $elementType `>`";
 }
 
+//===----------------------------------------------------------------------===//
+// ZK field and elliptic curve types (twins of prime_ir types)
+//===----------------------------------------------------------------------===//
+
+// Corresponds to field::PrimeFieldType from the prime_ir dialect.
+def VHLO_PrimeFieldV1 : VHLO_TypeDef<"PrimeFieldV1", "pf_v1", "1.16.0", "current"> {
+  let parameters = (ins
+    "::mlir::Attribute":$modulus,
+    "bool":$isMontgomery
+  );
+  let assemblyFormat = "`<` $modulus `,` $isMontgomery `>`";
+}
+
+// Corresponds to field::ExtensionFieldType from the prime_ir dialect.
+def VHLO_ExtensionFieldV1 : VHLO_TypeDef<"ExtensionFieldV1", "ef_v1", "1.16.0", "current"> {
+  let parameters = (ins
+    "unsigned":$degree,
+    "::mlir::Type":$baseField,
+    "::mlir::Attribute":$nonResidue
+  );
+  let assemblyFormat = "`<` $degree `x` $baseField `,` $nonResidue `>`";
+}
+
+// Corresponds to elliptic_curve::AffineType from the prime_ir dialect.
+def VHLO_AffineV1 : VHLO_TypeDef<"AffineV1", "affine_v1", "1.16.0", "current"> {
+  let parameters = (ins "::mlir::Attribute":$curve);
+  let assemblyFormat = "`<` $curve `>`";
+}
+
+// Corresponds to elliptic_curve::JacobianType from the prime_ir dialect.
+def VHLO_JacobianV1 : VHLO_TypeDef<"JacobianV1", "jacobian_v1", "1.16.0", "current"> {
+  let parameters = (ins "::mlir::Attribute":$curve);
+  let assemblyFormat = "`<` $curve `>`";
+}
+
+// Corresponds to elliptic_curve::XYZZType from the prime_ir dialect.
+def VHLO_XYZZV1 : VHLO_TypeDef<"XYZZV1", "xyzz_v1", "1.16.0", "current"> {
+  let parameters = (ins "::mlir::Attribute":$curve);
+  let assemblyFormat = "`<` $curve `>`";
+}
+
 #endif  // STABLEHLO_DIALECT_VHLO_TYPES
