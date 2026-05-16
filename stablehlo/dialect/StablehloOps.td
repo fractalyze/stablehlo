@@ -2979,7 +2979,7 @@ def StableHLO_NttOp: StableHLO_Op<"ntt", [NoMemoryEffect,
     HLO_FieldTensor:$operand,
     StableHLO_NttTypeAttr:$ntt_type,
     ConfinedAttr<I64Attr, [IntNonNegative]>:$ntt_length,
-    OptionalAttr<I64Attr>:$generator
+    DefaultValuedOptionalAttr<I64Attr, "0">:$generator
   );
   let results = (outs HLO_FieldTensor:$result);
   let assemblyFormat = [{
