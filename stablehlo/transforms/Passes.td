@@ -526,6 +526,12 @@ def VhloLegalizeToStablehloPass : Pass<"vhlo-legalize-to-stablehlo", "ModuleOp">
     "mlir::quant::QuantDialect",
     "mlir::shape::ShapeDialect",
     "mlir::stablehlo::StablehloDialect",
+    // The PrimeFieldV1/ExtensionFieldV1/AffineV1/JacobianV1/XYZZV1 twin
+    // types unwrap back into their prime_ir counterparts here; without
+    // these the destination dialect isn't loaded in the parsing context
+    // and StorageUniquer::get crashes on first allocation.
+    "mlir::prime_ir::field::FieldDialect",
+    "mlir::prime_ir::elliptic_curve::EllipticCurveDialect",
   ];
 }
 
