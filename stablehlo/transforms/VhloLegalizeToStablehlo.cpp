@@ -717,6 +717,11 @@ SpecialResult convertSpecial(const OpConversionPattern<VhloOpTy>& pattern,
       return convertDenseI64Array(typeConverter, vhloName, vhloAttr,
                                   stablehloAttrs);
   }
+  if constexpr (std::is_same<VhloOpTy, vhlo::BitReverseOpV1>::value) {
+    if (vhloName == "dimensions")
+      return convertDenseI64Array(typeConverter, vhloName, vhloAttr,
+                                  stablehloAttrs);
+  }
   if constexpr (std::is_same<VhloOpTy, vhlo::TransposeOpV1>::value) {
     if (vhloName == "permutation")
       return convertDenseI64Array(typeConverter, vhloName, vhloAttr,
