@@ -1299,6 +1299,21 @@ func.func @update_region_type(%arg0: tensor<i32>, %arg1: tensor<4xf32>) -> tenso
 
 // -----
 
+// Regression: stablehlo.ntt must implement InferTypeOpInterface so that
+// RefinePolymorphicShapes (and StablehloRefineShapes) can substitute a
+// concrete operand shape into the result type. Before commit 13a30490
+// the op carried only SameOperandsAndResultShape and the result kept
+// a `?` even when the operand became concrete.
+// CHECK-LABEL: func @refine_ntt
+func.func @refine_ntt(%arg0: tensor<8x!field.pf<2130706433 : i32, true>>) -> tensor<?x!field.pf<2130706433 : i32, true>> {
+  // CHECK: stablehlo.ntt{{.*}} : tensor<8x!pf_koalabear_mont>
+  %0 = "stablehlo.ntt"(%arg0) <{ntt_type = #stablehlo<ntt_type NTT>, ntt_length = 8 : i64, generator = 0 : i64}>
+    : (tensor<8x!field.pf<2130706433 : i32, true>>) -> tensor<?x!field.pf<2130706433 : i32, true>>
+  return %0 : tensor<?x!field.pf<2130706433 : i32, true>>
+}
+
+// -----
+
 // Regression: RefineBitcastConvertOpPattern used to call
 // ``getIntOrFloatBitWidth()`` on the element type unconditionally,
 // which segfaults inside ``FloatType::getWidth()`` when the element
