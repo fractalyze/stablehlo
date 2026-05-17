@@ -161,11 +161,11 @@ def VHLO_IntegerSI64V1 : VHLO_TypeDef<"IntegerSI64V1", "i64_v1", "0.9.0", "curre
 
 // Corresponds to the 'si128' IntegerType — added in this fork to admit the
 // storage int for 128-bit prime fields (e.g. some koalabear extensions).
-def VHLO_IntegerSI128V1 : VHLO_TypeDef<"IntegerSI128V1", "i128_v1", "1.16.0", "current">;
+def VHLO_IntegerSI128V1 : VHLO_TypeDef<"IntegerSI128V1", "i128_v1", "1.13.0", "current">;
 
 // Corresponds to the 'si256' IntegerType — admits the storage int for
 // 256-bit prime fields (bn254_sf, bn254_g1_*, bls12_381 scalar field).
-def VHLO_IntegerSI256V1 : VHLO_TypeDef<"IntegerSI256V1", "i256_v1", "1.16.0", "current">;
+def VHLO_IntegerSI256V1 : VHLO_TypeDef<"IntegerSI256V1", "i256_v1", "1.13.0", "current">;
 
 // Corresponds to the 'ui2' IntegerType from the StableHLO spec.
 def VHLO_IntegerUI2V1 : VHLO_TypeDef<"IntegerUI2V1", "ui2_v1", "1.2.0", "current">;
@@ -186,10 +186,10 @@ def VHLO_IntegerUI32V1 : VHLO_TypeDef<"IntegerUI32V1", "ui32_v1", "0.9.0", "curr
 def VHLO_IntegerUI64V1 : VHLO_TypeDef<"IntegerUI64V1", "ui64_v1", "0.9.0", "current">;
 
 // Corresponds to the 'ui128' IntegerType (fork-only, paired with si128).
-def VHLO_IntegerUI128V1 : VHLO_TypeDef<"IntegerUI128V1", "ui128_v1", "1.16.0", "current">;
+def VHLO_IntegerUI128V1 : VHLO_TypeDef<"IntegerUI128V1", "ui128_v1", "1.13.0", "current">;
 
 // Corresponds to the 'ui256' IntegerType (fork-only, paired with si256).
-def VHLO_IntegerUI256V1 : VHLO_TypeDef<"IntegerUI256V1", "ui256_v1", "1.16.0", "current">;
+def VHLO_IntegerUI256V1 : VHLO_TypeDef<"IntegerUI256V1", "ui256_v1", "1.13.0", "current">;
 
 // The nonetype is used for optional values which have implementation specific
 // default values, for attributes which must be specified as None, use TypedAttr
@@ -376,7 +376,7 @@ def VHLO_RankedBufferV1 : VHLO_TypeDef<"RankedBufferV1", "buffer_v1", "1.13.0", 
 //===----------------------------------------------------------------------===//
 
 // Corresponds to field::PrimeFieldType from the prime_ir dialect.
-def VHLO_PrimeFieldV1 : VHLO_TypeDef<"PrimeFieldV1", "pf_v1", "1.16.0", "current"> {
+def VHLO_PrimeFieldV1 : VHLO_TypeDef<"PrimeFieldV1", "pf_v1", "1.13.0", "current"> {
   let parameters = (ins
     "::mlir::Attribute":$modulus,
     "bool":$isMontgomery
@@ -385,7 +385,7 @@ def VHLO_PrimeFieldV1 : VHLO_TypeDef<"PrimeFieldV1", "pf_v1", "1.16.0", "current
 }
 
 // Corresponds to field::ExtensionFieldType from the prime_ir dialect.
-def VHLO_ExtensionFieldV1 : VHLO_TypeDef<"ExtensionFieldV1", "ef_v1", "1.16.0", "current"> {
+def VHLO_ExtensionFieldV1 : VHLO_TypeDef<"ExtensionFieldV1", "ef_v1", "1.13.0", "current"> {
   let parameters = (ins
     "unsigned":$degree,
     "::mlir::Type":$baseField,
@@ -395,19 +395,19 @@ def VHLO_ExtensionFieldV1 : VHLO_TypeDef<"ExtensionFieldV1", "ef_v1", "1.16.0", 
 }
 
 // Corresponds to elliptic_curve::AffineType from the prime_ir dialect.
-def VHLO_AffineV1 : VHLO_TypeDef<"AffineV1", "affine_v1", "1.16.0", "current"> {
+def VHLO_AffineV1 : VHLO_TypeDef<"AffineV1", "affine_v1", "1.13.0", "current"> {
   let parameters = (ins "::mlir::Attribute":$curve);
   let assemblyFormat = "`<` $curve `>`";
 }
 
 // Corresponds to elliptic_curve::JacobianType from the prime_ir dialect.
-def VHLO_JacobianV1 : VHLO_TypeDef<"JacobianV1", "jacobian_v1", "1.16.0", "current"> {
+def VHLO_JacobianV1 : VHLO_TypeDef<"JacobianV1", "jacobian_v1", "1.13.0", "current"> {
   let parameters = (ins "::mlir::Attribute":$curve);
   let assemblyFormat = "`<` $curve `>`";
 }
 
 // Corresponds to elliptic_curve::XYZZType from the prime_ir dialect.
-def VHLO_XYZZV1 : VHLO_TypeDef<"XYZZV1", "xyzz_v1", "1.16.0", "current"> {
+def VHLO_XYZZV1 : VHLO_TypeDef<"XYZZV1", "xyzz_v1", "1.13.0", "current"> {
   let parameters = (ins "::mlir::Attribute":$curve);
   let assemblyFormat = "`<` $curve `>`";
 }

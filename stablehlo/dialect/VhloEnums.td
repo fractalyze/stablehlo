@@ -155,7 +155,7 @@ def VHLO_NttTypeV1 : VHLO_I32EnumAttr<"NttTypeV1", [
 ]> {}
 
 def VHLO_NttTypeAttrV1
-  : VHLO_EnumAttr<VHLO_NttTypeV1, "ntt_type_v1", "1.16.0", "current">;
+  : VHLO_EnumAttr<VHLO_NttTypeV1, "ntt_type_v1", "1.13.0", "current">;
 
 //===----------------------------------------------------------------------===//
 // Precision
