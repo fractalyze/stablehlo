@@ -234,7 +234,7 @@ enum AttributeCode {
 /// location is updated.
 enum TypeCode {
   // TO ADD TYPE: Add an enum value with doc string for new type.
-  // Next available code: 43
+  // Next available code: 52
 
   ///   BooleanV1Type {
   ///   }
@@ -449,6 +449,34 @@ enum TypeCode {
   ///     elementType: Type
   ///   }
   kFutureV1Type = 42,
+
+  ///   PrimeFieldV1Type {
+  ///     modulus: Attribute
+  ///     isMontgomery: varint
+  ///   }
+  kPrimeFieldV1Type = 47,
+
+  ///   ExtensionFieldV1Type {
+  ///     degree: varint
+  ///     baseField: Type
+  ///     nonResidue: Attribute
+  ///   }
+  kExtensionFieldV1Type = 48,
+
+  ///   AffineV1Type {
+  ///     curve: Attribute
+  ///   }
+  kAffineV1Type = 49,
+
+  ///   JacobianV1Type {
+  ///     curve: Attribute
+  ///   }
+  kJacobianV1Type = 50,
+
+  ///   XYZZV1Type {
+  ///     curve: Attribute
+  ///   }
+  kXYZZV1Type = 51,
 };
 
 }  // namespace vhlo_encoding
@@ -573,6 +601,12 @@ class VhloBytecodeInterface : public BytecodeDialectInterface {
       DialectBytecodeReader& reader) const;
   RankedBufferV1Type readRankedBufferV1Type(
       DialectBytecodeReader& reader) const;
+  PrimeFieldV1Type readPrimeFieldV1Type(DialectBytecodeReader& reader) const;
+  ExtensionFieldV1Type readExtensionFieldV1Type(
+      DialectBytecodeReader& reader) const;
+  AffineV1Type readAffineV1Type(DialectBytecodeReader& reader) const;
+  JacobianV1Type readJacobianV1Type(DialectBytecodeReader& reader) const;
+  XYZZV1Type readXYZZV1Type(DialectBytecodeReader& reader) const;
 
   // TO ADD TYPE: Include a write method for each type in VHLO
   // Ex: void write(SomeType attr, DialectBytecodeWriter &writer) const;
@@ -587,6 +621,11 @@ class VhloBytecodeInterface : public BytecodeDialectInterface {
   void write(UniformQuantizedV1Type type, DialectBytecodeWriter& writer) const;
   void write(UnrankedTensorV1Type type, DialectBytecodeWriter& writer) const;
   void write(RankedBufferV1Type type, DialectBytecodeWriter& writer) const;
+  void write(PrimeFieldV1Type type, DialectBytecodeWriter& writer) const;
+  void write(ExtensionFieldV1Type type, DialectBytecodeWriter& writer) const;
+  void write(AffineV1Type type, DialectBytecodeWriter& writer) const;
+  void write(JacobianV1Type type, DialectBytecodeWriter& writer) const;
+  void write(XYZZV1Type type, DialectBytecodeWriter& writer) const;
 };
 
 //===----------------------------------------------------------------------===//
@@ -1274,6 +1313,16 @@ Type VhloBytecodeInterface::readType(DialectBytecodeReader& reader) const {
       return WitnessV1Type::get(getContext());
     case vhlo_encoding::kRankedBufferV1Type:
       return readRankedBufferV1Type(reader);
+    case vhlo_encoding::kPrimeFieldV1Type:
+      return readPrimeFieldV1Type(reader);
+    case vhlo_encoding::kExtensionFieldV1Type:
+      return readExtensionFieldV1Type(reader);
+    case vhlo_encoding::kAffineV1Type:
+      return readAffineV1Type(reader);
+    case vhlo_encoding::kJacobianV1Type:
+      return readJacobianV1Type(reader);
+    case vhlo_encoding::kXYZZV1Type:
+      return readXYZZV1Type(reader);
     default:
       reader.emitError() << "unknown vhlo type code: " << code;
       return Type();
@@ -1287,7 +1336,8 @@ LogicalResult VhloBytecodeInterface::writeType(
       .Case<ComplexV1Type, FunctionV1Type, RankedTensorV1Type, TokenV1Type,
             FutureV1Type, TupleV1Type, UnrankedTensorV1Type,
             UniformQuantizedPerAxisV1Type, UniformQuantizedV1Type,
-            RankedBufferV1Type>([&](auto type) {
+            RankedBufferV1Type, PrimeFieldV1Type, ExtensionFieldV1Type,
+            AffineV1Type, JacobianV1Type, XYZZV1Type>([&](auto type) {
         LOG_WRITE_CALL;
         return write(type, writer), success();
       })
@@ -1718,6 +1768,102 @@ void VhloBytecodeInterface::write(RankedBufferV1Type type,
   writer.writeVarInt(vhlo_encoding::kRankedBufferV1Type);
   writer.writeSignedVarInts(type.getShape());
   writer.writeType(type.getElementType());
+}
+
+//===----------------------------------------------------------------------===//
+// PrimeFieldV1Type
+//===----------------------------------------------------------------------===//
+
+PrimeFieldV1Type VhloBytecodeInterface::readPrimeFieldV1Type(
+    DialectBytecodeReader& reader) const {
+  LOG_READ_CALL;
+  Attribute modulus;
+  uint64_t isMontgomery = 0;
+  if (failed(reader.readAttribute(modulus)) ||
+      failed(reader.readVarInt(isMontgomery)))
+    return PrimeFieldV1Type();
+  return PrimeFieldV1Type::get(getContext(), modulus,
+                               static_cast<bool>(isMontgomery));
+}
+
+void VhloBytecodeInterface::write(PrimeFieldV1Type type,
+                                  DialectBytecodeWriter& writer) const {
+  writer.writeVarInt(vhlo_encoding::kPrimeFieldV1Type);
+  writer.writeAttribute(type.getModulus());
+  writer.writeVarInt(type.getIsMontgomery() ? 1 : 0);
+}
+
+//===----------------------------------------------------------------------===//
+// ExtensionFieldV1Type
+//===----------------------------------------------------------------------===//
+
+ExtensionFieldV1Type VhloBytecodeInterface::readExtensionFieldV1Type(
+    DialectBytecodeReader& reader) const {
+  LOG_READ_CALL;
+  uint64_t degree = 0;
+  Type baseField;
+  Attribute nonResidue;
+  if (failed(reader.readVarInt(degree)) ||
+      failed(reader.readType(baseField)) ||
+      failed(reader.readAttribute(nonResidue)))
+    return ExtensionFieldV1Type();
+  return ExtensionFieldV1Type::get(getContext(),
+                                   static_cast<unsigned>(degree), baseField,
+                                   nonResidue);
+}
+
+void VhloBytecodeInterface::write(ExtensionFieldV1Type type,
+                                  DialectBytecodeWriter& writer) const {
+  writer.writeVarInt(vhlo_encoding::kExtensionFieldV1Type);
+  writer.writeVarInt(type.getDegree());
+  writer.writeType(type.getBaseField());
+  writer.writeAttribute(type.getNonResidue());
+}
+
+//===----------------------------------------------------------------------===//
+// AffineV1Type / JacobianV1Type / XYZZV1Type
+//===----------------------------------------------------------------------===//
+
+AffineV1Type VhloBytecodeInterface::readAffineV1Type(
+    DialectBytecodeReader& reader) const {
+  LOG_READ_CALL;
+  Attribute curve;
+  if (failed(reader.readAttribute(curve))) return AffineV1Type();
+  return AffineV1Type::get(getContext(), curve);
+}
+
+void VhloBytecodeInterface::write(AffineV1Type type,
+                                  DialectBytecodeWriter& writer) const {
+  writer.writeVarInt(vhlo_encoding::kAffineV1Type);
+  writer.writeAttribute(type.getCurve());
+}
+
+JacobianV1Type VhloBytecodeInterface::readJacobianV1Type(
+    DialectBytecodeReader& reader) const {
+  LOG_READ_CALL;
+  Attribute curve;
+  if (failed(reader.readAttribute(curve))) return JacobianV1Type();
+  return JacobianV1Type::get(getContext(), curve);
+}
+
+void VhloBytecodeInterface::write(JacobianV1Type type,
+                                  DialectBytecodeWriter& writer) const {
+  writer.writeVarInt(vhlo_encoding::kJacobianV1Type);
+  writer.writeAttribute(type.getCurve());
+}
+
+XYZZV1Type VhloBytecodeInterface::readXYZZV1Type(
+    DialectBytecodeReader& reader) const {
+  LOG_READ_CALL;
+  Attribute curve;
+  if (failed(reader.readAttribute(curve))) return XYZZV1Type();
+  return XYZZV1Type::get(getContext(), curve);
+}
+
+void VhloBytecodeInterface::write(XYZZV1Type type,
+                                  DialectBytecodeWriter& writer) const {
+  writer.writeVarInt(vhlo_encoding::kXYZZV1Type);
+  writer.writeAttribute(type.getCurve());
 }
 
 //===----------------------------------------------------------------------===//
