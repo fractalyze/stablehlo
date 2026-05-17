@@ -2943,9 +2943,10 @@ def StableHLO_PairingCheckOp: StableHLO_Op<"pairing_check",
   }];
 }
 
-def StableHLO_NttOp: StableHLO_Op<"ntt", [NoMemoryEffect,
-    SameOperandsAndResultElementType,
-    SameOperandsAndResultShape]> {
+def StableHLO_NttOp: StableHLO_ShapedInterfaceOp<"ntt",
+    [HLO_SpeculatableIfStaticDimInOutputIsStaticInInput, NoMemoryEffect,
+     SameOperandsAndResultElementType,
+     DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
   let summary = "Number-Theoretic Transform operation";
   let description = [{
     Computes the Number-Theoretic Transform of the input tensor along

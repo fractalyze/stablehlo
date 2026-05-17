@@ -1349,6 +1349,26 @@ mlir::Speculation::Speculatability PairingCheckOp::getSpeculatability() {
 }
 
 //===----------------------------------------------------------------------===//
+// NttOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult NttOp::inferReturnTypes(
+    MLIRContext*, std::optional<Location> location, ValueRange operands,
+    DictionaryAttr attributes, PropertyRef properties, RegionRange regions,
+    SmallVectorImpl<Type>& inferredReturnTypes) {
+  NttOp::Adaptor adaptor(operands, attributes, properties, regions);
+  inferredReturnTypes.push_back(adaptor.getOperand().getType());
+  return success();
+}
+
+LogicalResult NttOp::reifyReturnTypeShapes(
+    OpBuilder& builder, ValueRange operands,
+    SmallVectorImpl<Value>& reifiedReturnShapes) {
+  return hlo::deriveShapeFromOperand(&builder, getOperation(), operands.front(),
+                                     &reifiedReturnShapes);
+}
+
+//===----------------------------------------------------------------------===//
 // GatherOp
 //===----------------------------------------------------------------------===//
 
