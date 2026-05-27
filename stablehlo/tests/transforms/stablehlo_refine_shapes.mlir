@@ -1311,3 +1311,31 @@ func.func @refine_ntt(%arg0: tensor<8x!field.pf<2130706433 : i32, true>>) -> ten
     : (tensor<8x!field.pf<2130706433 : i32, true>>) -> tensor<?x!field.pf<2130706433 : i32, true>>
   return %0 : tensor<?x!field.pf<2130706433 : i32, true>>
 }
+
+// -----
+
+// Regression: RefineBitcastConvertOpPattern used to call
+// ``getIntOrFloatBitWidth()`` on the element type unconditionally,
+// which segfaults inside ``FloatType::getWidth()`` when the element
+// type is a prime_ir PF/EF type (neither Int nor Float). The pattern
+// now branches on PrimeFieldType / ExtensionFieldType before the
+// generic int/float path.
+//
+// The cross-width PF↔EF case (operand bit width != result bit width)
+// is rank-changing; the pattern intentionally bails with
+// "unsupported bit width" rather than refining (the rank-handling is
+// noted as future work in the source). Pre-fix the bail-out path
+// itself segfaulted because the bit-width check called
+// ``getIntOrFloatBitWidth()``. The CHECK below asserts the IR parses
+// and the pass exits cleanly — any output is acceptable.
+!pf_koalabear_mont = !field.pf<2130706433 : i32, true>
+!ef_koalabear_4 = !field.ef<4x!pf_koalabear_mont, 1040383999 : i32>
+// CHECK-LABEL: func @refine_bitcast_convert_field_type_no_crash
+func.func @refine_bitcast_convert_field_type_no_crash(
+    %arg0: tensor<4x4x!pf_koalabear_mont>
+) -> tensor<?x!ef_koalabear_4> {
+  // CHECK: stablehlo.bitcast_convert
+  %0 = stablehlo.bitcast_convert %arg0
+    : (tensor<4x4x!pf_koalabear_mont>) -> tensor<?x!ef_koalabear_4>
+  return %0 : tensor<?x!ef_koalabear_4>
+}
