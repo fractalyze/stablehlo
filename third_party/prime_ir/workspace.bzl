@@ -2,12 +2,18 @@
 
 prime_ir provides MLIR dialects for cryptographic computations
 (Field, ModArith, EllipticCurve, Poly, TensorExt, ArithExt).
+
+Pinned to fractalyze/prime-ir branch fix/function-outliner-internal-linkage
+(the LLVM 815edc3 base + outliner linkage fixes + shaped tensor EC work
+the proto tree builds against). For local proto iteration the sibling
+checkout can be wired via
+`--override_repository=prime_ir=/home/baz/proto/prime_ir_fork`.
 """
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-PRIME_IR_COMMIT = "da33331616409d6db5f32e5d20fee6aaa41d1719"
-PRIME_IR_SHA256 = "50e17798922801d5e5cd1f4a644eab379c81507b9605baf8a867d68bfa3e4c83"
+PRIME_IR_COMMIT = "07123d5cdc2c53dd79639487253308c8f76ac589"
+PRIME_IR_SHA256 = "b8e9ae50df470b70ec1606a3d673e62f00e9b387d15055d880228f98a490ca7c"
 
 def repo():
     http_archive(
