@@ -347,14 +347,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
-| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
+| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 
 
@@ -398,7 +398,7 @@ Effects: `MemoryEffects::Effect{}`
 
 | Result | Description |
 | :----: | ----------- |
-| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 
 
@@ -435,14 +435,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
-| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
+| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 
 
@@ -484,8 +484,8 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
-| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
+| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 #### Results:
 
@@ -570,14 +570,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
-| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
+| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 
 
@@ -614,14 +614,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
-| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
+| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 
 
@@ -658,14 +658,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
-| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
+| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 
 
@@ -702,14 +702,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
-| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
+| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 
 
@@ -746,14 +746,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
-| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
+| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 
 
@@ -797,7 +797,7 @@ Effects: `MemoryEffects::Effect{}`
 
 | Result | Description |
 | :----: | ----------- |
-| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 
 
@@ -831,14 +831,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
-| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
+| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 
 
@@ -875,14 +875,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
-| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
+| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 
 
@@ -919,14 +919,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
-| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
+| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 
 
@@ -957,14 +957,14 @@ Effects: `MemoryEffects::Effect{}`
 | Operand | Description |
 | :-----: | ----------- |
 | `pred` | ranked tensor of bool values |
-| `on_true` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
-| `on_false` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| `on_true` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
+| `on_false` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 
 
@@ -1001,14 +1001,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
-| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
+| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 
 
@@ -1045,14 +1045,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
-| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
+| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 
 
@@ -1089,14 +1089,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
-| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
+| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 
 
@@ -1133,14 +1133,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
-| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
+| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 
 
@@ -1184,7 +1184,7 @@ Effects: `MemoryEffects::Effect{}`
 
 | Result | Description |
 | :----: | ----------- |
-| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 
 
@@ -1298,7 +1298,7 @@ Effects: `MemoryEffects::Effect{}`
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | statically shaped tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| `output` | statically shaped tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 
 
@@ -1325,13 +1325,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `operand` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| `operand` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| &laquo;unnamed&raquo; | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 
 
@@ -1743,15 +1743,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
-| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| `lhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
+| `rhs` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 | `group_sizes` | ranked tensor of 2/4/8/16/32/64-bit integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `result` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| `result` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 
 
@@ -1786,15 +1786,15 @@ Interfaces: `InferShapedTypeOpInterface`, `InferTypeOpInterface`, `OpAsmOpInterf
 
 | Operand | Description |
 | :-----: | ----------- |
-| `inputs` | variadic of tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
-| `inits` | variadic of tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| `inputs` | variadic of tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
+| `inits` | variadic of tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `outputs` | variadic of tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
-| `carries` | variadic of tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| `outputs` | variadic of tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
+| `carries` | variadic of tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 
 
@@ -1949,14 +1949,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `operand` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| `operand` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `values` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
-| `indices` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve values |
+| `values` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
+| `indices` | tensor of 4/6/8/16/32/64-bit float or bool or 2/4/8/16/32/64-bit integer or complex type with 32/64-bit float elements or per-tensor integer quantized or per-axis integer quantized or any-field-type or An affine point within an elliptic curve or A jacobian point within an elliptic curve or A xyzz point within an elliptic curve or An affine point on a twisted Edwards curve or An extended point on a twisted Edwards curve values |
 
 
 

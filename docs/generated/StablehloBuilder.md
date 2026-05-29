@@ -630,7 +630,7 @@ Creates a new [`stablehlo.ntt`](https://openxla.org/stablehlo/spec#ntt)
 operation.
 
 ```c++
-MlirOp Ntt(Type resultType, MlirOp &operand, ::mlir::stablehlo::NttType ntt_type, uint64_t ntt_length, /*optional*/::mlir::IntegerAttr generator = {});
+MlirOp Ntt(MlirOp &operand, ::mlir::stablehlo::NttType ntt_type, uint64_t ntt_length, /*optional*/uint64_t generator = 0);
 ```
 
 ### `stablehlo::OptimizationBarrierOp`
