@@ -63,6 +63,13 @@ SKIPPED_SUFFIXES=(
   llvm_version.txt
   'third_party*'
   .bazelversion
+  # Fractalyze tooling config is proprietary (all-rights-reserved), not
+  # Apache-2.0 source, so it carries the Fractalyze header rather than the
+  # StableHLO Apache notice this check enforces.
+  .fractal-commit-lint.toml
+  .pre-commit-config.yaml
+  .gitmessage
+  commit-lint.yml
 )
 
 UNLICENSED_FILES=()

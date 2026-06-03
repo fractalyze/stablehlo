@@ -1,0 +1,29 @@
+# Copyright 2026 Fractalyze Inc. All rights reserved.
+
+# Commit-scope policy for stablehlo_fork (fractal-commit-lint).
+#
+# A scope must equal the canonical scope derived from the changed files: the
+# `stablehlo` root is stripped, a leading `tests` segment folds a test file onto
+# its source scope (test_dirs), each remaining segment is camel_to_snake'd, and
+# the result is capped at max_scope_depth. So a commit touching
+# stablehlo/transforms/X.cpp and stablehlo/tests/transforms/X.mlir is scope
+# `transforms`; a commit spanning two components (dialect + transforms) takes no
+# scope. CI runs this same tool over each commit via the commit-lint action in
+# hybrid mode (.github/workflows/commit-lint.yml), so local pre-commit and CI agree.
+
+roots = ["stablehlo"]
+require_scope = false
+test_dirs = ["tests"]
+
+exempt_paths = [
+  "WORKSPACE.bazel",
+  "MODULE.bazel",
+  "MODULE.bazel.lock",
+  "BUILD.bazel",
+  "third_party",     # vendored deps + the prime_ir pin
+  ".github",
+  "build_tools",
+  "cmake",
+  "docs",
+  "rfcs",
+]
