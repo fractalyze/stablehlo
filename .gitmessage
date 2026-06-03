@@ -1,0 +1,67 @@
+<type>(<scope>)[!]: <summary>
+# ──────────────────────────────── 80 chars ───────────────────────────────────┤
+
+<Describe the motivation behind this change - explain WHY you are making this
+change. Wrap all lines at 80 characters.>
+
+See #<reference>
+
+Resolves: #<issue number>
+Related: #<issue number>
+
+# ──────────────────────────────── 80 chars ───────────────────────────────────┤
+
+
+# Commit Message Format
+# =====================
+#
+# Each commit message consists of a header, a body, and a footer.
+#
+# <header>
+# <BLANK LINE>
+# <body>
+# <BLANK LINE>
+# <footer>
+#
+# The header is mandatory. The body is mandatory for all commits except those
+# of type "docs"; when present it must be at least 20 characters long. The
+# footer is optional. No line may exceed 80 characters.
+#
+# Commit Message Header
+# ---------------------
+#
+# ```
+# <type>(<scope>)[!]: <short summary>
+#   │       │     │             │
+#   │       │     │             └─⫸ Summary in present tense. Not capitalized.
+#   │       │     │                  No period at the end.
+#   │       │     │
+#   │       │     └─⫸ Optional "!" after scope indicates a BREAKING CHANGE
+#   │       │
+#   │       └─⫸ Commit Scope: derived from the changed files (a stablehlo/
+#   │                         subdir — api|conversions|dialect|integrations|
+#   │                         reference|tests|transforms), or a blessed alias
+#   │                         (vhlo|refine|...). See .fractal-commit-lint.toml.
+#   │
+#   └─⫸ Commit Type: build|chore|ci|docs|feat|fix|perf|refactor|style|test
+# ```
+#
+# Use the imperative, present tense in the summary and body: "fix" not "fixed"
+# nor "fixes". Explain the motivation for the change — why, not what.
+#
+# Commit Message Footer
+# ---------------------
+#
+# The footer can contain breaking-change / deprecation notes and issue
+# references:
+#
+# ```
+# BREAKING CHANGE: <summary>
+# <BLANK LINE>
+# <description + migration instructions>
+# <BLANK LINE>
+# Fixes #<issue number>
+# ```
+#
+# Revert commits begin with `revert: ` followed by the reverted header, and the
+# body contains `This reverts commit <SHA>` plus the reason.

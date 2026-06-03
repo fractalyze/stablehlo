@@ -1,0 +1,17 @@
+# Copyright 2026 Fractalyze Inc. All rights reserved.
+
+# See https://pre-commit.com for more information
+
+# Install the commit-msg hook so fractal-commit-lint runs at commit time.
+default_install_hook_types: [commit-msg]
+
+repos:
+  # fractal-commit-lint — Conventional Commits + scope policy. Scope rules live
+  # in .fractal-commit-lint.toml; CI runs the same tool over each commit via the
+  # commit-lint action in hybrid mode. C++/BUILD/whitespace/license formatting
+  # is covered by the upstream lint.yml + build_tools/ scripts, so fractal-lint /
+  # fractal-build-lint are intentionally not enabled here.
+  - repo: https://github.com/fractalyze/fractal-lint
+    rev: v0.7.0
+    hooks:
+      - id: fractal-commit-lint
