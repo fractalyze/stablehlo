@@ -181,6 +181,11 @@ ParseResult parseConstantOp(OpAsmParser& parser, OperationState& result) {
 
   llvm::SMLoc startLoc = parser.getCurrentLocation();
   const char* startPtr = startLoc.getPointer();
+  // Save the state sizes so the fallback path can roll back exactly what the
+  // failed standard parse added, without discarding anything a caller put in
+  // the OperationState beforehand.
+  size_t numAttrs = result.attributes.getAttrs().size();
+  size_t numTypes = result.types.size();
 
   auto parseStandardAttribute = [&]() -> ParseResult {
     if (parser.parseOptionalAttrDict(result.attributes)) return failure();
@@ -201,7 +206,9 @@ ParseResult parseConstantOp(OpAsmParser& parser, OperationState& result) {
   // parseOptionalFieldConstant. The fallback's diagnostics are captured
   // and dropped, so the standard parser's original error remains the
   // surfaced diagnostic when the input wasn't field-typed.
-  result.attributes.clear();
+  while (result.attributes.getAttrs().size() > numAttrs)
+    result.attributes.pop_back();
+  result.types.resize(numTypes);
   parser.resetToken(startPtr);
   return prime_ir::field::parseOptionalFieldConstant(parser, result);
 }

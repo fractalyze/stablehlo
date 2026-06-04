@@ -121,6 +121,11 @@ enum AttributeCode {
   ///   }
   kFftTypeV1Attr = 7,
 
+  ///   NttTypeV1Attr
+  ///     value: varint (encoded enum)
+  ///   }
+  kNttTypeV1Attr = 52,
+
   ///   FloatV1Attr {
   ///     type: Type
   ///     value: APFloat
@@ -516,6 +521,7 @@ class VhloBytecodeInterface : public BytecodeDialectInterface {
       DialectBytecodeReader& reader) const;
   DictionaryV1Attr readDictionaryV1Attr(DialectBytecodeReader& reader) const;
   FftTypeV1Attr readFftTypeV1Attr(DialectBytecodeReader& reader) const;
+  NttTypeV1Attr readNttTypeV1Attr(DialectBytecodeReader& reader) const;
   FloatV1Attr readFloatV1Attr(DialectBytecodeReader& reader) const;
   IntegerV1Attr readIntegerV1Attr(DialectBytecodeReader& reader) const;
   OutputOperandAliasV1Attr readOutputOperandAliasV1Attr(
@@ -553,6 +559,7 @@ class VhloBytecodeInterface : public BytecodeDialectInterface {
              DialectBytecodeWriter& writer) const;
   void write(DictionaryV1Attr attr, DialectBytecodeWriter& writer) const;
   void write(FftTypeV1Attr attr, DialectBytecodeWriter& writer) const;
+  void write(NttTypeV1Attr attr, DialectBytecodeWriter& writer) const;
   void write(FloatV1Attr attr, DialectBytecodeWriter& writer) const;
   void write(IntegerV1Attr attr, DialectBytecodeWriter& writer) const;
   void write(OutputOperandAliasV1Attr attr,
@@ -652,6 +659,8 @@ Attribute VhloBytecodeInterface::readAttribute(
       return readDictionaryV1Attr(reader);
     case vhlo_encoding::kFftTypeV1Attr:
       return readFftTypeV1Attr(reader);
+    case vhlo_encoding::kNttTypeV1Attr:
+      return readNttTypeV1Attr(reader);
     case vhlo_encoding::kFloatV1Attr:
       return readFloatV1Attr(reader);
     case vhlo_encoding::kIntegerV1Attr:
@@ -702,10 +711,10 @@ LogicalResult VhloBytecodeInterface::writeAttribute(
   return TypeSwitch<Attribute, LogicalResult>(attr)
       .Case<ArrayV1Attr, BooleanV1Attr, ComparisonDirectionV1Attr,
             ComparisonTypeV1Attr, CustomCallApiVersionV1Attr, DictionaryV1Attr,
-            FftTypeV1Attr, FloatV1Attr, IntegerV1Attr, OutputOperandAliasV1Attr,
-            PrecisionV1Attr, RngAlgorithmV1Attr, RngDistributionV1Attr,
-            StringV1Attr, TensorV1Attr, TransposeV1Attr, TypeV1Attr,
-            TypeExtensionsV1Attr, ResultAccuracyV1Attr,
+            FftTypeV1Attr, NttTypeV1Attr, FloatV1Attr, IntegerV1Attr,
+            OutputOperandAliasV1Attr, PrecisionV1Attr, RngAlgorithmV1Attr,
+            RngDistributionV1Attr, StringV1Attr, TensorV1Attr, TransposeV1Attr,
+            TypeV1Attr, TypeExtensionsV1Attr, ResultAccuracyV1Attr,
             ResultAccuracyModeV1Attr, SubAxisInfoV1Attr, AxisRefV1Attr,
             ReplicaGroupMeshAxesV1Attr, MeshAxisV1Attr, MeshV1Attr>(
           [&](auto attr) {
@@ -859,6 +868,23 @@ void VhloBytecodeInterface::write(FftTypeV1Attr attr,
                                   DialectBytecodeWriter& writer) const {
   writer.writeVarInt(vhlo_encoding::kFftTypeV1Attr);
   hlo::bytecode::writeEnumAttribute<FftTypeV1>(attr, writer);
+}
+
+//===----------------------------------------------------------------------===//
+// NttTypeV1Attr
+//===----------------------------------------------------------------------===//
+
+NttTypeV1Attr VhloBytecodeInterface::readNttTypeV1Attr(
+    DialectBytecodeReader& reader) const {
+  LOG_READ_CALL;
+  return hlo::bytecode::readEnumAttribute<NttTypeV1Attr>(
+      reader, getContext(),
+      [](uint32_t val) { return symbolizeNttTypeV1(val); });
+}
+void VhloBytecodeInterface::write(NttTypeV1Attr attr,
+                                  DialectBytecodeWriter& writer) const {
+  writer.writeVarInt(vhlo_encoding::kNttTypeV1Attr);
+  hlo::bytecode::writeEnumAttribute<NttTypeV1>(attr, writer);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1803,13 +1829,11 @@ ExtensionFieldV1Type VhloBytecodeInterface::readExtensionFieldV1Type(
   uint64_t degree = 0;
   Type baseField;
   Attribute nonResidue;
-  if (failed(reader.readVarInt(degree)) ||
-      failed(reader.readType(baseField)) ||
+  if (failed(reader.readVarInt(degree)) || failed(reader.readType(baseField)) ||
       failed(reader.readAttribute(nonResidue)))
     return ExtensionFieldV1Type();
-  return ExtensionFieldV1Type::get(getContext(),
-                                   static_cast<unsigned>(degree), baseField,
-                                   nonResidue);
+  return ExtensionFieldV1Type::get(getContext(), static_cast<unsigned>(degree),
+                                   baseField, nonResidue);
 }
 
 void VhloBytecodeInterface::write(ExtensionFieldV1Type type,

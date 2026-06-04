@@ -122,11 +122,16 @@ struct ConvertFieldInverseBack
     else
       return failure();
 
+    // stablehlo is tensor-only; a bare scalar field.inverse (legal in
+    // prime-ir) has no stablehlo form, so leave it unconverted.
+    auto shapedResult = dyn_cast<ShapedType>(op.getType());
+    if (!shapedResult) return failure();
+
     // Build a base-field "1" constant. DivOp supports mixed PF / EF
     // operands (div_c1 compatibility), so a scalar PF "1" works for both.
     auto fieldOne = prime_ir::field::FieldOperation(uint64_t{1}, pfType);
     APInt val = static_cast<APInt>(fieldOne);
-    auto resultShape = cast<ShapedType>(op.getType()).getShape();
+    auto resultShape = shapedResult.getShape();
     auto oneAttr = DenseIntElementsAttr::get(
         RankedTensorType::get(resultShape, pfType.getStorageType()), {val});
 
@@ -151,7 +156,10 @@ struct ConvertFieldConstantBack
     // matching the result shape (handles splat tensor field.constants
     // from prime-ir constant folding).
     if (auto intAttr = dyn_cast<IntegerAttr>(value)) {
-      auto resultType = cast<ShapedType>(op.getType());
+      // stablehlo is tensor-only; a bare scalar field.constant (legal in
+      // prime-ir) has no stablehlo form, so leave it unconverted.
+      auto resultType = dyn_cast<ShapedType>(op.getType());
+      if (!resultType) return failure();
       auto tensorType =
           RankedTensorType::get(resultType.getShape(), intAttr.getType());
       value = DenseIntElementsAttr::get(tensorType, {intAttr.getValue()});

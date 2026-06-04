@@ -199,19 +199,25 @@ struct ConvertECScalarMul : public OpRewritePattern<MulOp> {
   }
 };
 
-// Stage 1 (slow correctness baseline) lowering for MSM: unroll into a
-// chain of N scalar_mul + (N-1) add ops. Constraints:
-//   - batch_size <= 1 (single MSM, scalar result).
-//   - bases element type is jacobian — scalar_mul on jacobian returns
-//     jacobian and add(jacobian, jacobian) returns jacobian, so the chain
-//     stays in the same coordinate system as the operand. Affine inputs
-//     would force scalar_mul to produce jacobian and require a final
-//     convert_point_type back to affine; affine bases fail the rewrite
-//     for now (caller responsibility).
-//   - Static N (we unroll at compile time; dynamic N would need scf.for).
-//
-// Stage 2 (Pippenger CUDA runtime) replaces this with a custom_call
-// dispatch — separate followup memo entry once the slow baseline soaks.
+// Lowers MSM by unrolling into a chain of N scalar_mul + (N-1) add ops — an
+// O(N) expansion that is correct but not asymptotically optimal (a Pippenger
+// bucket method would be the fast form). The unroll only applies when:
+//   - batch_size <= 1 (single MSM, scalar result);
+//   - bases element type is jacobian, so scalar_mul (jacobian -> jacobian) and
+//     add (jacobian, jacobian -> jacobian) keep the chain in one coordinate
+//     system; affine bases would need a trailing convert_point_type and are
+//     rejected so the caller picks the coordinate system explicitly;
+//   - N is static, since the chain is built at compile time (dynamic N needs
+//     an scf.for loop instead of an unroll);
+//   - N <= kMsmUnrollLimit. Each scalar_mul later expands to a
+//     double-and-add ladder of ~storage-bit-width group operations, so the
+//     post-lowering op count is roughly N * bits — unbounded N exhausts the
+//     compiler. Production-size MSMs belong to the runtime lowering, not
+//     this unroll.
+// Inputs outside these bounds do not match and the op is left for another
+// pattern / reported as unlegalized.
+constexpr int64_t kMsmUnrollLimit = 32;
+
 struct ConvertMsm : public OpRewritePattern<MsmOp> {
   using OpRewritePattern::OpRewritePattern;
   LogicalResult matchAndRewrite(MsmOp op,
@@ -225,7 +231,7 @@ struct ConvertMsm : public OpRewritePattern<MsmOp> {
         basesType.getElementType());
     if (!jacType) return failure();
     int64_t n = scalarsType.getDimSize(0);
-    if (n == 0) return failure();
+    if (n == 0 || n > kMsmUnrollLimit) return failure();
 
     Location loc = op.getLoc();
     Value running;
