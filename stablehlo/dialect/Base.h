@@ -136,6 +136,14 @@ FailureOr<Type> inferLeastSpecificType(std::optional<Location> location,
 FailureOr<Type> inferMostSpecificType(std::optional<Location> location,
                                       TypeRange inputTypes);
 
+// Result-type inference for multiply: a field scalar * EC point yields the
+// point type (scalar multiplication); every other case is most-specific
+// reconciliation of the operands. Declared here (not TypeInference.h) so the
+// generated MulOp::inferReturnTypes in StablehloOps.h.inc can see it.
+LogicalResult inferMulOp(std::optional<Location> location,
+                         TypeRange operandTypes,
+                         SmallVectorImpl<Type>& inferredReturnTypes);
+
 LogicalResult inferMostSpecificTypeComponents(
     std::optional<Location> location, TypeRange inputTypes,
     SmallVectorImpl<ShapedTypeComponents>& inferredReturnShapes);

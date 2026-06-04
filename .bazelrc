@@ -73,3 +73,16 @@ test --nolegacy_external_runfiles
 
 # Disallow empty globs unless explicitly declared using `allow_empty=True`
 common --incompatible_disallow_empty_glob
+
+# The prime-ir bridge is wired through WORKSPACE (shared @llvm-raw patch set),
+# so pin WORKSPACE mode for every build — CI and local checkouts must agree on
+# the mode or their action keys (and the shared bazel-remote cache entries)
+# diverge.
+common --noenable_bzlmod --enable_workspace
+
+# Hermetic action environment: PATH/env churn must not change action keys.
+# Checked in (not left to user rc files) so CI and local builds produce the
+# same keys and can share the bazel-remote cache.
+build --incompatible_strict_action_env
+
+try-import %workspace%/.bazelrc.user

@@ -1,0 +1,439 @@
+// RUN: stablehlo-opt --stablehlo-to-prime-ir --split-input-file --verify-diagnostics %s | FileCheck %s
+
+// Field arithmetic over a small prime: stablehlo ops with field-typed
+// tensors rewrite to the matching field.* op. Non-field-typed ops (the
+// final f32 case) are left untouched, proving the patterns gate on
+// element type rather than on op kind.
+
+// CHECK-LABEL: func @field_add
+func.func @field_add(%a: tensor<4x!field.pf<7681:i32>>,
+                     %b: tensor<4x!field.pf<7681:i32>>)
+    -> tensor<4x!field.pf<7681:i32>> {
+  // CHECK: field.add
+  // CHECK-NOT: stablehlo.add
+  %0 = stablehlo.add %a, %b : tensor<4x!field.pf<7681:i32>>
+  func.return %0 : tensor<4x!field.pf<7681:i32>>
+}
+
+// -----
+
+// CHECK-LABEL: func @field_subtract
+func.func @field_subtract(%a: tensor<4x!field.pf<7681:i32>>,
+                          %b: tensor<4x!field.pf<7681:i32>>)
+    -> tensor<4x!field.pf<7681:i32>> {
+  // CHECK: field.sub
+  // CHECK-NOT: stablehlo.subtract
+  %0 = stablehlo.subtract %a, %b : tensor<4x!field.pf<7681:i32>>
+  func.return %0 : tensor<4x!field.pf<7681:i32>>
+}
+
+// -----
+
+// CHECK-LABEL: func @field_multiply
+func.func @field_multiply(%a: tensor<4x!field.pf<7681:i32>>,
+                          %b: tensor<4x!field.pf<7681:i32>>)
+    -> tensor<4x!field.pf<7681:i32>> {
+  // CHECK: field.mul
+  // CHECK-NOT: stablehlo.multiply
+  %0 = stablehlo.multiply %a, %b : tensor<4x!field.pf<7681:i32>>
+  func.return %0 : tensor<4x!field.pf<7681:i32>>
+}
+
+// -----
+
+// stablehlo.divide(x, y) over a field becomes x * inverse(y); there is no
+// direct field.div, so the rewrite synthesizes the inverse explicitly.
+
+// CHECK-LABEL: func @field_divide
+func.func @field_divide(%a: tensor<4x!field.pf<7681:i32>>,
+                        %b: tensor<4x!field.pf<7681:i32>>)
+    -> tensor<4x!field.pf<7681:i32>> {
+  // CHECK-DAG: %[[INV:.*]] = field.inverse %arg1
+  // CHECK-DAG: field.mul %arg0, %[[INV]]
+  // CHECK-NOT: stablehlo.divide
+  %0 = stablehlo.divide %a, %b : tensor<4x!field.pf<7681:i32>>
+  func.return %0 : tensor<4x!field.pf<7681:i32>>
+}
+
+// -----
+
+// CHECK-LABEL: func @field_negate
+func.func @field_negate(%a: tensor<4x!field.pf<7681:i32>>)
+    -> tensor<4x!field.pf<7681:i32>> {
+  // CHECK: field.negate
+  // CHECK-NOT: stablehlo.negate
+  %0 = stablehlo.negate %a : tensor<4x!field.pf<7681:i32>>
+  func.return %0 : tensor<4x!field.pf<7681:i32>>
+}
+
+// -----
+
+// A stablehlo.constant whose result element type is a field type forwards
+// the dense attribute verbatim to field.constant — the pattern gates on the
+// result element type only, not on the attribute form.
+
+// CHECK-LABEL: func @field_constant
+func.func @field_constant() -> tensor<4x!field.pf<7681:i32>> {
+  // CHECK: field.constant
+  // CHECK-NOT: stablehlo.constant
+  %0 = "stablehlo.constant"() <{value = dense<[1, 2, 3, 4]> : tensor<4xi32>}>
+      : () -> tensor<4x!field.pf<7681:i32>>
+  func.return %0 : tensor<4x!field.pf<7681:i32>>
+}
+
+// -----
+
+// Elliptic-curve point arithmetic. Jacobian (and XYZZ) coordinates are
+// closed under the EC group law; affine is NOT — affine+affine yields
+// jacobian/xyzz, never affine. The pass forwards the StableHLO result
+// type as-is, so the IR has to be expressed in a coordinate system that
+// the EC dialect's verifier accepts.
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+
+// CHECK-LABEL: func @ec_add
+func.func @ec_add(%a: tensor<2x!jac>, %b: tensor<2x!jac>)
+    -> tensor<2x!jac> {
+  // CHECK: elliptic_curve.add
+  // CHECK-NOT: stablehlo.add
+  %0 = stablehlo.add %a, %b : tensor<2x!jac>
+  func.return %0 : tensor<2x!jac>
+}
+
+// -----
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+
+// CHECK-LABEL: func @ec_subtract
+func.func @ec_subtract(%a: tensor<2x!jac>, %b: tensor<2x!jac>)
+    -> tensor<2x!jac> {
+  // CHECK: elliptic_curve.sub
+  // CHECK-NOT: stablehlo.subtract
+  %0 = stablehlo.subtract %a, %b : tensor<2x!jac>
+  func.return %0 : tensor<2x!jac>
+}
+
+// -----
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+
+// CHECK-LABEL: func @ec_negate
+func.func @ec_negate(%a: tensor<2x!jac>) -> tensor<2x!jac> {
+  // CHECK: elliptic_curve.negate
+  // CHECK-NOT: stablehlo.negate
+  %0 = stablehlo.negate %a : tensor<2x!jac>
+  func.return %0 : tensor<2x!jac>
+}
+
+// -----
+
+// scalar*point and point*scalar both lower to elliptic_curve.scalar_mul
+// with scalar-first canonicalization. Crossing field and point element
+// types in stablehlo.multiply is allowed by the mixed-type compat
+// extension in Base.cpp.
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!sf = !field.pf<21888242871839275222246405745257275088548364400416034343698204186575808495617:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+
+// CHECK-LABEL: func @ec_scalar_mul_left
+func.func @ec_scalar_mul_left(%s: tensor<!sf>, %p: tensor<!jac>)
+    -> tensor<!jac> {
+  // CHECK: elliptic_curve.scalar_mul %arg0, %arg1
+  // CHECK-NOT: stablehlo.multiply
+  %0 = stablehlo.multiply %s, %p : (tensor<!sf>, tensor<!jac>) -> tensor<!jac>
+  func.return %0 : tensor<!jac>
+}
+
+// -----
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!sf = !field.pf<21888242871839275222246405745257275088548364400416034343698204186575808495617:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+
+// CHECK-LABEL: func @ec_scalar_mul_right
+func.func @ec_scalar_mul_right(%p: tensor<!jac>, %s: tensor<!sf>)
+    -> tensor<!jac> {
+  // CHECK: elliptic_curve.scalar_mul %arg1, %arg0
+  // CHECK-NOT: stablehlo.multiply
+  %0 = stablehlo.multiply %p, %s : (tensor<!jac>, tensor<!sf>) -> tensor<!jac>
+  func.return %0 : tensor<!jac>
+}
+
+// -----
+
+// PF × EF: prime field added to extension field over the same prime
+// (compat allowed when PF is the EF's base field). The rewrite reuses
+// the field.add op since both operands are FieldTypeInterface.
+
+!pf = !field.pf<7:i32>
+!ef = !field.ef<2x!pf, 6:i32>
+
+// CHECK-LABEL: func @field_pf_ef_add
+func.func @field_pf_ef_add(%a: tensor<4x!ef>, %b: tensor<4x!pf>)
+    -> tensor<4x!ef> {
+  // CHECK: field.add
+  // CHECK-NOT: stablehlo.add
+  %0 = stablehlo.add %a, %b : (tensor<4x!ef>, tensor<4x!pf>) -> tensor<4x!ef>
+  func.return %0 : tensor<4x!ef>
+}
+
+// -----
+
+// stablehlo.convert : tensor<Nx!ec.Repr1> -> tensor<Nx!ec.Repr2> lowers to
+// elliptic_curve.convert_point_type. Both operands must be EC point types
+// over the same curve.
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!aff = !elliptic_curve.affine<#curve>
+!jac = !elliptic_curve.jacobian<#curve>
+
+// CHECK-LABEL: func @ec_convert_affine_to_jacobian
+func.func @ec_convert_affine_to_jacobian(%a: tensor<4x!aff>)
+    -> tensor<4x!jac> {
+  // CHECK: elliptic_curve.convert_point_type
+  // CHECK-NOT: stablehlo.convert
+  %0 = stablehlo.convert %a : (tensor<4x!aff>) -> tensor<4x!jac>
+  func.return %0 : tensor<4x!jac>
+}
+
+// -----
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+!aff = !elliptic_curve.affine<#curve>
+
+// CHECK-LABEL: func @ec_convert_jacobian_to_affine
+func.func @ec_convert_jacobian_to_affine(%j: tensor<4x!jac>)
+    -> tensor<4x!aff> {
+  // CHECK: elliptic_curve.convert_point_type
+  // CHECK-NOT: stablehlo.convert
+  %0 = stablehlo.convert %j : (tensor<4x!jac>) -> tensor<4x!aff>
+  func.return %0 : tensor<4x!aff>
+}
+
+// -----
+
+// Negative case: float ops are not field-typed, so the pass leaves them
+// alone. Guards against an over-eager pattern that ignores element type.
+
+// CHECK-LABEL: func @float_add_unchanged
+func.func @float_add_unchanged(%a: tensor<4xf32>, %b: tensor<4xf32>)
+    -> tensor<4xf32> {
+  // CHECK: stablehlo.add
+  // CHECK-NOT: field.add
+  %0 = stablehlo.add %a, %b : tensor<4xf32>
+  func.return %0 : tensor<4xf32>
+}
+
+// -----
+
+// Non-affine inputs (jacobian here) leave the op untouched: prime-ir's
+// PairingCheckOp requires affine, and upstream is expected to insert
+// convert_point_type ops to materialize affine coordinates.
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+
+// CHECK-LABEL: func @pairing_check_jacobian_unchanged
+func.func @pairing_check_jacobian_unchanged(%g1: tensor<4x!jac>,
+                                            %g2: tensor<4x!jac>)
+    -> tensor<i1> {
+  // CHECK: stablehlo.pairing_check
+  // CHECK-NOT: elliptic_curve.pairing_check
+  %0 = stablehlo.pairing_check %g1, %g2
+      : (tensor<4x!jac>, tensor<4x!jac>) -> tensor<i1>
+  func.return %0 : tensor<i1>
+}
+
+// -----
+
+// G1 affine × G1 affine (both over the prime base field) doesn't fire:
+// prime-ir's PairingCheckOp requires the second operand to be over a
+// degree-2 extension base field. The pre-check in ConvertPairingCheck
+// avoids producing IR that the EC verifier would reject. The happy
+// path (G1×G2 with proper Fp2 G2 curve) needs G2 PrimitiveType support;
+// this case lands once G2 storage widths are added at the xla layer.
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!aff = !elliptic_curve.affine<#curve>
+
+// CHECK-LABEL: func @pairing_check_g1xg1_pf_unchanged
+func.func @pairing_check_g1xg1_pf_unchanged(%g1: tensor<4x!aff>,
+                                            %g2: tensor<4x!aff>)
+    -> tensor<i1> {
+  // CHECK: stablehlo.pairing_check
+  // CHECK-NOT: elliptic_curve.pairing_check
+  %0 = stablehlo.pairing_check %g1, %g2
+      : (tensor<4x!aff>, tensor<4x!aff>) -> tensor<i1>
+  func.return %0 : tensor<i1>
+}
+
+// -----
+
+// G1 over an extension base field doesn't fire: prime-ir's PairingCheckOp
+// requires the FIRST operand to be over a prime base field. A G1 affine over
+// a degree-2 EF trips the isa<PrimeFieldType> pre-check, so the op is left
+// untouched even though G2 here is a well-formed Fp2 affine.
+
+!pf = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!ef2 = !field.ef<2x!pf, 21888242871839275222246405745257275088696311157297823662689037894645226208582:i256>
+
+#g1a = dense<[0, 0]> : tensor<2xi256>
+#g1b = dense<[3, 0]> : tensor<2xi256>
+#g1x = dense<[1, 0]> : tensor<2xi256>
+#g1y = dense<[2, 0]> : tensor<2xi256>
+#g1_ef_curve = #elliptic_curve.sw<#g1a, #g1b, (#g1x, #g1y)> : !ef2
+!g1_ef_aff = !elliptic_curve.affine<#g1_ef_curve>
+
+#g2a = dense<[0, 0]> : tensor<2xi256>
+#g2b = dense<[3, 0]> : tensor<2xi256>
+#g2x = dense<[1, 0]> : tensor<2xi256>
+#g2y = dense<[2, 0]> : tensor<2xi256>
+#g2_curve = #elliptic_curve.sw<#g2a, #g2b, (#g2x, #g2y)> : !ef2
+!g2_aff = !elliptic_curve.affine<#g2_curve>
+
+// CHECK-LABEL: func @pairing_check_g1_ef_unchanged
+func.func @pairing_check_g1_ef_unchanged(%g1: tensor<4x!g1_ef_aff>,
+                                         %g2: tensor<4x!g2_aff>)
+    -> tensor<i1> {
+  // CHECK: stablehlo.pairing_check
+  // CHECK-NOT: elliptic_curve.pairing_check
+  %0 = stablehlo.pairing_check %g1, %g2
+      : (tensor<4x!g1_ef_aff>, tensor<4x!g2_aff>) -> tensor<i1>
+  func.return %0 : tensor<i1>
+}
+
+// -----
+
+// G2 over a degree-3 extension field doesn't fire: prime-ir's PairingCheckOp
+// requires the SECOND operand's base field to be a degree-2 extension. The
+// getDegree() != 2 pre-check rejects a degree-3 (Fp3) G2 affine, leaving the
+// op untouched.
+
+!pf = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+#g1_curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !pf
+!g1_aff = !elliptic_curve.affine<#g1_curve>
+
+!ef3 = !field.ef<3x!pf, 3:i256>
+
+#g2a = dense<[0, 0, 0]> : tensor<3xi256>
+#g2b = dense<[3, 0, 0]> : tensor<3xi256>
+#g2x = dense<[1, 0, 0]> : tensor<3xi256>
+#g2y = dense<[2, 0, 0]> : tensor<3xi256>
+#g2_ef3_curve = #elliptic_curve.sw<#g2a, #g2b, (#g2x, #g2y)> : !ef3
+!g2_ef3_aff = !elliptic_curve.affine<#g2_ef3_curve>
+
+// CHECK-LABEL: func @pairing_check_g2_ef3_unchanged
+func.func @pairing_check_g2_ef3_unchanged(%g1: tensor<4x!g1_aff>,
+                                          %g2: tensor<4x!g2_ef3_aff>)
+    -> tensor<i1> {
+  // CHECK: stablehlo.pairing_check
+  // CHECK-NOT: elliptic_curve.pairing_check
+  %0 = stablehlo.pairing_check %g1, %g2
+      : (tensor<4x!g1_aff>, tensor<4x!g2_ef3_aff>) -> tensor<i1>
+  func.return %0 : tensor<i1>
+}
+
+// -----
+
+// stablehlo.msm on jacobian inputs unrolls into a chain of scalar_mul +
+// add ops. This is the "slow correctness baseline" — Stage 2 will
+// replace it with a Pippenger CUDA runtime custom_call.
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+
+// CHECK-LABEL: func @msm_jacobian_unrolls
+func.func @msm_jacobian_unrolls(%scalars: tensor<3x!field.pf<7681:i32>>,
+                                %bases: tensor<3x!jac>) -> tensor<!jac> {
+  // CHECK: elliptic_curve.scalar_mul
+  // CHECK: elliptic_curve.scalar_mul
+  // CHECK: elliptic_curve.add
+  // CHECK: elliptic_curve.scalar_mul
+  // CHECK: elliptic_curve.add
+  // CHECK: tensor.from_elements
+  // CHECK-NOT: stablehlo.msm
+  %0 = stablehlo.msm %scalars, %bases
+      : (tensor<3x!field.pf<7681:i32>>, tensor<3x!jac>) -> tensor<!jac>
+  func.return %0 : tensor<!jac>
+}
+
+// -----
+
+// Affine bases leave the op untouched: scalar_mul on affine returns
+// jacobian, so unrolling into the same coordinate system as the
+// operand requires a final convert_point_type that this stage-1 pass
+// doesn't emit. Caller is expected to convert to jacobian first.
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!aff = !elliptic_curve.affine<#curve>
+
+// CHECK-LABEL: func @msm_affine_unchanged
+func.func @msm_affine_unchanged(%scalars: tensor<3x!field.pf<7681:i32>>,
+                                %bases: tensor<3x!aff>) -> tensor<!aff> {
+  // CHECK: stablehlo.msm
+  // CHECK-NOT: elliptic_curve.scalar_mul
+  %0 = stablehlo.msm %scalars, %bases
+      : (tensor<3x!field.pf<7681:i32>>, tensor<3x!aff>) -> tensor<!aff>
+  func.return %0 : tensor<!aff>
+}
+
+// -----
+
+// Batched MSM (batch_size > 1) is out of scope for stage 1 — the
+// unroll pattern only handles scalar-result single MSM. Stage 2 (CUDA
+// runtime) will cover batching.
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+
+// CHECK-LABEL: func @msm_batched_unchanged
+func.func @msm_batched_unchanged(%scalars: tensor<8x!field.pf<7681:i32>>,
+                                 %bases: tensor<8x!jac>) -> tensor<2x!jac> {
+  // CHECK: stablehlo.msm
+  // CHECK-NOT: elliptic_curve.scalar_mul
+  %0 = "stablehlo.msm"(%scalars, %bases) <{batch_size = 2 : i32}>
+      : (tensor<8x!field.pf<7681:i32>>, tensor<8x!jac>) -> tensor<2x!jac>
+  func.return %0 : tensor<2x!jac>
+}
+
+// -----
+
+// Dynamic operand length (tensor<?x...>) can't be unrolled at compile time —
+// the chain is built statically, so a dynamic-N MSM is left untouched (a
+// dynamic-trip scf.for would be needed instead).
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+
+// CHECK-LABEL: func @msm_dynamic_unchanged
+func.func @msm_dynamic_unchanged(%scalars: tensor<?x!field.pf<7681:i32>>,
+                                 %bases: tensor<?x!jac>) -> tensor<!jac> {
+  // CHECK: stablehlo.msm
+  // CHECK-NOT: elliptic_curve.scalar_mul
+  %0 = stablehlo.msm %scalars, %bases
+      : (tensor<?x!field.pf<7681:i32>>, tensor<?x!jac>) -> tensor<!jac>
+  func.return %0 : tensor<!jac>
+}
+
+// -----
+// MSM longer than the unroll limit stays unconverted: each scalar_mul later
+// expands to a double-and-add ladder, so unbounded unrolling exhausts the
+// compiler. Production-size MSMs go through the runtime lowering.
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+
+// CHECK-LABEL: func @msm_over_unroll_limit_unchanged
+func.func @msm_over_unroll_limit_unchanged(%scalars: tensor<33x!field.pf<7681:i32>>,
+                                           %bases: tensor<33x!jac>) -> tensor<!jac> {
+  // CHECK: stablehlo.msm
+  // CHECK-NOT: elliptic_curve.scalar_mul
+  %0 = stablehlo.msm %scalars, %bases
+      : (tensor<33x!field.pf<7681:i32>>, tensor<33x!jac>) -> tensor<!jac>
+  func.return %0 : tensor<!jac>
+}

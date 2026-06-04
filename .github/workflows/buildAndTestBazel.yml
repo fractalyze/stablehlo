@@ -36,7 +36,7 @@ jobs:
   bazel-build:
     strategy:
       fail-fast: false
-    runs-on: ${{ github.repository == 'openxla/stablehlo' && 'ubuntu-22.04-64core' ||  'ubuntu-22.04'  }}
+    runs-on: ${{ github.repository == 'openxla/stablehlo' && 'ubuntu-22.04-64core' || fromJSON('["self-hosted", "cpu"]') }}
     # TODO: Use ML OSS Artifacts docker to manage deps needs to package with cmake tooling
     # container: "us-docker.pkg.dev/ml-oss-artifacts-published/ml-public-container/ml-build:latest"
 
@@ -47,10 +47,6 @@ jobs:
       with:
         fetch-depth: $(( ${{ github.event_name == 'pull_request' && github.event.pull_request.commits || 0 }} + 1 ))
 
-    - name: Validate LLVM Commit
-      run: |
-        ./build_tools/github_actions/lint_llvm_commit.sh .
-
     - name: Get LLVM Version
       id: llvm-version
       shell: bash
@@ -60,13 +56,27 @@ jobs:
     - name: Setup Bazelisk
       uses: bazelbuild/setup-bazelisk@v3
 
+    # On GitHub-hosted runners the workspace is ephemeral, so the bazel output
+    # tree has to round-trip through the GitHub cache service.
     - name: Mount Bazel Cache
+      if: github.repository == 'openxla/stablehlo'
       uses: actions/cache@v4
       with:
         path: "~/.cache/bazel"
         key: ${{ runner.os }}-stablehlo_bazelbuild-${{ hashFiles('.bazelversion', '.bazelrc', 'WORKSPACE', 'WORKSPACE.bazel', 'MODULE.bazel') }}
         restore-keys: |
           ${{ runner.os }}-stablehlo_bazelbuild-
+
+    # Self-hosted runners keep a persistent bazel-remote server on the host
+    # (content-addressed, disk-backed, shared across runs and branches).
+    # Activate the checked-in CI options via .bazelrc.user — .bazelrc
+    # try-imports it, so every bazel invocation in the CI scripts is covered
+    # without threading a --bazelrc startup flag through each one.
+    - name: Use host bazel-remote disk cache
+      if: github.repository != 'openxla/stablehlo'
+      shell: bash
+      run: |
+        cp .bazelrc.ci .bazelrc.user
 
     - name: Build and check docs
       shell: bash

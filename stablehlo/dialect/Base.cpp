@@ -46,6 +46,8 @@ limitations under the License.
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/LogicalResult.h"
+#include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveTypes.h"
+#include "prime_ir/Dialect/Field/IR/FieldTypes.h"
 
 // Include order matters
 #include "stablehlo/dialect/BaseAttrInterfaces.cpp.inc"
@@ -86,6 +88,32 @@ bool isCompatibleElementTypeForHloTypeInference(Type tp1, Type tp2) {
   // Get element type if shaped
   tp1 = getElementTypeOrSelf(tp1);
   tp2 = getElementTypeOrSelf(tp2);
+
+  // Two EC point types reconcile when they live on the same curve. This
+  // exists for the inferred-vs-declared result check: the EC group ops infer
+  // the most-specific operand type, and the declared result may legitimately
+  // be a different coordinate system (affine + affine -> jacobian). It does
+  // NOT decide which operand combinations an op accepts — the realizable
+  // coordinate tables live in verifyAddOp / verifySubtractOp, verifyMulOp
+  // rejects point-by-point multiplication, and ops with no EC form (divide,
+  // remainder, power) exclude point element types in ODS. Field-by-point
+  // mixing is likewise multiply-only and handled in verifyMulOp/inferMulOp,
+  // not here.
+  using PointTypeInterface = prime_ir::elliptic_curve::PointTypeInterface;
+  auto pt1 = dyn_cast<PointTypeInterface>(tp1);
+  auto pt2 = dyn_cast<PointTypeInterface>(tp2);
+  if (pt1 && pt2) return pt1.getCurveAttr() == pt2.getCurveAttr();
+
+  // Prime field × extension field: compatible when the PF is the EF's base
+  // field. Enables `stablehlo.add ef, pf` and the symmetric forms used in
+  // tower-extension arithmetic.
+  using PFType = prime_ir::field::PrimeFieldType;
+  using EFType = prime_ir::field::ExtensionFieldType;
+  if (auto pf = dyn_cast<PFType>(tp1)) {
+    if (auto ef = dyn_cast<EFType>(tp2)) return ef.getBaseField() == pf;
+  } else if (auto ef = dyn_cast<EFType>(tp1)) {
+    if (auto pf = dyn_cast<PFType>(tp2)) return ef.getBaseField() == pf;
+  }
 
   // For quantized types:
   //   a. both `tp1` and `tp2` should be quantized types

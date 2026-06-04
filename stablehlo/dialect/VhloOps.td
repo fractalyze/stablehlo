@@ -232,6 +232,14 @@ def VHLO_BitcastConvertOpV1 : VHLO_Op<"bitcast_convert_v1", "0.9.0", "current"> 
   let results = (outs VHLO_AnyType:$result);
 }
 
+def VHLO_BitReverseOpV1 : VHLO_Op<"bit_reverse_v1", "1.13.0", "current"> {
+  let arguments = (ins
+    VHLO_AnyType:$operand,
+    VHLO_AnyAttr:$dimensions
+  );
+  let results = (outs VHLO_AnyType:$result);
+}
+
 def VHLO_BroadcastInDimOpV1 : VHLO_Op<"broadcast_in_dim_v1", "0.9.0", "current"> {
   let arguments = (ins
     VHLO_AnyType:$operand,
@@ -854,6 +862,29 @@ def VHLO_NotOpV1 : VHLO_Op<"not_v1", "0.9.0", "current"> {
   let results = (outs VHLO_AnyType:$result);
 }
 
+def VHLO_NttOpV1 : VHLO_Op<"ntt_v1", "1.13.0", "current"> {
+  let arguments = (ins
+    VHLO_AnyType:$operand,
+    VHLO_AnyAttr:$ntt_type,
+    VHLO_AnyAttr:$ntt_length,
+    VHLO_AnyAttr:$generator
+  );
+  let results = (outs VHLO_AnyType:$result);
+}
+
+def VHLO_MsmOpV1 : VHLO_Op<"msm_v1", "1.13.0", "current"> {
+  let arguments = (ins
+    VHLO_AnyType:$scalars,
+    VHLO_AnyType:$bases,
+    VHLO_AnyAttr:$window_bits,
+    VHLO_AnyAttr:$precompute_factor,
+    VHLO_AnyAttr:$bitsize,
+    VHLO_AnyAttr:$batch_size,
+    VHLO_AnyAttr:$are_points_shared
+  );
+  let results = (outs VHLO_AnyType:$result);
+}
+
 def VHLO_OptimizationBarrierOpV1 : VHLO_Op<"optimization_barrier_v1", "0.9.0", "current"> {
   let arguments = (ins Variadic<VHLO_AnyType>:$operand);
   let results = (outs Variadic<VHLO_AnyType>:$result);
@@ -883,6 +914,14 @@ def VHLO_PadOpV1 : VHLO_Op<"pad_v1", "0.9.0", "current"> {
     VHLO_AnyAttr:$edge_padding_low,
     VHLO_AnyAttr:$edge_padding_high,
     VHLO_AnyAttr:$interior_padding
+  );
+  let results = (outs VHLO_AnyType:$result);
+}
+
+def VHLO_PairingCheckOpV1 : VHLO_Op<"pairing_check_v1", "1.13.0", "current"> {
+  let arguments = (ins
+    VHLO_AnyType:$g1_points,
+    VHLO_AnyType:$g2_points
   );
   let results = (outs VHLO_AnyType:$result);
 }

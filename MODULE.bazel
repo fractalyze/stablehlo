@@ -21,11 +21,6 @@
 module(name = "stablehlo")
 
 bazel_dep(name = "bazel_skylib", version = "1.8.2")
-bazel_dep(name = "rules_cc", version = "0.2.0")
-bazel_dep(name = "rules_python", version = "0.30.0")
-
-python = use_extension("@rules_python//python/extensions:python.bzl", "python")
-python.toolchain(
-    is_default = True,
-    python_version = "3.11",
-)
+# rules_cc and rules_python are pinned in WORKSPACE.bazel via prime_ir's
+# setup (rules_cc 0.2.13, rules_python 1.6.0) to keep the toolchain
+# pin aligned with prime_ir.

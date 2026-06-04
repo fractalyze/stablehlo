@@ -49,6 +49,7 @@ limitations under the License.
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "prime_ir/Dialect/Field/IR/FieldTypes.h"
 #include "stablehlo/dialect/Base.h"
 #include "stablehlo/dialect/ChloOps.h"
 #include "stablehlo/dialect/ReplicaGroupUtils.h"
@@ -549,14 +550,12 @@ struct RefineBitcastConvertOpPattern
     // This complicates the logic quite a bit and is not needed to pass the
     // current tests, so we leave this for future work.
     auto resultType = op.getType();
-    auto getBitWidthFn = [](ShapedType type) {
-      auto elementType = type.getElementType();
-      if (auto complexType = dyn_cast<ComplexType>(elementType))
-        return complexType.getElementType().getIntOrFloatBitWidth();
-      return elementType.getIntOrFloatBitWidth();
-    };
-
-    if (getBitWidthFn(operandType) != getBitWidthFn(resultType))
+    // hlo::getBitWidth is field/EC-aware (getIntOrFloatBitWidth segfaults on
+    // prime_ir types). Share it with the bitcast_convert verifier so both
+    // sites agree on a field type's storage width — a divergent formula here
+    // would let an op verify with one width and refine with another.
+    if (hlo::getBitWidth(operandType.getElementType()) !=
+        hlo::getBitWidth(resultType.getElementType()))
       return rewriter.notifyMatchFailure(op, "unsupported bit width");
 
     return refineReturnShape(rewriter, op, operandType.getShape());

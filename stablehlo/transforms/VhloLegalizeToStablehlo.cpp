@@ -36,6 +36,8 @@ limitations under the License.
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveDialect.h"
+#include "prime_ir/Dialect/Field/IR/FieldDialect.h"
 #include "stablehlo/dialect/StablehloOps.h"
 #include "stablehlo/dialect/VhloOps.h"
 #include "stablehlo/dialect/VhloTypes.h"
@@ -140,6 +142,9 @@ Attribute convertGeneric(Attribute vhloAttr,
   }
   if (auto attr = dyn_cast<vhlo::FftTypeV1Attr>(vhloAttr)) {
     RETURN_CONVERTED_ENUM_ATTR(FftType, V1);
+  }
+  if (auto attr = dyn_cast<vhlo::NttTypeV1Attr>(vhloAttr)) {
+    RETURN_CONVERTED_ENUM_ATTR(NttType, V1);
   }
   if (auto attr = dyn_cast<vhlo::FloatV1Attr>(vhloAttr)) {
     auto builtinFloatType = typeConverter->convertType(attr.getType());
@@ -696,6 +701,9 @@ SpecialResult convertSpecial(const OpConversionPattern<VhloOpTy>& pattern,
       return convertDenseI64Array(typeConverter, vhloName, vhloAttr,
                                   stablehloAttrs);
   }
+  // stablehlo.ntt's ntt_length is a single ConfinedAttr<I64Attr, ...> (see
+  // StablehloOps.td) — not an array like fft_length. The default attr
+  // converter handles i64 round-tripping; no special case needed.
   if constexpr (std::is_same<VhloOpTy, vhlo::BroadcastOpV1>::value) {
     if (vhloName == "broadcast_sizes")
       return convertDenseI64Array(typeConverter, vhloName, vhloAttr,
@@ -707,6 +715,11 @@ SpecialResult convertSpecial(const OpConversionPattern<VhloOpTy>& pattern,
                                   stablehloAttrs);
   }
   if constexpr (std::is_same<VhloOpTy, vhlo::ReverseOpV1>::value) {
+    if (vhloName == "dimensions")
+      return convertDenseI64Array(typeConverter, vhloName, vhloAttr,
+                                  stablehloAttrs);
+  }
+  if constexpr (std::is_same<VhloOpTy, vhlo::BitReverseOpV1>::value) {
     if (vhloName == "dimensions")
       return convertDenseI64Array(typeConverter, vhloName, vhloAttr,
                                   stablehloAttrs);

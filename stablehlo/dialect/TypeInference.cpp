@@ -72,6 +72,9 @@ limitations under the License.
 #include "mlir/Interfaces/InferTypeOpInterface.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/LogicalResult.h"
+#include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveAttributes.h"
+#include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveTypes.h"
+#include "prime_ir/Dialect/Field/IR/FieldTypes.h"
 #include "stablehlo/dialect/AssemblyFormat.h"
 #include "stablehlo/dialect/Base.h"
 #include "stablehlo/dialect/TypeInference.h"
@@ -447,6 +450,22 @@ unsigned getBitWidth(Type type) {
     return 2 * getBitWidth(complexTy.getElementType());
   if (auto quantTy = dyn_cast<quant::QuantizedType>(type))
     return getBitWidth(quantTy.getStorageType());
+  // prime-ir field/EC types: storage bitwidth lives on the type itself.
+  // Without this, hlo verifiers (e.g. bitcast_convert) call
+  // getIntOrFloatBitWidth which dispatches to FloatType::getWidth and
+  // segfaults on non-int/float types.
+  if (auto pf = dyn_cast<prime_ir::field::PrimeFieldType>(type))
+    return pf.getStorageBitWidth();
+  if (auto ef = dyn_cast<prime_ir::field::ExtensionFieldType>(type))
+    return ef.getStorageBitWidth();
+  if (auto bf = dyn_cast<prime_ir::field::BinaryFieldType>(type))
+    return bf.getStorageBitWidth();
+  if (auto pt = dyn_cast<prime_ir::elliptic_curve::PointTypeInterface>(type)) {
+    // A point's storage is numCoords copies of its base-field storage.
+    // Recurse on the base so any field flavor (prime / extension / binary)
+    // is handled by the branches above rather than re-enumerated here.
+    return pt.getNumCoords() * getBitWidth(pt.getBaseFieldType());
+  }
   return type.getIntOrFloatBitWidth();
 }
 
@@ -480,6 +499,18 @@ bool isPromotableElementType(Type type1, Type type2,
                     matchesType<FloatType>(tensorEl1, tensorEl2) ||
                     matchesType<ComplexType>(tensorEl1, tensorEl2) ||
                     matchesType<quant::QuantizedType>(tensorEl1, tensorEl2);
+
+  // prime-ir field/EC types: same-type if both are the same field-kind
+  // and equal as types (modulus, mont, degree, etc. all match).
+  if (!isSameType) {
+    if (isa<prime_ir::field::PrimeFieldType,
+            prime_ir::field::ExtensionFieldType,
+            prime_ir::field::BinaryFieldType,
+            prime_ir::elliptic_curve::PointTypeInterface>(tensorEl1) &&
+        tensorEl1 == tensorEl2) {
+      return true;
+    }
+  }
 
   if (!isSameType) return false;
 
@@ -613,11 +644,195 @@ LogicalResult verifyAddOp(std::optional<Location> location, Operation* op,
     return verifyBinaryOpQuantizationConstraints(location, lhsType, rhsType,
                                                  resultType);
 
-  if (getElementTypeOrSelf(lhsType) != getElementTypeOrSelf(rhsType) ||
-      getElementTypeOrSelf(lhsType) != getElementTypeOrSelf(resultType))
+  Type lhsEl = getElementTypeOrSelf(lhsType);
+  Type rhsEl = getElementTypeOrSelf(rhsType);
+  Type resEl = getElementTypeOrSelf(resultType);
+
+  // PF + EF (or EF + PF) is allowed when the PF is the EF's base field, and
+  // the result must keep the wider element type (the EF): adding a base-field
+  // scalar to an extension-field element embeds the scalar in the constant
+  // term, so the sum is still an extension-field element. add has its own
+  // verifier (not the shared HLO_CompatibleOperandsAndResultType trait)
+  // because it must also enforce the EC group-law coordinate rules below,
+  // which a pure element-type compatibility predicate cannot express.
+  using PFType = prime_ir::field::PrimeFieldType;
+  using EFType = prime_ir::field::ExtensionFieldType;
+  if (auto pf = dyn_cast<PFType>(lhsEl)) {
+    if (auto ef = dyn_cast<EFType>(rhsEl))
+      if (ef.getBaseField() == pf && resEl == rhsEl) return success();
+  } else if (auto ef = dyn_cast<EFType>(lhsEl)) {
+    if (auto pf = dyn_cast<PFType>(rhsEl))
+      if (ef.getBaseField() == pf && resEl == lhsEl) return success();
+  }
+
+  // EC point + EC point: at least one of {lhs, rhs, result} must be a
+  // PointTypeInterface => all three must be, on the same curve, and in
+  // a coordinate combination that the group law can realize.
+  using PointTypeInterface = prime_ir::elliptic_curve::PointTypeInterface;
+  auto lhsPt = dyn_cast<PointTypeInterface>(lhsEl);
+  auto rhsPt = dyn_cast<PointTypeInterface>(rhsEl);
+  auto resPt = dyn_cast<PointTypeInterface>(resEl);
+  if (lhsPt || rhsPt || resPt) {
+    if (!lhsPt || !rhsPt || !resPt)
+      return emitOptionalError(location,
+                               "EC types cannot be mixed with non-EC types");
+    auto curve = lhsPt.getCurveAttr();
+    if (rhsPt.getCurveAttr() != curve || resPt.getCurveAttr() != curve)
+      return emitOptionalError(
+          location, "EC operands and result must be on the same curve");
+    using namespace prime_ir::elliptic_curve;
+    // Accept exactly the coordinate combinations elliptic_curve.add/sub can
+    // lower to (prime_ir's verifyBinaryOp contract):
+    //   affine+affine -> jacobian|xyzz   (only affine inputs choose the
+    //                                     output system; the group law lands
+    //                                     in projective/extended coordinates)
+    //   affine+T      -> T               (mixed addition; T non-affine, the
+    //                                     result must equal the non-affine
+    //                                     operand)
+    //   T+T           -> T               (same non-affine system in and out)
+    bool lhsAffine = isa<AffineType>(lhsPt);
+    bool rhsAffine = isa<AffineType>(rhsPt);
+    if (lhsAffine && rhsAffine && isa<JacobianType, XYZZType>(resPt))
+      return success();
+    if (!isa<AffineType>(resPt)) {
+      if (lhsAffine && Type(rhsPt) == Type(resPt)) return success();
+      if (rhsAffine && Type(lhsPt) == Type(resPt)) return success();
+      if (!lhsAffine && !rhsAffine && Type(lhsPt) == Type(rhsPt) &&
+          Type(rhsPt) == Type(resPt))
+        return success();
+    }
+    return emitOptionalError(
+        location, "invalid EC point type combination for binary operation");
+  }
+
+  if (lhsEl != rhsEl || lhsEl != resEl)
     return emitOptionalError(
         location,
         "op requires the same element type for all operands and results");
+
+  return success();
+}
+
+LogicalResult verifySubtractOp(std::optional<Location> location, Operation* op,
+                               Type lhsType, Type rhsType, Type resultType) {
+  // Point subtraction lowers to elliptic_curve.sub, which is the add of the
+  // inverse and accepts exactly the add coordinate combinations, so subtract
+  // shares add's type rules.
+  return verifyAddOp(location, op, lhsType, rhsType, resultType);
+}
+
+LogicalResult verifyMulOp(std::optional<Location> location, Operation* op,
+                          Type lhsType, Type rhsType, Type resultType) {
+  llvm::SmallVector<Type, 3> typeEntries{lhsType, rhsType, resultType};
+  if (anyQuantized<quant::QuantizedType>(typeEntries))
+    return verifyBinaryOpQuantizationConstraints(location, lhsType, rhsType,
+                                                 resultType);
+
+  Type lhsEl = getElementTypeOrSelf(lhsType);
+  Type rhsEl = getElementTypeOrSelf(rhsType);
+  Type resEl = getElementTypeOrSelf(resultType);
+
+  // Scalar multiplication: a field scalar times an EC point yields a point on
+  // the same curve. This is the one mixed field/point form multiply admits,
+  // and it lives here (not in the shared element-type compatibility predicate)
+  // so that subtract/divide and the other binary ops do not also accept it.
+  using FieldTypeInterface = prime_ir::field::FieldTypeInterface;
+  using PointTypeInterface = prime_ir::elliptic_curve::PointTypeInterface;
+  auto lhsField = isa<FieldTypeInterface>(lhsEl);
+  auto rhsField = isa<FieldTypeInterface>(rhsEl);
+  auto lhsPt = dyn_cast<PointTypeInterface>(lhsEl);
+  auto rhsPt = dyn_cast<PointTypeInterface>(rhsEl);
+  if ((lhsField && rhsPt) || (lhsPt && rhsField)) {
+    auto pointEl = lhsPt ? lhsPt : rhsPt;
+    auto resPt = dyn_cast<PointTypeInterface>(resEl);
+    if (!resPt || resPt.getCurveAttr() != pointEl.getCurveAttr())
+      return emitOptionalError(
+          location,
+          "scalar multiplication result must be an EC point on the same curve "
+          "as the point operand");
+    return success();
+  }
+
+  // Two EC points cannot be multiplied — the group operation is add, and
+  // scalar multiplication (above) is the only multiplicative form.
+  if (lhsPt && rhsPt)
+    return emitOptionalError(location,
+                             "EC points cannot be multiplied with each other");
+
+  // Otherwise operands and result must share a compatible element type — the
+  // same notion as the HLO_CompatibleOperandsAndResultType trait multiply used
+  // before it grew this verifier (homogeneous types, prime/extension-field
+  // products, quantized-compatible, bounded dims).
+  if (!isCompatibleElementTypeForHloTypeInference(lhsEl, rhsEl) ||
+      !isCompatibleElementTypeForHloTypeInference(lhsEl, resEl))
+    return emitOptionalError(
+        location,
+        "op requires compatible element types for all operands and results");
+
+  return success();
+}
+
+LogicalResult inferMulOp(std::optional<Location> location,
+                         TypeRange operandTypes,
+                         SmallVectorImpl<Type>& inferredReturnTypes) {
+  if (operandTypes.size() != 2)
+    return emitOptionalError(
+        location, "Expected two operands for MulOp::inferReturnTypes");
+
+  // Scalar multiplication (field scalar * EC point) yields the point type; the
+  // operand types are not most-specific reconcilable, so resolve this form
+  // before the homogeneous fallback.
+  Type lhsEl = getElementTypeOrSelf(operandTypes[0]);
+  Type rhsEl = getElementTypeOrSelf(operandTypes[1]);
+  bool lhsField = isa<prime_ir::field::FieldTypeInterface>(lhsEl);
+  bool rhsField = isa<prime_ir::field::FieldTypeInterface>(rhsEl);
+  bool lhsPoint = isa<prime_ir::elliptic_curve::PointTypeInterface>(lhsEl);
+  bool rhsPoint = isa<prime_ir::elliptic_curve::PointTypeInterface>(rhsEl);
+  if (lhsField && rhsPoint) {
+    inferredReturnTypes.emplace_back(operandTypes[1]);
+    return success();
+  }
+  if (lhsPoint && rhsField) {
+    inferredReturnTypes.emplace_back(operandTypes[0]);
+    return success();
+  }
+
+  auto inferredTypeOrErr = inferMostSpecificType(location, operandTypes);
+  if (failed(inferredTypeOrErr)) return failure();
+  inferredReturnTypes.emplace_back(*inferredTypeOrErr);
+  return success();
+}
+
+LogicalResult verifyPowOp(std::optional<Location> location, Type lhsType,
+                          Type rhsType, Type resultType) {
+  Type lhsEl = getElementTypeOrSelf(lhsType);
+  Type rhsEl = getElementTypeOrSelf(rhsType);
+  Type resEl = getElementTypeOrSelf(resultType);
+
+  // Field base + integer exponent (ZK pattern): the result keeps the field
+  // element type; the integer exponent is not an arithmetic operand so it is
+  // exempt from the homogeneous-element-type rule below.
+  if (isa<prime_ir::field::FieldTypeInterface>(lhsEl) &&
+      isa<IntegerType>(rhsEl)) {
+    if (lhsEl != resEl)
+      return emitOptionalError(
+          location, "stablehlo.power result element type must match base");
+    return success();
+  }
+
+  // Upstream homogeneous form (float / int / complex / quantized): base,
+  // exponent, and result share a *compatible* element type. Use the same
+  // compatibility notion as the shared HLO_CompatibleOperandsAndResultType
+  // trait this op used before it grew a custom verifier, so quantized
+  // operands with different-but-compatible parameters are still accepted
+  // rather than rejected by exact-equality.
+  if (!isCompatibleElementTypeForHloTypeInference(lhsEl, rhsEl) ||
+      !isCompatibleElementTypeForHloTypeInference(lhsEl, resEl))
+    return emitOptionalError(
+        location,
+        "stablehlo.power requires a compatible element type for base, "
+        "exponent, and result, or an integer exponent when the base is a "
+        "field type");
 
   return success();
 }
@@ -2863,6 +3078,122 @@ LogicalResult inferFftOp(
   return success();
 }
 
+// PointType is enforced at the td level. Shape constraints: both operands
+// rank-1, lengths match (or are dynamic), element types are EC point types
+// of the same curve. The G1-vs-G2 group distinction is not checked: the point
+// types carry only a curve, not which of the pairing's two source groups they
+// belong to, so a same-curve pair is the strongest constraint expressible
+// here. Pairing semantics (e1 in G1, e2 in G2) are validated downstream.
+LogicalResult inferPairingCheckOp(
+    std::optional<Location> location, Value g1Points, Value g2Points,
+    SmallVectorImpl<ShapedTypeComponents>& inferredReturnShapes) {
+  auto g1Type = cast<RankedTensorType>(g1Points.getType());
+  auto g2Type = cast<RankedTensorType>(g2Points.getType());
+  if (g1Type.getRank() != 1 || g2Type.getRank() != 1)
+    return emitOptionalError(
+        location, "pairing_check requires rank-1 operands; got ranks ",
+        g1Type.getRank(), " and ", g2Type.getRank(), ".");
+  int64_t n1 = g1Type.getDimSize(0);
+  int64_t n2 = g2Type.getDimSize(0);
+  if (!ShapedType::isDynamic(n1) && !ShapedType::isDynamic(n2) && n1 != n2)
+    return emitOptionalError(
+        location, "pairing_check requires matching operand lengths; got ", n1,
+        " and ", n2, ".");
+  // Both element types must be EC points; same curve is allowed, or a
+  // bilinear pair where G1 is EC(PF) and G2 is EC(EF) and EF's base field
+  // equals G1's prime field — the BN254-style G1×G2 pairing shape.
+  using PointTypeInterface = prime_ir::elliptic_curve::PointTypeInterface;
+  using PFType = prime_ir::field::PrimeFieldType;
+  using EFType = prime_ir::field::ExtensionFieldType;
+  auto g1Pt = dyn_cast<PointTypeInterface>(g1Type.getElementType());
+  auto g2Pt = dyn_cast<PointTypeInterface>(g2Type.getElementType());
+  if (!g1Pt || !g2Pt)
+    return emitOptionalError(
+        location, "pairing_check operands must be EC point tensors; got ",
+        g1Type.getElementType(), " and ", g2Type.getElementType(), ".");
+  using ShortWeierstrassAttr = prime_ir::elliptic_curve::ShortWeierstrassAttr;
+  auto g1Curve = dyn_cast<ShortWeierstrassAttr>(g1Pt.getCurveAttr());
+  auto g2Curve = dyn_cast<ShortWeierstrassAttr>(g2Pt.getCurveAttr());
+  bool sameCurve = g1Curve && g2Curve && g1Curve == g2Curve;
+  bool bilinearPair = false;
+  // Bilinear shape: G1 over a prime field, G2 over an extension whose base
+  // is that same prime field. Read each curve's underlying field off the
+  // ShortWeierstrassAttr.
+  if (g1Curve && g2Curve) {
+    if (auto pf = dyn_cast<PFType>(g1Curve.getBaseField())) {
+      if (auto ef = dyn_cast<EFType>(g2Curve.getBaseField()))
+        bilinearPair = (ef.getBaseField() == pf);
+    }
+  }
+  if (!sameCurve && !bilinearPair)
+    return emitOptionalError(
+        location,
+        "pairing_check operands must be on the same curve, or form a "
+        "bilinear pair (G1 on a prime field, G2 on a degree>=2 extension "
+        "of that prime field); got ",
+        g1Type.getElementType(), " and ", g2Type.getElementType(), ".");
+  inferredReturnShapes.emplace_back(ArrayRef<int64_t>{},
+                                    IntegerType::get(g1Points.getContext(), 1));
+  return success();
+}
+
+// Element types are constrained at the td level (HLO_FieldTensor for
+// scalars, HLO_ECTensor for bases). Shape constraints: both rank-1,
+// lengths match (or are dynamic), batch_size > 1 must divide the operand
+// length; result is rank-0 when batch_size <= 1, rank-1 of size batch_size
+// otherwise.
+LogicalResult inferMsmOp(
+    std::optional<Location> location, Value scalars, Value bases,
+    int32_t batchSize, bool arePointsShared,
+    SmallVectorImpl<ShapedTypeComponents>& inferredReturnShapes) {
+  auto scalarsType = cast<RankedTensorType>(scalars.getType());
+  auto basesType = cast<RankedTensorType>(bases.getType());
+  if (scalarsType.getRank() != 1 || basesType.getRank() != 1)
+    return emitOptionalError(
+        location, "msm requires rank-1 operands; got ranks ",
+        scalarsType.getRank(), " and ", basesType.getRank(), ".");
+  int64_t nScalars = scalarsType.getDimSize(0);
+  int64_t nBases = basesType.getDimSize(0);
+  Type baseElement = basesType.getElementType();
+  bool nScalarsKnown = !ShapedType::isDynamic(nScalars);
+  bool nBasesKnown = !ShapedType::isDynamic(nBases);
+
+  // Length relationship depends on batch_size and are_points_shared:
+  //   batch_size <= 1                        : nScalars == nBases, result
+  //   rank-0. batch_size  > 1 && !are_points_shared  : nScalars == nBases, both
+  //                                            divisible by batch_size,
+  //                                            result rank-1 of size
+  //                                            batch_size.
+  //   batch_size  > 1 &&  are_points_shared  : nScalars == batch_size * nBases,
+  //                                            result rank-1 of size
+  //                                            batch_size.
+  if (batchSize > 1 && arePointsShared) {
+    if (nScalarsKnown && nBasesKnown && nScalars != int64_t(batchSize) * nBases)
+      return emitOptionalError(
+          location, "msm with batch_size=", batchSize,
+          " and are_points_shared=true requires scalars length == "
+          "batch_size * bases length; got ",
+          nScalars, " and ", nBases, ".");
+    inferredReturnShapes.emplace_back(ArrayRef<int64_t>{batchSize},
+                                      baseElement);
+    return success();
+  }
+  if (nScalarsKnown && nBasesKnown && nScalars != nBases)
+    return emitOptionalError(location,
+                             "msm requires matching operand lengths; got ",
+                             nScalars, " and ", nBases, ".");
+  if (batchSize > 1) {
+    if (nBasesKnown && nBases % batchSize != 0)
+      return emitOptionalError(location, "msm batch_size ", batchSize,
+                               " must divide the operand length ", nBases, ".");
+    inferredReturnShapes.emplace_back(ArrayRef<int64_t>{batchSize},
+                                      baseElement);
+    return success();
+  }
+  inferredReturnShapes.emplace_back(ArrayRef<int64_t>{}, baseElement);
+  return success();
+}
+
 LogicalResult inferGatherOp(
     std::optional<Location> location, Value operand, Value startIndices,
     ArrayRef<int64_t> offsetDims, ArrayRef<int64_t> collapsedSliceDims,
@@ -3219,6 +3550,13 @@ LogicalResult inferReplicaIdOp(MLIRContext* context, std::optional<Location>,
                                SmallVectorImpl<Type>& inferredReturnTypes) {
   inferredReturnTypes.push_back(RankedTensorType::get(
       /*shape=*/{}, IntegerType::get(context, 32, IntegerType::Unsigned)));
+  return success();
+}
+
+LogicalResult inferBitReverseOp(std::optional<Location> location,
+                                Type operandType,
+                                SmallVectorImpl<Type>& inferredReturnTypes) {
+  inferredReturnTypes.push_back(operandType);
   return success();
 }
 
@@ -4761,6 +5099,31 @@ LogicalResult verifyReshapeOp(std::optional<Location> location, Value operand,
     return verifyReshapeOpQuantizationConstraints(location, operand.getType(),
                                                   result.getType());
 
+  return success();
+}
+
+LogicalResult verifyBitReverseOp(std::optional<Location> location,
+                                 Value operand, ArrayRef<int64_t> dimensions) {
+  llvm::SmallDenseSet<int64_t> uniqueDims(dimensions.begin(), dimensions.end());
+  if (uniqueDims.size() != dimensions.size())
+    return emitOptionalError(location,
+                             "dimensions should be unique. Got: ", dimensions);
+  auto operandTy = cast<RankedTensorType>(operand.getType());
+  for (int64_t dim : dimensions) {
+    if (dim < 0)
+      return emitOptionalError(
+          location,
+          "all dimensions should be non-negative. Got dimension: ", dim, ".");
+    if (dim >= operandTy.getRank())
+      return emitOptionalError(
+          location, "all dimensions should be between [0, ",
+          operandTy.getRank(), "). Got dimension: ", dim, ".");
+    int64_t dimSize = operandTy.getDimSize(dim);
+    if (dimSize != ShapedType::kDynamic && (dimSize & (dimSize - 1)) != 0)
+      return emitOptionalError(location,
+                               "dimension size must be a power of 2, got ",
+                               dimSize, " for dimension ", dim, ".");
+  }
   return success();
 }
 

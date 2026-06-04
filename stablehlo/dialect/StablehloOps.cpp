@@ -16,6 +16,9 @@ limitations under the License.
 
 #include "stablehlo/dialect/StablehloOps.h"
 
+// Generated StablehloOps.cpp.inc references prime-ir field/EC types by
+// fully-qualified name in op-trait predicates (HLO_Tensor and friends in
+// Base.td admit them); the headers must precede the .inc include below.
 #include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -86,6 +89,8 @@ limitations under the License.
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Support/TypeID.h"
 #include "mlir/Transforms/InliningUtils.h"
+#include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveTypes.h"
+#include "prime_ir/Dialect/Field/IR/FieldTypes.h"
 #include "stablehlo/dialect/AssemblyFormat.h"
 #include "stablehlo/dialect/Base.h"
 #include "stablehlo/dialect/StablehloBytecode.h"
@@ -239,12 +244,10 @@ INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(Log1pOp)
 INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(LogisticOp)
 INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(MaxOp)
 INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(MinOp)
-INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(MulOp)
 INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(NegOp)
 INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(NotOp)
 INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(OrOp)
 INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(PopulationCountOp)
-INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(PowOp)
 INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(ReducePrecisionOp)
 INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(RemOp)
 INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(RoundNearestEvenOp)
@@ -256,7 +259,6 @@ INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(ShiftRightLogicalOp)
 INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(SignOp)
 INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(SineOp)
 INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(SqrtOp)
-INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(SubtractOp)
 INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(TanOp)
 INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(TanhOp)
 INFER_RETURN_TYPE_COMPONENTS_FROM_OPERANDS(XorOp)
@@ -285,6 +287,74 @@ LogicalResult AddOp::inferReturnTypeComponents(
 LogicalResult AddOp::verify() {
   return hlo::verifyAddOp(getLoc(), getOperation(), getLhs().getType(),
                           getRhs().getType(), getResult().getType());
+}
+
+//===----------------------------------------------------------------------===//
+// SubtractOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult SubtractOp::inferReturnTypeComponents(
+    MLIRContext* context, std::optional<Location> location,
+    ValueShapeRange operands, DictionaryAttr attributes, PropertyRef properties,
+    RegionRange regions,
+    SmallVectorImpl<ShapedTypeComponents>& inferredReturnShapes) {
+  SmallVector<Type> inferredReturnTypes;
+  if (failed(inferReturnTypes(context, location, operands.getValues(),
+                              attributes, properties, regions,
+                              inferredReturnTypes)))
+    return failure();
+  if (inferredReturnTypes.size() != 1) return failure();
+  auto inferredReturnType = dyn_cast<ShapedType>(inferredReturnTypes[0]);
+  if (!inferredReturnType) return failure();
+  inferredReturnShapes.push_back(inferredReturnType);
+  return success();
+}
+
+LogicalResult SubtractOp::verify() {
+  return hlo::verifySubtractOp(getLoc(), getOperation(), getLhs().getType(),
+                               getRhs().getType(), getResult().getType());
+}
+
+//===----------------------------------------------------------------------===//
+// MulOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult MulOp::inferReturnTypeComponents(
+    MLIRContext* context, std::optional<Location> location,
+    ValueShapeRange operands, DictionaryAttr attributes, PropertyRef properties,
+    RegionRange regions,
+    SmallVectorImpl<ShapedTypeComponents>& inferredReturnShapes) {
+  SmallVector<Type> inferredReturnTypes;
+  if (failed(inferReturnTypes(context, location, operands.getValues(),
+                              attributes, properties, regions,
+                              inferredReturnTypes)))
+    return failure();
+  if (inferredReturnTypes.size() != 1) return failure();
+  auto inferredReturnType = dyn_cast<ShapedType>(inferredReturnTypes[0]);
+  if (!inferredReturnType) return failure();
+  inferredReturnShapes.push_back(inferredReturnType);
+  return success();
+}
+
+LogicalResult MulOp::verify() {
+  return hlo::verifyMulOp(getLoc(), getOperation(), getLhs().getType(),
+                          getRhs().getType(), getResult().getType());
+}
+
+//===----------------------------------------------------------------------===//
+// PowOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult PowOp::verify() {
+  return hlo::verifyPowOp(getLoc(), getLhs().getType(), getRhs().getType(),
+                          getResult().getType());
+}
+
+LogicalResult PowOp::reifyReturnTypeShapes(
+    OpBuilder& builder, ValueRange operands,
+    SmallVectorImpl<Value>& reifiedReturnShapes) {
+  return ::mlir::hlo::deriveShapeFromOperand(
+      &builder, getOperation(), operands.front(), &reifiedReturnShapes);
 }
 
 //===----------------------------------------------------------------------===//
@@ -374,7 +444,53 @@ bool ConstantOp::isCompatibleReturnTypes(TypeRange l, TypeRange r) {
   // storage type.
   if (auto rhsElemTy = dyn_cast<quant::QuantizedType>(rhsTy.getElementType()))
     rhsTy = hlo::getSameShapeTensorType(rhsTy, rhsElemTy.getStorageType());
-  return lhsTy == rhsTy;
+
+  if (lhsTy == rhsTy) return true;
+
+  Type lhsElementType = getElementTypeOrSelf(lhsTy);
+  Type rhsElementType = getElementTypeOrSelf(rhsTy);
+  // Allow integer-attr (storage-int) constants to materialize as prime-field
+  // tensors. The verifier accepts the int attr; downstream passes interpret
+  // each integer as the storage encoding of the field element.
+  if (isa<IntegerType>(lhsElementType) &&
+      isa<prime_ir::field::PrimeFieldType>(rhsElementType))
+    return lhsTy.clone(rhsElementType) == rhsTy;
+  // Allow integer-attr constants to materialize as extension-field tensors.
+  // The attribute carries an int tensor of shape [resultDims..., towerDims...]
+  // — each element of the result corresponds to a flattened coefficient
+  // vector encoding a single ExtensionField value.
+  if (isa<IntegerType>(lhsElementType)) {
+    if (auto efType =
+            dyn_cast<prime_ir::field::ExtensionFieldType>(rhsElementType)) {
+      SmallVector<int64_t> expectedShape(rhsTy.getShape());
+      Type current = efType;
+      while (auto ef = dyn_cast<prime_ir::field::ExtensionFieldType>(current)) {
+        expectedShape.push_back(static_cast<int64_t>(ef.getDegree()));
+        current = ef.getBaseField();
+      }
+      return lhsTy.getShape() == ArrayRef<int64_t>(expectedShape);
+    }
+  }
+  // Allow integer-attr constants to materialize as EC point tensors. The
+  // value attr has trailing dimensions encoding the point's coordinates
+  // (and, for points over an extension field, the extension degree).
+  if (isa<IntegerType>(lhsElementType) &&
+      isa<prime_ir::elliptic_curve::PointTypeInterface>(rhsElementType)) {
+    auto ptType =
+        cast<prime_ir::elliptic_curve::PointTypeInterface>(rhsElementType);
+    auto lhsShape = lhsTy.getShape();
+    auto rhsShape = rhsTy.getShape();
+    SmallVector<int64_t> trailingDims;
+    trailingDims.push_back(static_cast<int64_t>(ptType.getNumCoords()));
+    if (auto efType = dyn_cast<prime_ir::field::ExtensionFieldType>(
+            ptType.getBaseFieldType()))
+      trailingDims.push_back(static_cast<int64_t>(efType.getDegreeOverPrime()));
+    if (lhsShape.size() != rhsShape.size() + trailingDims.size()) return false;
+    return lhsShape.drop_back(trailingDims.size()) == rhsShape &&
+           lhsShape.take_back(trailingDims.size()) ==
+               ArrayRef<int64_t>(trailingDims);
+  }
+  return false;
 }
 
 ParseResult ConstantOp::parse(OpAsmParser& parser, OperationState& result) {
@@ -1237,6 +1353,69 @@ mlir::Speculation::Speculatability FftOp::getSpeculatability() {
       return mlir::Speculation::NotSpeculatable;
   }
   return mlir::Speculation::Speculatable;
+}
+
+//===----------------------------------------------------------------------===//
+// MsmOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult MsmOp::inferReturnTypeComponents(
+    MLIRContext*, std::optional<Location> location, ValueShapeRange operands,
+    DictionaryAttr attributes, PropertyRef properties, RegionRange regions,
+    SmallVectorImpl<ShapedTypeComponents>& inferredReturnShapes) {
+  MsmOp::Adaptor adaptor(operands, attributes, properties, regions);
+  return hlo::inferMsmOp(location, adaptor.getScalars(), adaptor.getBases(),
+                         adaptor.getBatchSize(), adaptor.getArePointsShared(),
+                         inferredReturnShapes);
+}
+
+mlir::Speculation::Speculatability MsmOp::getSpeculatability() {
+  // Result shape depends on batch_size (compile-time attr) plus the
+  // operand length, both of which the verifier has already checked. A
+  // dynamic operand length would propagate to a dynamic batch slot,
+  // which is safe to speculate. Speculatable.
+  return mlir::Speculation::Speculatable;
+}
+
+//===----------------------------------------------------------------------===//
+// PairingCheckOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult PairingCheckOp::inferReturnTypeComponents(
+    MLIRContext*, std::optional<Location> location, ValueShapeRange operands,
+    DictionaryAttr attributes, PropertyRef properties, RegionRange regions,
+    SmallVectorImpl<ShapedTypeComponents>& inferredReturnShapes) {
+  PairingCheckOp::Adaptor adaptor(operands, attributes, properties, regions);
+  return hlo::inferPairingCheckOp(location, adaptor.getG1Points(),
+                                  adaptor.getG2Points(), inferredReturnShapes);
+}
+
+mlir::Speculation::Speculatability PairingCheckOp::getSpeculatability() {
+  // The result is a fixed scalar PRED regardless of operand shapes, so
+  // shape speculation cannot fail. Treating it as Speculatable lets the
+  // op be hoisted by canonicalizers; correctness of the computation
+  // itself is the lowering's responsibility.
+  return mlir::Speculation::Speculatable;
+}
+
+//===----------------------------------------------------------------------===//
+// NttOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult NttOp::inferReturnTypes(
+    MLIRContext*, std::optional<Location> location, ValueRange operands,
+    DictionaryAttr attributes, PropertyRef properties, RegionRange regions,
+    SmallVectorImpl<Type>& inferredReturnTypes) {
+  NttOp::Adaptor adaptor(operands, attributes, properties, regions);
+  inferredReturnTypes.push_back(adaptor.getOperand().getType());
+  return success();
+}
+
+LogicalResult NttOp::reifyReturnTypeShapes(
+    OpBuilder& builder, ValueRange operands,
+    SmallVectorImpl<Value>& reifiedReturnShapes) {
+  return hlo::deriveShapeFromOperand(&builder, getOperation(), operands.front(),
+                                     &reifiedReturnShapes);
 }
 
 //===----------------------------------------------------------------------===//
@@ -2660,6 +2839,30 @@ LogicalResult OptimizationBarrierOp::inferReturnTypes(
 }
 
 //===----------------------------------------------------------------------===//
+// BitReverseOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult BitReverseOp::verify() {
+  return hlo::verifyBitReverseOp(getLoc(), getOperand(), getDimensions());
+}
+
+LogicalResult BitReverseOp::inferReturnTypes(
+    MLIRContext*, std::optional<Location> location, ValueRange operands,
+    DictionaryAttr attributes, PropertyRef properties, RegionRange regions,
+    SmallVectorImpl<Type>& inferredReturnTypes) {
+  BitReverseOp::Adaptor adaptor(operands, attributes, properties, regions);
+  return hlo::inferBitReverseOp(location, adaptor.getOperand().getType(),
+                                inferredReturnTypes);
+}
+
+LogicalResult BitReverseOp::reifyReturnTypeShapes(
+    OpBuilder& builder, ValueRange operands,
+    SmallVectorImpl<Value>& reifiedReturnShapes) {
+  return hlo::deriveShapeFromOperand(&builder, getOperation(), operands.front(),
+                                     &reifiedReturnShapes);
+}
+
+//===----------------------------------------------------------------------===//
 // ReverseOp
 //===----------------------------------------------------------------------===//
 LogicalResult ReverseOp::verify() {
@@ -3203,6 +3406,23 @@ LogicalResult CompareOp::inferReturnTypeComponents(
   CompareOp::Adaptor adaptor(operands, attributes, properties, regions);
   return hlo::inferCompareOp(context, location, adaptor.getLhs(),
                              inferredReturnShapes);
+}
+
+LogicalResult CompareOp::verify() {
+  // Ordered comparisons (LT/LE/GE/GT) are not meaningful on EC point or
+  // extension-field element types — those types form fields/groups
+  // without a canonical total order. Restrict to EQ/NE, matching the
+  // upstream zk policy for these element types.
+  Type lhsEl = getElementTypeOrSelf(getLhs().getType());
+  auto dir = getComparisonDirection();
+  if (dir == ComparisonDirection::EQ || dir == ComparisonDirection::NE)
+    return success();
+  if (isa<prime_ir::elliptic_curve::PointTypeInterface>(lhsEl))
+    return emitOpError("EC point types only support EQ and NE comparisons");
+  if (isa<prime_ir::field::ExtensionFieldType>(lhsEl))
+    return emitOpError(
+        "extension field types only support EQ and NE comparisons");
+  return success();
 }
 
 LogicalResult CompareOp::reifyReturnTypeShapes(

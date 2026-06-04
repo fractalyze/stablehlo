@@ -67,6 +67,14 @@ LogicalResult checkDimsDistinct(std::optional<Location> loc,
 
 bool verifyCompatibleDims(int64_t dimSize1, int64_t dimSize2);
 
+// Element storage width in bits, field/EC-aware: complex doubles its element,
+// quantized uses its storage type, prime_ir field types report their own
+// storage width, and an EC point is numCoords * base-field width. Falls back
+// to getIntOrFloatBitWidth for builtin int/float. Use this instead of
+// getIntOrFloatBitWidth on any type that may carry a prime_ir element type —
+// getIntOrFloatBitWidth segfaults on non-int/float types.
+unsigned getBitWidth(Type type);
+
 // WindowDimension described how the kernel window moves across the base area
 // in a particular dimension.
 // Describes the windowing in an operation such as convolution.
@@ -277,6 +285,15 @@ LogicalResult inferFftOp(
     bool isFftTypeIrfft, ArrayRef<int64_t> fftLength,
     SmallVectorImpl<ShapedTypeComponents>& inferredReturnShapes);
 
+LogicalResult inferPairingCheckOp(
+    std::optional<Location> location, Value g1Points, Value g2Points,
+    SmallVectorImpl<ShapedTypeComponents>& inferredReturnShapes);
+
+LogicalResult inferMsmOp(
+    std::optional<Location> location, Value scalars, Value bases,
+    int32_t batchSize, bool arePointsShared,
+    SmallVectorImpl<ShapedTypeComponents>& inferredReturnShapes);
+
 LogicalResult inferGatherOp(
     std::optional<Location> location, Value operand, Value startIndices,
     ArrayRef<int64_t> offsetDims, ArrayRef<int64_t> collapsedSliceDims,
@@ -347,6 +364,10 @@ LogicalResult inferReduceWindowOp(
 
 LogicalResult inferReplicaIdOp(MLIRContext* context, std::optional<Location>,
                                SmallVectorImpl<Type>& inferredReturnTypes);
+
+LogicalResult inferBitReverseOp(std::optional<Location> location,
+                                Type operandType,
+                                SmallVectorImpl<Type>& inferredReturnTypes);
 
 LogicalResult inferReverseOp(std::optional<Location> location, Type operandType,
                              SmallVectorImpl<Type>& inferredReturnTypes);
@@ -423,6 +444,15 @@ LogicalResult inferWhileOp(std::optional<Location> location, ValueRange operand,
 
 LogicalResult verifyAddOp(std::optional<Location> location, Operation* op,
                           Type lhsType, Type rhsType, Type resultType);
+
+LogicalResult verifySubtractOp(std::optional<Location> location, Operation* op,
+                               Type lhsType, Type rhsType, Type resultType);
+
+LogicalResult verifyMulOp(std::optional<Location> location, Operation* op,
+                          Type lhsType, Type rhsType, Type resultType);
+
+LogicalResult verifyPowOp(std::optional<Location> location, Type lhsType,
+                          Type rhsType, Type resultType);
 
 LogicalResult verifyAllGatherOp(std::optional<Location> location,
                                 ValueRange operands, int64_t allGatherDim,
@@ -561,6 +591,10 @@ LogicalResult verifyReduceWindowOp(
 
 LogicalResult verifyReshapeOp(std::optional<Location> location, Value operand,
                               Value result);
+
+LogicalResult verifyBitReverseOp(std::optional<Location> location,
+                                 Value operand,
+                                 llvm::ArrayRef<int64_t> dimensions);
 
 LogicalResult verifyReverseOp(std::optional<Location> location, Value operand,
                               llvm::ArrayRef<int64_t> dimensions);

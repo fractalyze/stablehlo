@@ -17,6 +17,78 @@ workspace(name = "stablehlo")
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
+# Replicate prime_ir's WORKSPACE setup: rules_cc 0.2.13 and bazel_features
+# 1.36.0 must be declared before any rule that pulls in an older version
+# (Bazel http_archive resolution is first-wins).
+http_archive(
+    name = "bazel_features",
+    sha256 = "9390b391a68d3b24aef7966bce8556d28003fe3f022a5008efc7807e8acaaf1a",
+    strip_prefix = "bazel_features-1.36.0",
+    urls = ["https://github.com/bazel-contrib/bazel_features/archive/refs/tags/v1.36.0.tar.gz"],
+)
+
+load("@bazel_features//:deps.bzl", "bazel_features_deps")
+
+bazel_features_deps()
+
+http_archive(
+    name = "rules_cc",
+    sha256 = "472ddca8cec1e64ad78e4f0cabbec55936a3baddbe7bef072764ca91504bd523",
+    strip_prefix = "rules_cc-0.2.13",
+    urls = ["https://github.com/bazelbuild/rules_cc/archive/refs/tags/0.2.13.tar.gz"],
+)
+
+load("@rules_cc//cc:extensions.bzl", "compatibility_proxy_repo")
+
+compatibility_proxy_repo()
+
+load("//third_party/prime_ir:workspace.bzl", prime_ir = "repo")
+
+prime_ir()
+
+# prime_ir's transitive deps (zk_dtypes, hermetic Python).
+load("@prime_ir//third_party/zk_dtypes:workspace.bzl", zk_dtypes = "repo")
+
+zk_dtypes()
+
+load("@zk_dtypes//third_party/py:python_init_rules.bzl", "python_init_rules")
+
+python_init_rules()
+
+load("@zk_dtypes//third_party/py:python_init_repositories.bzl", "python_init_repositories")
+
+python_init_repositories(
+    requirements = {
+        "3.11": "@prime_ir//:requirements_lock_3_11.txt",
+    },
+)
+
+load("@zk_dtypes//third_party/py:python_init_toolchains.bzl", "python_init_toolchains")
+
+python_init_toolchains()
+
+load("@zk_dtypes//third_party/py:python_init_pip.bzl", "python_init_pip")
+
+python_init_pip()
+
+load("@pypi//:requirements.bzl", "install_deps")
+
+install_deps()
+
+load("@zk_dtypes//bazel:zk_dtypes_deps.bzl", "zk_dtypes_deps")
+
+zk_dtypes_deps()
+
+# rules_java's @compatibility_proxy must exist before any rule (e.g. protobuf)
+# loads java_info.bzl. rules_java_dependencies() creates that proxy repo.
+load("@rules_java//java:rules_java_deps.bzl", "rules_java_dependencies")
+
+rules_java_dependencies()
+
+load("@rules_java//java:repositories.bzl", "rules_java_toolchains")
+
+rules_java_toolchains()
+
 http_archive(
     name = "bazel_skylib",
     sha256 = "74d544d96f4a5bb630d465ca8bbcfe231e3594e5aae57e1edbf17a6eb3ca2506",
@@ -50,13 +122,6 @@ http_archive(
     urls = [
         "https://github.com/zlib-ng/zlib-ng/archive/refs/tags/2.0.7.zip",
     ],
-)
-
-http_archive(
-    name = "rules_cc",
-    sha256 = "b8b918a85f9144c01f6cfe0f45e4f2838c7413961a8ff23bc0c6cdf8bb07a3b6",
-    strip_prefix = "rules_cc-0.1.5",
-    url = "https://github.com/bazelbuild/rules_cc/releases/download/0.1.5/rules_cc-0.1.5.tar.gz",
 )
 
 http_archive(

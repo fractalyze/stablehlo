@@ -1,0 +1,22 @@
+# Copyright 2026 The StableHLO Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# CI bazel options for the self-hosted runners. The runner hosts keep a
+# persistent, disk-backed bazel-remote server shared across runs and branches.
+# The CI workflow copies this file to .bazelrc.user (try-imported by .bazelrc)
+# so every bazel invocation in the CI scripts — bazel-diff hashing, build,
+# test, docs — picks it up; a --bazelrc startup flag would have to be threaded
+# through each script invocation individually.
+build --remote_cache=grpc://127.0.0.1:9092
+test --test_output=errors

@@ -21,6 +21,8 @@ include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/IR/AttrTypeBase.td"
 include "mlir/IR/OpBase.td"
+include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveTypes.td"
+include "prime_ir/Dialect/Field/IR/FieldTypes.td"
 
 //===----------------------------------------------------------------------===//
 // Common type definitions.
@@ -52,8 +54,8 @@ def HLO_Pred : TypeAlias<I1, "bool">;
 
 // TODO(hinsu): Use signed integers instead of signless integer which is being
 // used for legacy reasons.
-def HLO_SInt : SignlessIntOfWidths<[2, 4, 8, 16, 32, 64]>;
-def HLO_UInt : UnsignedIntOfWidths<[2, 4, 8, 16, 32, 64]>;
+def HLO_SInt : SignlessIntOfWidths<[2, 4, 8, 16, 32, 64, 128, 256]>;
+def HLO_UInt : UnsignedIntOfWidths<[2, 4, 8, 16, 32, 64, 128, 256]>;
 def HLO_Int : AnyTypeOf<[HLO_SInt, HLO_UInt], "2/4/8/16/32/64-bit integer">;
 
 def HLO_Float : AnyTypeOf<[F4E2M1FN, F6E2M3FN, F6E3M2FN, F8E3M4, F8E4M3,
@@ -179,21 +181,33 @@ def HLO_QuantizedIntOrPerAxisQuantizedIntTensor : RankedTensorOf<[HLO_QuantizedI
 
 def HLO_PredTensor : RankedTensorOf<[HLO_Pred]>;
 
-def HLO_Tensor : RankedTensorOf<[HLO_Float, HLO_Pred, HLO_Int, HLO_Complex, HLO_QuantizedInt]>;
+def HLO_Tensor : RankedTensorOf<[HLO_Float, HLO_Pred, HLO_Int, HLO_Complex, HLO_QuantizedInt,
+                                 Field_AnyFieldType, PointType]>;
 
 def HLO_Future : Type<CPred<"::llvm::isa<FutureType>($_self)">, "future">;
 
-def HLO_ScalarTensor: 0DTensorOf<[HLO_Float, HLO_Pred, HLO_Int, HLO_Complex, HLO_QuantizedInt]>;
+def HLO_ScalarTensor: 0DTensorOf<[HLO_Float, HLO_Pred, HLO_Int, HLO_Complex, HLO_QuantizedInt,
+                                  Field_AnyFieldType, PointType]>;
 
-def HLO_NonQuantizedTensor : RankedTensorOf<[HLO_Float, HLO_Pred, HLO_Int, HLO_Complex]>;
+def HLO_NonQuantizedTensor : RankedTensorOf<[HLO_Float, HLO_Pred, HLO_Int, HLO_Complex,
+                                             Field_AnyFieldType, PointType]>;
 
-def HLO_TensorOrPerAxisQuantizedTensor : RankedTensorOf<[HLO_Float, HLO_Pred, HLO_Int, HLO_Complex, HLO_QuantizedInt, HLO_PerAxisQuantizedInt],
+def HLO_TensorOrPerAxisQuantizedTensor : RankedTensorOf<[HLO_Float, HLO_Pred, HLO_Int, HLO_Complex, HLO_QuantizedInt, HLO_PerAxisQuantizedInt,
+                                                         Field_AnyFieldType, PointType],
     [IsValidQuantizedDimension]>;
 
 def HLO_FloatOrQuantizedIntOrPerAxisQuantizedIntTensor : RankedTensorOf<[HLO_Float, HLO_QuantizedInt, HLO_PerAxisQuantizedInt],
     [IsValidQuantizedDimension]>;
 
 def HLO_ComplexTensor : RankedTensorOf<[HLO_Complex]>;
+
+// Prime-field tensor — NTT input/output. Field-only (no FP/int/complex)
+// because NTT semantics are defined exclusively over Z/pZ.
+def HLO_FieldTensor : RankedTensorOf<[Field_AnyFieldType]>;
+
+// Elliptic-curve point tensor — pairing-check / scalar-mul input. Restricts
+// element type to prime-ir EC point types (any curve, any representation).
+def HLO_ECTensor : RankedTensorOf<[PointType]>;
 
 def HLO_Buffer : MemRefOf<[HLO_Float, HLO_Pred, HLO_Int, HLO_Complex, HLO_QuantizedInt]>;
 
@@ -222,7 +236,8 @@ def HLO_DimensionTensor : 1DTensorOf<[HLO_DimensionValue]>;
 // TODO(b/326463552): Remove these when CHLO no longer needs unranked dynamism.
 //===----------------------------------------------------------------------===//
 
-def HLO_AnyTensor : TensorOf<[HLO_Float, HLO_Pred, HLO_Int, HLO_Complex, HLO_QuantizedInt, HLO_PerAxisQuantizedInt],
+def HLO_AnyTensor : TensorOf<[HLO_Float, HLO_Pred, HLO_Int, HLO_Complex, HLO_QuantizedInt, HLO_PerAxisQuantizedInt,
+                              Field_AnyFieldType, PointType],
     [IsValidQuantizedDimension]>;
 
 def HLO_AnyPredTensor : TensorOf<[HLO_Pred]>;
@@ -261,6 +276,19 @@ def HLO_FpComplexOrQuantizedIntTensor : RankedTensorOf<[HLO_Float, HLO_Complex, 
 // Any int, floating-point, complex or quantized tensor types
 def HLO_IntFpOrComplexOrQuantizedIntTensor : RankedTensorOf<[HLO_Int, HLO_Float, HLO_Complex, HLO_QuantizedInt]>;
 
+// As above plus finite-field element types, for the ops with a field form:
+// divide (exact field division) and the base/result of power (field base,
+// integer exponent). Remainder and the power exponent stay field-free —
+// field division is exact so a remainder is meaningless, and a field-typed
+// exponent has no canonical-vs-Montgomery reading.
+def HLO_IntFpOrComplexOrQuantizedIntOrFieldTensor : RankedTensorOf<[HLO_Int, HLO_Float, HLO_Complex, HLO_QuantizedInt,
+                                                                    Field_AnyFieldType]>;
+
+// As above plus EC point types, for the ops with a group-law form
+// (negate: point inversion; subtract: add of the inverse).
+def HLO_IntFpOrComplexOrQuantizedIntOrFieldOrPointTensor : RankedTensorOf<[HLO_Int, HLO_Float, HLO_Complex, HLO_QuantizedInt,
+                                                                           Field_AnyFieldType, PointType]>;
+
 // Any pred, int or floating-point tensor types
 def HLO_PredIntOrFpTensor : RankedTensorOf<[HLO_Pred, HLO_Int, HLO_Float]>;
 
@@ -283,12 +311,15 @@ def HLO_Static2DIntTensor : RankedTensorOf<[HLO_Int], [HasStaticShapePred, HasAn
 // In general, static shaped tensor constraints should be avoided unless
 // it is for a legacy op which is only correct with static shapes.
 def HLO_StaticShapeTensor : StaticShapeTensorOf<[
-      HLO_Float, HLO_Pred, HLO_Int, HLO_Complex, HLO_QuantizedInt]>;
+      HLO_Float, HLO_Pred, HLO_Int, HLO_Complex, HLO_QuantizedInt,
+      Field_AnyFieldType, PointType]>;
 
-def HLO_StaticShapeTensorOrPerAxisQuantizedTensor : RankedTensorOf<[HLO_Float, HLO_Pred, HLO_Int, HLO_Complex, HLO_QuantizedInt, HLO_PerAxisQuantizedInt],
+def HLO_StaticShapeTensorOrPerAxisQuantizedTensor : RankedTensorOf<[HLO_Float, HLO_Pred, HLO_Int, HLO_Complex, HLO_QuantizedInt, HLO_PerAxisQuantizedInt,
+                                                                    Field_AnyFieldType, PointType],
     [IsValidQuantizedDimension, HasStaticShapePred], "statically shaped tensor">;
 
-def HLO_StaticShapeTensorPerAxisQuantizedTensorOrBoundedTensor : RankedTensorOf<[HLO_Float, HLO_Pred, HLO_Int, HLO_Complex, HLO_QuantizedInt, HLO_PerAxisQuantizedInt],
+def HLO_StaticShapeTensorPerAxisQuantizedTensorOrBoundedTensor : RankedTensorOf<[HLO_Float, HLO_Pred, HLO_Int, HLO_Complex, HLO_QuantizedInt, HLO_PerAxisQuantizedInt,
+                                                                                 Field_AnyFieldType, PointType],
     [IsValidQuantizedDimension, HLO_HasStaticOrSingleBoundedShapePred], "statically shaped or single bounded dimension tensor">;
 
 def HLO_StaticShapeTensorOrPerAxisQuantizedTensorOrToken : AnyTypeOf<[HLO_StaticShapeTensor, HLO_StaticShapeTensorOrPerAxisQuantizedTensor, HLO_Token]>;
@@ -299,7 +330,8 @@ def HLO_StaticShapeIntFpOrComplexTensor :
   StaticShapeTensorOf<[HLO_Int, HLO_Float, HLO_Complex]>;
 
 def HLO_StaticShapeIntFpComplexOrQuantizedTensor :
-  StaticShapeTensorOf<[HLO_Int, HLO_Float, HLO_Complex, HLO_QuantizedInt]>;
+  StaticShapeTensorOf<[HLO_Int, HLO_Float, HLO_Complex, HLO_QuantizedInt,
+                       Field_AnyFieldType, PointType]>;
 
 //===----------------------------------------------------------------------===//
 // HLO traits

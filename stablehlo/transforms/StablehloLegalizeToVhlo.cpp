@@ -148,6 +148,9 @@ Attribute convertGeneric(Attribute stablehloAttr,
   if (auto attr = dyn_cast<stablehlo::FftTypeAttr>(stablehloAttr)) {
     RETURN_CONVERTED_ENUM_ATTR(FftType, V1);
   }
+  if (auto attr = dyn_cast<stablehlo::NttTypeAttr>(stablehloAttr)) {
+    RETURN_CONVERTED_ENUM_ATTR(NttType, V1);
+  }
   if (auto attr = dyn_cast<stablehlo::OutputOperandAliasAttr>(stablehloAttr)) {
     return vhlo::OutputOperandAliasV1Attr::get(
         attr.getContext(), attr.getOutputTupleIndices(), attr.getOperandIndex(),
@@ -947,6 +950,18 @@ LogicalResult addDefaults(const OpConversionPattern<StablehloOpTy>& pattern,
                          stablehlo::ResultAccuracyModeAttr::get(
                              pattern.getContext(),
                              stablehlo::ResultAccuracyMode::DEFAULT)));
+  }
+  // stablehlo.ntt's generator is OptionalAttr at the StableHLO level (with a
+  // DefaultValuedOptionalAttr<I64Attr, "0">) but VHLO_NttOpV1 has no
+  // OptionalAttr concept — it requires `generator` literally present.
+  // Generic ir.Operation.create (e.g. from jax_fork's _ntt_lower when
+  // generator=None) bypasses the typed builder's default machinery, so we
+  // materialize the sentinel here. 0 = "use canonical root"; the proto layer
+  // already maps proto.ntt_generator==0 back to std::nullopt at the
+  // HloNttInstruction level.
+  if constexpr (std::is_same<StablehloOpTy, stablehlo::NttOp>::value) {
+    if (!stablehloOp.getGeneratorAttr())
+      addDefaultAttr("generator", builder.getI64IntegerAttr(0));
   }
   if constexpr (std::is_same<StablehloOpTy,
                              stablehlo::DynamicBroadcastInDimOp>::value) {

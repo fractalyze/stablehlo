@@ -52,6 +52,10 @@ cc_library(
         "@llvm-project//mlir:ShapeDialect",
         "@llvm-project//mlir:SideEffectInterfaces",
         "@llvm-project//mlir:Support",
+        # Mixed-type compat in isCompatibleElementTypeForHloTypeInference
+        # checks Field/EC type interfaces (Tier C.5+ widening).
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
+        "@prime_ir//prime_ir/Dialect/Field/IR:Field",
     ],
 )
 
@@ -74,6 +78,11 @@ td_library(
     ],
     includes = ["."],
     deps = [
+        # Base.td references prime-ir field/EC types so the
+        # tensor-element-type unions (HLO_Tensor, HLO_TensorOrPerAxisQuantizedTensor,
+        # HLO_AnyTensor, ...) can be widened to admit field/EC alongside FP/int/complex.
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:td_files",
+        "@prime_ir//prime_ir/Dialect/Field/IR:td_files",
         "@llvm-project//mlir:InferTypeOpInterfaceTdFiles",
         "@llvm-project//mlir:OpBaseTdFiles",
         "@llvm-project//mlir:QuantizationOpsTdFiles",
@@ -102,8 +111,14 @@ gentbl_cc_library(
     name = "chlo_attrs_inc_gen",
     strip_include_prefix = ".",
     tbl_outs = {
-        "stablehlo/dialect/ChloAttrs.cpp.inc": ["-gen-attrdef-defs"],
-        "stablehlo/dialect/ChloAttrs.h.inc": ["-gen-attrdef-decls"],
+        "stablehlo/dialect/ChloAttrs.cpp.inc": [
+            "-gen-attrdef-defs",
+            "--attrdefs-dialect=chlo",
+        ],
+        "stablehlo/dialect/ChloAttrs.h.inc": [
+            "-gen-attrdef-decls",
+            "--attrdefs-dialect=chlo",
+        ],
     },
     tblgen = "@llvm-project//mlir:mlir-tblgen",
     td_file = "stablehlo/dialect/ChloOps.td",
@@ -259,6 +274,11 @@ cc_library(
         ":stablehlo_assembly_format",
         ":stablehlo_broadcast_lowering",
         ":stablehlo_type_inference",
+        # chlo's generated code references prime-ir field/EC
+        # types via the widened HLO_Tensor / HLO_TensorOrPerAxisQuantizedTensor
+        # constraints in Base.td.
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
+        "@prime_ir//prime_ir/Dialect/Field/IR:Field",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:BytecodeOpInterface",
         "@llvm-project//mlir:BytecodeReader",
@@ -354,6 +374,10 @@ cc_library(
         ":reference_process",
         ":reference_process_grid",
         ":reference_value",
+        # Generated InterpreterOps.cpp.inc references prime-ir field/EC
+        # types via the widened HLO_Tensor element-type unions in Base.td.
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
+        "@prime_ir//prime_ir/Dialect/Field/IR:Field",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
@@ -805,6 +829,15 @@ cc_library(
         "@llvm-project//mlir:ShapeDialect",
         "@llvm-project//mlir:SparseTensorDialect",
         "@llvm-project//mlir:TensorDialect",
+        # prime-ir's MLIR widening patch (linalg_type_support.patch) adds
+        # references to mlir::prime_ir::* into LinalgDialect with only
+        # *Hdrs deps; symbols are resolved lazily at binary link time.
+        # Adding the IR libraries here means any binary that links
+        # :register (stablehlo-opt, stablehlo-translate,
+        # stablehlo-lsp-server, ...) gets the lazy symbols satisfied.
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
+        "@prime_ir//prime_ir/Dialect/Field/IR:Field",
+        "@prime_ir//prime_ir/Dialect/ModArith/IR:ModArith",
     ],
 )
 
@@ -822,6 +855,7 @@ cc_library(
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Support",
+        "@prime_ir//prime_ir/Dialect/Field/IR:Field",
     ],
 )
 
@@ -829,8 +863,14 @@ gentbl_cc_library(
     name = "stablehlo_attrs_inc_gen",
     strip_include_prefix = ".",
     tbl_outs = {
-        "stablehlo/dialect/StablehloAttrs.cpp.inc": ["-gen-attrdef-defs"],
-        "stablehlo/dialect/StablehloAttrs.h.inc": ["-gen-attrdef-decls"],
+        "stablehlo/dialect/StablehloAttrs.cpp.inc": [
+            "-gen-attrdef-defs",
+            "--attrdefs-dialect=stablehlo",
+        ],
+        "stablehlo/dialect/StablehloAttrs.h.inc": [
+            "-gen-attrdef-decls",
+            "--attrdefs-dialect=stablehlo",
+        ],
     },
     tblgen = "@llvm-project//mlir:mlir-tblgen",
     td_file = "stablehlo/dialect/StablehloOps.td",
@@ -1149,10 +1189,41 @@ cc_library(
 )
 
 cc_library(
+    name = "stablehlo_to_prime_ir_conversion",
+    srcs = ["stablehlo/conversions/StablehloToPrimeIR/StablehloToPrimeIR.cpp"],
+    hdrs = ["stablehlo/conversions/StablehloToPrimeIR/StablehloToPrimeIR.h"],
+    strip_include_prefix = ".",
+    deps = [
+        ":stablehlo_ops",
+        "@llvm-project//mlir:ArithDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Rewrite",
+        "@llvm-project//mlir:TensorDialect",
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
+        "@prime_ir//prime_ir/Dialect/Field/IR:Field",
+    ],
+)
+
+cc_library(
+    name = "prime_ir_to_stablehlo_conversion",
+    srcs = ["stablehlo/conversions/PrimeIRToStablehlo/PrimeIRToStablehlo.cpp"],
+    hdrs = ["stablehlo/conversions/PrimeIRToStablehlo/PrimeIRToStablehlo.h"],
+    strip_include_prefix = ".",
+    deps = [
+        ":stablehlo_ops",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Rewrite",
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
+        "@prime_ir//prime_ir/Dialect/Field/IR:Field",
+    ],
+)
+
+cc_library(
     name = "stablehlo_passes",
     srcs = [
         "stablehlo/transforms/ChloLegalizeToStablehlo.cpp",
         "stablehlo/transforms/PassPipelines.cpp",
+        "stablehlo/transforms/PrimeIRToStablehlo.cpp",
         "stablehlo/transforms/ShapeLegalizeToStablehlo.cpp",
         "stablehlo/transforms/StablehloCanonicalizeDynamism.cpp",
         "stablehlo/transforms/StablehloCheckShapeAssertions.cpp",
@@ -1167,6 +1238,7 @@ cc_library(
         "stablehlo/transforms/StablehloLegalizeToVhlo.cpp",
         "stablehlo/transforms/StablehloRefineArguments.cpp",
         "stablehlo/transforms/StablehloRefineShapes.cpp",
+        "stablehlo/transforms/StablehloToPrimeIR.cpp",
         "stablehlo/transforms/StablehloWrapInComposite.cpp",
         "stablehlo/transforms/VhloLegalizeToStablehlo.cpp",
         "stablehlo/transforms/VhloToVersion.cpp",
@@ -1194,7 +1266,9 @@ cc_library(
         ":stablehlo_ops_inc_gen",
         ":stablehlo_pass_inc_gen",
         ":stablehlo_pass_utils",
+        ":prime_ir_to_stablehlo_conversion",
         ":stablehlo_passes_optimization",
+        ":stablehlo_to_prime_ir_conversion",
         ":stablehlo_type_conversions",
         ":stablehlo_type_inference",
         ":version",
@@ -1221,6 +1295,10 @@ cc_library(
         "@llvm-project//mlir:TensorDialect",
         "@llvm-project//mlir:TransformUtils",
         "@llvm-project//mlir:Transforms",
+        # StablehloToPrimeIR.cpp pulls in field/EC dialects via its
+        # dependentDialects list (see Passes.td).
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
+        "@prime_ir//prime_ir/Dialect/Field/IR:Field",
     ],
 )
 
@@ -1272,6 +1350,9 @@ cc_library(
         "@llvm-project//mlir:Support",
         "@llvm-project//mlir:TransformUtils",
         "@llvm-project//mlir:Transforms",
+        # AggressiveSimplification.cpp predicates ZK ops on field/EC types.
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
+        "@prime_ir//prime_ir/Dialect/Field/IR:Field",
     ],
 )
 
@@ -1357,6 +1438,10 @@ cc_library(
         "@llvm-project//mlir:InferTypeOpInterface",
         "@llvm-project//mlir:QuantOps",
         "@llvm-project//mlir:Support",
+        # verifyAddOp recognizes PF + EF mixed-type adds; TypeInference.cpp
+        # also includes EllipticCurveTypes.h directly (strict-deps).
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
+        "@prime_ir//prime_ir/Dialect/Field/IR:Field",
     ],
 )
 
@@ -1397,6 +1482,11 @@ cc_library(
         ":stablehlo_type_inference",
         ":stablehlo_types_inc_gen",
         ":version",
+        # widened op type constraints reference prime-ir field/EC
+        # types in generated StablehloOps.cpp.inc; the headers must be in
+        # scope and the symbols available at link time.
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
+        "@prime_ir//prime_ir/Dialect/Field/IR:Field",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:ArithDialect",
         "@llvm-project//mlir:BytecodeOpInterface",
@@ -1452,6 +1542,10 @@ cc_binary(
         ":stablehlo_serialization",
         ":version",
         ":vhlo_ops",
+        # StablehloTranslateMain.cpp explicitly registers prime-ir
+        # field/EC dialects in the `interpret` translation entry point.
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
+        "@prime_ir//prime_ir/Dialect/Field/IR:Field",
         "//stablehlo/tests:check_ops",
         "//stablehlo/tests:test_utils",
         "@llvm-project//llvm:Support",
@@ -1782,6 +1876,8 @@ cc_library(
         "@llvm-project//mlir:Support",
         "@llvm-project//mlir:TransformUtils",
         "@llvm-project//mlir:Transforms",
+        "@prime_ir//prime_ir/Dialect/EllipticCurve/IR:EllipticCurve",
+        "@prime_ir//prime_ir/Dialect/Field/IR:Field",
     ],
 )
 

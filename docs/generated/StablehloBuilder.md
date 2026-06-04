@@ -125,6 +125,15 @@ operation.
 SmallVector<MlirOp, 3> BatchNormTraining(MlirOp &operand, MlirOp &scale, MlirOp &offset, ::llvm::APFloat epsilon, uint64_t feature_index);
 ```
 
+### `stablehlo::BitReverseOp`
+
+Creates a new [`stablehlo.bit_reverse`](https://openxla.org/stablehlo/spec#bit_reverse)
+operation.
+
+```c++
+MlirOp BitReverse(MlirOp &operand, ::llvm::ArrayRef<int64_t> dimensions);
+```
+
 ### `stablehlo::BitcastConvertOp`
 
 Creates a new [`stablehlo.bitcast_convert`](https://openxla.org/stablehlo/spec#bitcast_convert)
@@ -579,6 +588,15 @@ operation.
 MlirOp Min(MlirOp &lhs, MlirOp &rhs);
 ```
 
+### `stablehlo::MsmOp`
+
+Creates a new [`stablehlo.msm`](https://openxla.org/stablehlo/spec#msm)
+operation.
+
+```c++
+MlirOp Msm(MlirOp &scalars, MlirOp &bases, /*optional*/uint32_t window_bits = 0, /*optional*/uint32_t precompute_factor = 0, /*optional*/uint32_t bitsize = 0, /*optional*/uint32_t batch_size = 0, /*optional*/bool are_points_shared = false);
+```
+
 ### `stablehlo::MulOp`
 
 Creates a new [`stablehlo.multiply`](https://openxla.org/stablehlo/spec#multiply)
@@ -604,6 +622,15 @@ operation.
 
 ```c++
 MlirOp Not(MlirOp &operand);
+```
+
+### `stablehlo::NttOp`
+
+Creates a new [`stablehlo.ntt`](https://openxla.org/stablehlo/spec#ntt)
+operation.
+
+```c++
+MlirOp Ntt(MlirOp &operand, ::mlir::stablehlo::NttType ntt_type, uint64_t ntt_length, /*optional*/uint64_t generator = 0);
 ```
 
 ### `stablehlo::OptimizationBarrierOp`
@@ -640,6 +667,15 @@ operation.
 
 ```c++
 MlirOp Pad(MlirOp &operand, MlirOp &padding_value, ::llvm::ArrayRef<int64_t> edge_padding_low, ::llvm::ArrayRef<int64_t> edge_padding_high, ::llvm::ArrayRef<int64_t> interior_padding);
+```
+
+### `stablehlo::PairingCheckOp`
+
+Creates a new [`stablehlo.pairing_check`](https://openxla.org/stablehlo/spec#pairing_check)
+operation.
+
+```c++
+MlirOp PairingCheck(MlirOp &g1_points, MlirOp &g2_points);
 ```
 
 ### `stablehlo::PartitionIdOp`

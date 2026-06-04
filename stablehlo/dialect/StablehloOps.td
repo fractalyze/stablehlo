@@ -551,7 +551,7 @@ def StableHLO_NotOp: StableHLO_UnaryElementwiseOp<"not",
 }
 
 def StableHLO_NegOp: StableHLO_UnaryElementwiseOp<"negate",
-    [HLO_CompatibleOperandsAndResultType], HLO_IntFpOrComplexOrQuantizedIntTensor> {
+    [HLO_CompatibleOperandsAndResultType], HLO_IntFpOrComplexOrQuantizedIntOrFieldOrPointTensor> {
   let summary = "Neg operation";
   let description = [{
     Performs element-wise negation of `operand` tensor and produces a `result`
@@ -919,7 +919,7 @@ def StableHLO_ComplexOp: StableHLO_BinaryElementwiseOp<"complex",
 
 def StableHLO_DivOp : StableHLO_BinaryElementwiseOp<"divide",
     [HLO_CompatibleOperandsAndResultType /* div_c1 */],
-    HLO_IntFpOrComplexOrQuantizedIntTensor /* div_i1, div_i2 */> {
+    HLO_IntFpOrComplexOrQuantizedIntOrFieldTensor /* div_i1, div_i2 */> {
   let summary = "Div operation";
   let description = [{
     Performs element-wise division of dividend `lhs` and divisor `rhs` tensors
@@ -970,11 +970,18 @@ def StableHLO_MinOp : StableHLO_BinaryElementwiseOp<"minimum",
 }
 
 def StableHLO_MulOp : StableHLO_BinaryElementwiseOp<"multiply",
-      [HLO_Commutative, HLO_CompatibleOperandsAndResultType]> {
+      [HLO_Commutative, InferTypeOpInterface,
+      DeclareOpInterfaceMethods<InferShapedTypeOpInterface, ["inferReturnTypeComponents"]>]> {
   let summary = "Mul operation";
   let description = [{
     Performs element-wise product of two tensors `lhs` and `rhs` and produces a
     `result` tensor.
+
+    For the field/EC overlay, multiply additionally accepts scalar
+    multiplication: a field scalar times an EC point produces a point on the
+    same curve (lowered to elliptic_curve.scalar_mul). That mixed form is not a
+    most-specific reconciliation of the operands, so it is inferred and verified
+    explicitly rather than through the shared compatible-type trait.
 
     See:
     https://github.com/openxla/stablehlo/blob/main/docs/spec.md#multiply
@@ -984,15 +991,42 @@ def StableHLO_MulOp : StableHLO_BinaryElementwiseOp<"multiply",
     %result = stablehlo.multiply %lhs, %rhs : tensor<2xi32>
     ```
   }];
+
+  let extraClassDeclaration = binaryElementwiseOpCommonClassDeclaration # [{
+    static LogicalResult inferReturnTypes(
+        MLIRContext * /*context*/, std::optional<Location> location,
+        ValueRange operands, DictionaryAttr /*attributes*/,
+        PropertyRef /*properties*/, RegionRange /*regions*/,
+        SmallVectorImpl<Type> &inferredReturnTypes) {
+      // Defined in TypeInference.cpp so the field/EC scalar-mul case can use
+      // prime_ir types without leaking them into this header.
+      return ::mlir::hlo::inferMulOp(location, operands.getTypes(),
+                                     inferredReturnTypes);
+    }
+  }];
+
+  let hasVerifier = 1;
 }
 
-def StableHLO_PowOp : StableHLO_BinaryElementwiseOp<"power",
-      [HLO_CompatibleOperandsAndResultType /* pow_c1 */],
-      HLO_IntFpOrComplexOrQuantizedIntTensor /* pow_i1, pow_i2 */> {
+def StableHLO_PowOp : StableHLO_Op<"power",
+    [SameOperandsAndResultShape, Elementwise,
+     HLO_SpeculatableIfAllInputsStatic, NoMemoryEffect,
+     InferTypeOpInterface,
+     DeclareOpInterfaceMethods<InferShapedTypeOpInterface,
+                               ["reifyReturnTypeShapes"]>]> {
   let summary = "Power operation";
   let description = [{
     Performs element-wise exponentiation of `lhs` tensor by `rhs` tensor and
     produces a `result` tensor.
+
+    For float / int / complex / quantized base types, lhs, rhs, and result
+    must all share the same element type (upstream behavior).
+
+    For prime-field base types, the exponent is required to be an integer
+    tensor of the same shape; the result keeps the field element type:
+
+      %r = stablehlo.power %field_base, %int_exp
+          : (tensor<4x!field.pf<...>>, tensor<4xi32>) -> tensor<4x!field.pf<...>>
 
     See:
     https://github.com/openxla/stablehlo/blob/main/docs/spec.md#power
@@ -1001,6 +1035,35 @@ def StableHLO_PowOp : StableHLO_BinaryElementwiseOp<"power",
     ```mlir
     %result = stablehlo.power %lhs, %rhs : tensor<6xf64>
     ```
+  }];
+  let arguments = (ins
+    HLO_IntFpOrComplexOrQuantizedIntOrFieldTensor:$lhs,
+    HLO_IntFpOrComplexOrQuantizedIntTensor:$rhs
+  );
+  let results = (outs HLO_IntFpOrComplexOrQuantizedIntOrFieldTensor:$result);
+
+  let assemblyFormat = [{
+    $lhs `,` $rhs attr-dict
+      `:` custom<SameOperandsAndResultType>(type($lhs), type($rhs), type($result))
+  }];
+
+  let hasVerifier = 1;
+
+  let extraClassDeclaration = commonClassDeclaration # [{
+    static LogicalResult inferReturnTypes(
+        MLIRContext * /*context*/, std::optional<Location> location,
+        ValueRange operands, DictionaryAttr /*attributes*/,
+        PropertyRef /*properties*/, RegionRange /*regions*/,
+        SmallVectorImpl<Type> &inferredReturnTypes) {
+      // Result type matches the base (lhs) — that's the field+int case.
+      // For the homogeneous case, lhs == rhs anyway. The verifier later
+      // checks the lhs/rhs relationship.
+      if (operands.empty())
+        return emitOptionalError(
+            location, "Expected non-empty operands for PowOp::inferReturnTypes");
+      inferredReturnTypes.push_back(operands.front().getType());
+      return success();
+    }
   }];
 }
 
@@ -1077,11 +1140,18 @@ def StableHLO_ShiftRightLogicalOp : StableHLO_BinaryElementwiseOp<"shift_right_l
 }
 
 def StableHLO_SubtractOp : StableHLO_BinaryElementwiseOp<"subtract",
-      [HLO_CompatibleOperandsAndResultType], HLO_IntFpOrComplexOrQuantizedIntTensor> {
+      [InferTypeOpInterface,
+      DeclareOpInterfaceMethods<InferShapedTypeOpInterface, ["inferReturnTypeComponents"]>],
+      HLO_IntFpOrComplexOrQuantizedIntOrFieldOrPointTensor> {
   let summary = "Subtract operation";
   let description = [{
     Performs element-wise subtraction of two tensors `lhs` and `rhs` and
     produces a `result` tensor.
+
+    For the field/EC overlay, subtraction of EC points follows the same
+    coordinate rules as addition (it lowers to elliptic_curve.sub, the add of
+    the inverse), so it shares add's verifier instead of the compatible-type
+    trait.
 
     See:
     https://github.com/openxla/stablehlo/blob/main/docs/spec.md#subtract
@@ -1091,6 +1161,27 @@ def StableHLO_SubtractOp : StableHLO_BinaryElementwiseOp<"subtract",
     %result = stablehlo.subtract %lhs, %rhs : tensor<2xi32>
     ```
   }];
+
+  let extraClassDeclaration = binaryElementwiseOpCommonClassDeclaration # [{
+    static LogicalResult inferReturnTypes(
+        MLIRContext * /*context*/, std::optional<Location> location,
+        ValueRange operands, DictionaryAttr /*attributes*/,
+        PropertyRef /*properties*/, RegionRange /*regions*/,
+        SmallVectorImpl<Type> &inferredReturnTypes) {
+      if (operands.empty())
+        return emitOptionalError(
+            location,
+            "Expected non-empty operands for SubtractOp::inferReturnTypes");
+
+      auto inferredTypeOrErr =
+          mlir::hlo::inferMostSpecificType(location, operands.getTypes());
+      if (failed(inferredTypeOrErr)) return failure();
+      inferredReturnTypes.emplace_back(*inferredTypeOrErr);
+      return success();
+    }
+  }];
+
+  let hasVerifier = 1;
 }
 
 //===----------------------------------------------------------------------===//
@@ -1862,6 +1953,8 @@ def StableHLO_CompareOp: StableHLO_Op<"compare",
     $comparison_direction `,` $lhs `,` $rhs (`,` $compare_type^)?
       attr-dict `:` functional-type(operands, results)
   }];
+
+  let hasVerifier = 1;
 }
 
 //===----------------------------------------------------------------------===//
@@ -2824,6 +2917,129 @@ def StableHLO_FftOp: StableHLO_Op<"fft",
   }];
 }
 
+def StableHLO_MsmOp: StableHLO_Op<"msm",
+    [ConditionallySpeculatable, NoMemoryEffect, InferTensorType]> {
+  let summary = "Multi-scalar multiplication (MSM) operation";
+  let description = [{
+    Computes the multi-scalar multiplication of an EC point tensor against
+    a scalar tensor:
+      result = sum_i scalars[i] * bases[i].
+
+    Operands are 1-D tensors of equal length: scalars are field elements,
+    bases are EC points. The result element type matches the bases.
+
+    For batch_size > 1, the operands are interpreted as batch_size
+    interleaved MSMs of length N/batch_size, returning a 1-D tensor of
+    batch_size result points. window_bits / precompute_factor / bitsize
+    are runtime hints for Pippenger window selection (zero = "backend
+    chooses"); are_points_shared marks a batched MSM that uses the same
+    base points across all MSMs.
+  }];
+  let arguments = (ins
+    HLO_FieldTensor:$scalars,
+    HLO_ECTensor:$bases,
+    DefaultValuedOptionalAttr<I32Attr, "0">:$window_bits,
+    DefaultValuedOptionalAttr<I32Attr, "0">:$precompute_factor,
+    DefaultValuedOptionalAttr<I32Attr, "0">:$bitsize,
+    DefaultValuedOptionalAttr<I32Attr, "0">:$batch_size,
+    DefaultValuedOptionalAttr<BoolAttr, "false">:$are_points_shared
+  );
+
+  let results = (outs HLO_ECTensor:$result);
+
+  let assemblyFormat = [{
+    operands attr-dict `:` functional-type(operands, results)
+  }];
+
+  let extraClassDeclaration = commonClassDeclaration # [{
+    /// Interface method for ConditionallySpeculatable.
+    mlir::Speculation::Speculatability getSpeculatability();
+  }];
+}
+
+def StableHLO_PairingCheckOp: StableHLO_Op<"pairing_check",
+    [ConditionallySpeculatable, NoMemoryEffect, InferTensorType]> {
+  let summary = "PairingCheck operation";
+  let description = [{
+    Multi-pairing check on a pairing-friendly elliptic curve. Verifies
+    that the product of pairings equals the identity in GT:
+      e(P[0], Q[0]) * e(P[1], Q[1]) * ... * e(P[n], Q[n]) = 1
+
+    Both inputs are 1-D tensors of EC affine points on compatible groups
+    of the same curve (e.g., BN254 G1 and G2). Operand lengths must
+    match. The result is a scalar PRED tensor.
+
+    Example (BN254 G1×G1 placeholder until G2 PrimitiveTypes land):
+    ```mlir
+    %ok = stablehlo.pairing_check %g1, %g2
+        : (tensor<4x!elliptic_curve.bn254_g1_affine>,
+           tensor<4x!elliptic_curve.bn254_g1_affine>) -> tensor<i1>
+    ```
+  }];
+  let arguments = (ins
+    HLO_ECTensor:$g1_points,
+    HLO_ECTensor:$g2_points
+  );
+
+  let results = (outs HLO_PredTensor:$result);
+
+  let assemblyFormat = [{
+    operands attr-dict `:` functional-type(operands, results)
+  }];
+
+  let extraClassDeclaration = commonClassDeclaration # [{
+    /// Interface method for ConditionallySpeculatable.
+    mlir::Speculation::Speculatability getSpeculatability();
+  }];
+}
+
+def StableHLO_NttOp: StableHLO_ShapedInterfaceOp<"ntt",
+    [HLO_SpeculatableIfStaticDimInOutputIsStaticInInput, NoMemoryEffect,
+     SameOperandsAndResultElementType,
+     DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
+  let summary = "Number-Theoretic Transform operation";
+  let description = [{
+    Computes the Number-Theoretic Transform of the input tensor along
+    the last dimension. Supports forward (NTT) and inverse (INTT)
+    transforms on prime-field tensors.
+
+    For a 1-D input of length n, computes the standard NTT/INTT.
+    For a 2-D input of shape (w, n), computes w independent NTTs of
+    length n (batched on the last dimension).
+
+    The `ntt_length` attribute must equal the last dimension size and
+    must be a power of 2.
+
+    The optional `generator` attribute specifies the multiplicative
+    subgroup generator used to derive the NTT root of unity. The root
+    is computed as `gen^((p - 1) / ntt_length) mod p`. Different
+    proving systems use different generators. When omitted, the
+    canonical root from zk_dtypes is used.
+
+    Example:
+    ```mlir
+    %result = stablehlo.ntt %operand, type = NTT, length = 1024
+        : tensor<1024x!field.pf<2013265921 : i32>>
+
+    // With explicit generator
+    %result2 = stablehlo.ntt %operand, type = NTT, length = 1024, generator = 5
+        : tensor<1024x!field.pf<2013265921 : i32>>
+    ```
+  }];
+  let arguments = (ins
+    HLO_FieldTensor:$operand,
+    StableHLO_NttTypeAttr:$ntt_type,
+    ConfinedAttr<I64Attr, [IntNonNegative]>:$ntt_length,
+    DefaultValuedOptionalAttr<I64Attr, "0">:$generator
+  );
+  let results = (outs HLO_FieldTensor:$result);
+  let assemblyFormat = [{
+    $operand `,` `type` `=` $ntt_type `,` `length` `=` $ntt_length
+      (`,` `generator` `=` $generator^)?
+      attr-dict `:` custom<SameOperandsAndResultType>(type($operand), type($result))
+  }];
+}
+
 def StableHLO_GatherOp: StableHLO_Op<"gather",
     [ConditionallySpeculatable, NoMemoryEffect,
     InferTensorTypeWithReify /*gather_c22*/,
@@ -3197,6 +3413,38 @@ def StableHLO_SortOp : StableHLO_Op<"sort",
       CArg<"bool", "false">:$is_stable)>];
 
   let hasVerifier = 1;
+}
+
+def StableHLO_BitReverseOp: StableHLO_ShapedInterfaceOp<"bit_reverse",
+      [HLO_SpeculatableIfStaticDimInOutputIsStaticInInput, NoMemoryEffect,
+       SameOperandsAndResultElementType,
+       DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
+  let summary = "BitReverse operation";
+  let description = [{
+    Applies bit-reversal permutation to elements along the specified
+    `dimensions` and produces a `result` tensor.
+
+    Each dimension size must be a power of 2. For a dimension of size n,
+    the element at index i is moved to index bit_reverse(i, log2(n)).
+
+    Example:
+    ```mlir
+    %result = stablehlo.bit_reverse %operand, dims = [0] : tensor<8xi32>
+    ```
+  }];
+  let arguments = (ins
+    HLO_Tensor:$operand,
+    DenseI64ArrayAttr:$dimensions
+  );
+
+  let hasVerifier = 1;
+
+  let results = (outs HLO_Tensor:$result);
+
+  let assemblyFormat = [{
+    $operand `,` `dims` `=` $dimensions
+      attr-dict `:` custom<SameOperandsAndResultType>(type($operand), type($result))
+  }];
 }
 
 def StableHLO_ReverseOp: StableHLO_ShapedInterfaceOp<"reverse",
