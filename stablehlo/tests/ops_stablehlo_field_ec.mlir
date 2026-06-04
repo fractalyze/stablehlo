@@ -388,3 +388,169 @@ func.func @msm_non_field_scalar_rejected(%scalars: tensor<4xf32>,
       : (tensor<4xf32>, tensor<4xf32>) -> tensor<f32>
   func.return %0 : tensor<f32>
 }
+
+// -----
+// Scalar multiplication: a field scalar times an EC point is accepted by the
+// multiply verifier and yields a point on the same curve (lowers to
+// elliptic_curve.scalar_mul).
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+
+// CHECK-LABEL: func @ec_scalar_multiply
+// CHECK: stablehlo.multiply
+func.func @ec_scalar_multiply(%s: tensor<4x!field.pf<7681:i32>>,
+                              %p: tensor<4x!jac>) -> tensor<4x!jac> {
+  %0 = stablehlo.multiply %s, %p
+      : (tensor<4x!field.pf<7681:i32>>, tensor<4x!jac>) -> tensor<4x!jac>
+  func.return %0 : tensor<4x!jac>
+}
+
+// -----
+// The scalar/point mixing accepted by multiply must NOT leak to the other
+// binary ops via the shared element-type compatibility predicate.
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+
+func.func @subtract_field_point_rejected(%s: tensor<4x!field.pf<7681:i32>>,
+                                          %p: tensor<4x!jac>) -> tensor<4x!jac> {
+  // expected-error@+1 {{EC types cannot be mixed with non-EC types}}
+  %0 = stablehlo.subtract %s, %p
+      : (tensor<4x!field.pf<7681:i32>>, tensor<4x!jac>) -> tensor<4x!jac>
+  func.return %0 : tensor<4x!jac>
+}
+
+// -----
+// EC add coordinate rule: a jacobian + xyzz mix is not a realizable group-law
+// form (Rule 1 needs equal operand types; Rule 2 needs the non-result operand
+// to be affine), so the verifier rejects it.
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+!xyzz = !elliptic_curve.xyzz<#curve>
+
+func.func @ec_add_jacobian_xyzz_rejected(%a: tensor<!jac>, %b: tensor<!xyzz>)
+    -> tensor<!jac> {
+  // expected-error@+1 {{invalid EC point type combination for binary operation}}
+  %0 = stablehlo.add %a, %b : (tensor<!jac>, tensor<!xyzz>) -> tensor<!jac>
+  func.return %0 : tensor<!jac>
+}
+
+// -----
+// Same-type non-affine operands must keep their coordinate system: only
+// affine+affine may choose jacobian or xyzz output (elliptic_curve.add has no
+// jacobian+jacobian -> xyzz form).
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+!xyzz = !elliptic_curve.xyzz<#curve>
+
+func.func @ec_add_jacobian_to_xyzz_rejected(%a: tensor<!jac>, %b: tensor<!jac>)
+    -> tensor<!xyzz> {
+  // expected-error@+1 {{invalid EC point type combination for binary operation}}
+  %0 = stablehlo.add %a, %b : (tensor<!jac>, tensor<!jac>) -> tensor<!xyzz>
+  func.return %0 : tensor<!xyzz>
+}
+
+// -----
+// Point subtraction follows the add coordinate rules (it lowers to
+// elliptic_curve.sub): same non-affine system in and out is accepted, mixed
+// non-affine systems are not.
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+!xyzz = !elliptic_curve.xyzz<#curve>
+
+// CHECK-LABEL: func @ec_subtract
+// CHECK: stablehlo.subtract
+func.func @ec_subtract(%a: tensor<!jac>, %b: tensor<!jac>) -> tensor<!jac> {
+  %0 = stablehlo.subtract %a, %b : tensor<!jac>
+  func.return %0 : tensor<!jac>
+}
+
+// -----
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+!xyzz = !elliptic_curve.xyzz<#curve>
+
+func.func @ec_subtract_jacobian_xyzz_rejected(%a: tensor<!jac>, %b: tensor<!xyzz>)
+    -> tensor<!jac> {
+  // expected-error@+1 {{invalid EC point type combination for binary operation}}
+  %0 = stablehlo.subtract %a, %b : (tensor<!jac>, tensor<!xyzz>) -> tensor<!jac>
+  func.return %0 : tensor<!jac>
+}
+
+// -----
+// Two EC points cannot be multiplied; only scalar-by-point multiplication has
+// a group-law meaning (elliptic_curve.scalar_mul).
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+
+func.func @ec_multiply_points_rejected(%a: tensor<!jac>, %b: tensor<!jac>)
+    -> tensor<!jac> {
+  // expected-error@+1 {{EC points cannot be multiplied with each other}}
+  %0 = stablehlo.multiply %a, %b : tensor<!jac>
+  func.return %0 : tensor<!jac>
+}
+
+// -----
+// divide has no EC lowering, so its operand type excludes point types
+// entirely. Uses the generic op form because the pretty form would already
+// fail to parse the type.
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+
+func.func @ec_divide_points_rejected(%a: tensor<!jac>, %b: tensor<!jac>)
+    -> tensor<!jac> {
+  // expected-error@+1 {{operand #0 must be ranked tensor of}}
+  %0 = "stablehlo.divide"(%a, %b) : (tensor<!jac>, tensor<!jac>) -> tensor<!jac>
+  func.return %0 : tensor<!jac>
+}
+
+// -----
+// Constant verifier rejects an integer-attr whose trailing dimension does not
+// match the extension-field degree. A degree-3 tower expects a trailing
+// coefficient dim of 3; the attr supplies 2, so isCompatibleReturnTypes fails.
+
+!PF = !field.pf<7:i32>
+!Fp2 = !field.ef<2x!PF, 6:i32>
+!TowerF6 = !field.ef<3x!Fp2, 2:i32>
+
+func.func @constant_ef_wrong_trailing_dim() -> tensor<4x!TowerF6> {
+  // expected-error@+2 {{failed to infer returned types}}
+  // expected-error@+1 {{inferred type(s) 'tensor<4x2xi32>' are incompatible with return type(s) of operation}}
+  %0 = "stablehlo.constant"() <{value = dense<1> : tensor<4x2xi32>}> : () -> tensor<4x!TowerF6>
+  func.return %0 : tensor<4x!TowerF6>
+}
+
+// -----
+// Constant verifier rejects an integer-attr whose trailing dimension does not
+// match the EC point's coordinate count. A scalar jacobian needs 3 coords; the
+// attr supplies 2, so isCompatibleReturnTypes fails.
+
+#curve_c = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac_c = !elliptic_curve.jacobian<#curve_c>
+
+func.func @constant_jacobian_wrong_coord_count() -> tensor<!jac_c> {
+  // expected-error@+2 {{failed to infer returned types}}
+  // expected-error@+1 {{inferred type(s) 'tensor<2xi256>' are incompatible with return type(s) of operation}}
+  %0 = "stablehlo.constant"() <{value = dense<[1, 2]> : tensor<2xi256>}> : () -> tensor<!jac_c>
+  func.return %0 : tensor<!jac_c>
+}
+
+// -----
+// Malformed field constant literal. The pretty form delegates to prime-ir's
+// field-constant fallback only after the standard ElementsAttr parser fails;
+// the fallback's diagnostics are dropped, so the surfaced error is the
+// standard parser's. A non-numeric literal fails both, leaving the standard
+// "expected element literal of primitive type" diagnostic.
+
+func.func @constant_field_garbage_literal() -> tensor<!field.pf<7681:i32>> {
+  // expected-error@+1 {{expected element literal of primitive type}}
+  %0 = stablehlo.constant dense<not_a_number> : tensor<!field.pf<7681:i32>>
+  func.return %0 : tensor<!field.pf<7681:i32>>
+}

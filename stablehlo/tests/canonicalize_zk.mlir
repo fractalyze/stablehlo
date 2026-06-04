@@ -1,4 +1,5 @@
 // RUN: stablehlo-opt %s -stablehlo-canonicalize -split-input-file | FileCheck %s
+// RUN: stablehlo-opt %s -stablehlo-aggressive-simplification -split-input-file | FileCheck %s --check-prefix=SIMP
 
 //===----------------------------------------------------------------------===//
 // Prime field constant folding
@@ -171,6 +172,168 @@ func.func @fold_negate_constant_ef() -> tensor<!EF2> {
   %1 = stablehlo.negate %0 : tensor<!EF2>
   // CHECK: dense<[6, 5]>
   return %1 : tensor<!EF2>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+// Extension field identity folding
+//===----------------------------------------------------------------------===//
+
+!PF = !field.pf<7:i32>
+!EF2 = !field.ef<2x!PF, 6:i32>
+
+// CHECK-LABEL: @fold_add_zero_identity_ef
+func.func @fold_add_zero_identity_ef(%arg0: tensor<!EF2>) -> tensor<!EF2> {
+  %zero = "stablehlo.constant"() <{value = dense<[0, 0]> : tensor<2xi32>}> : () -> tensor<!EF2>
+  %result = stablehlo.add %arg0, %zero : tensor<!EF2>
+  // CHECK-NOT: stablehlo.add
+  // CHECK: return %arg0
+  return %result : tensor<!EF2>
+}
+
+// -----
+
+!PF = !field.pf<7:i32>
+!EF2 = !field.ef<2x!PF, 6:i32>
+
+// CHECK-LABEL: @fold_sub_zero_identity_ef
+func.func @fold_sub_zero_identity_ef(%arg0: tensor<!EF2>) -> tensor<!EF2> {
+  %zero = "stablehlo.constant"() <{value = dense<[0, 0]> : tensor<2xi32>}> : () -> tensor<!EF2>
+  %result = stablehlo.subtract %arg0, %zero : tensor<!EF2>
+  // CHECK-NOT: stablehlo.subtract
+  // CHECK: return %arg0
+  return %result : tensor<!EF2>
+}
+
+// -----
+
+!PF = !field.pf<7:i32>
+!EF2 = !field.ef<2x!PF, 6:i32>
+
+// CHECK-LABEL: @fold_mul_one_identity_ef
+func.func @fold_mul_one_identity_ef(%arg0: tensor<!EF2>) -> tensor<!EF2> {
+  // EF "1" is the constant-term embedding [1, 0].
+  %one = "stablehlo.constant"() <{value = dense<[1, 0]> : tensor<2xi32>}> : () -> tensor<!EF2>
+  %result = stablehlo.multiply %arg0, %one : tensor<!EF2>
+  // CHECK-NOT: stablehlo.multiply
+  // CHECK: return %arg0
+  return %result : tensor<!EF2>
+}
+
+// -----
+
+!PF = !field.pf<7:i32>
+!EF2 = !field.ef<2x!PF, 6:i32>
+
+// CHECK-LABEL: @fold_mul_zero_absorb_ef
+func.func @fold_mul_zero_absorb_ef(%arg0: tensor<!EF2>) -> tensor<!EF2> {
+  %zero = "stablehlo.constant"() <{value = dense<[0, 0]> : tensor<2xi32>}> : () -> tensor<!EF2>
+  %result = stablehlo.multiply %arg0, %zero : tensor<!EF2>
+  // CHECK-NOT: stablehlo.multiply
+  // CHECK: dense<0>
+  return %result : tensor<!EF2>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+// Iota over a field element type must not fold to a constant
+//
+// IotaOp_FoldScalarToZero (StablehloAggressiveSimplificationPatterns.td) folds
+// a size-1 iota dim to constant(0) for int/float element types; the
+// NotPrimeIrFieldOrEcType guard keeps it from firing on a field element type
+// (a stablehlo.constant DenseElementsAttr can't carry a field type). The fold
+// lives in the aggressive-simplification pattern set, not the prime-ir
+// round-trip pipeline, so this case is pinned under the SIMP run line.
+//===----------------------------------------------------------------------===//
+
+!pf7 = !field.pf<7:i32>
+
+// SIMP-LABEL: @iota_field_size1_not_folded
+func.func @iota_field_size1_not_folded() -> tensor<1x!pf7> {
+  %0 = stablehlo.iota dim = 0 : tensor<1x!pf7>
+  // SIMP: stablehlo.iota
+  // SIMP-NOT: stablehlo.constant
+  return %0 : tensor<1x!pf7>
+}
+
+// -----
+
+// Contrast case: the same size-1 iota over an int element type DOES fold to a
+// zero constant under the aggressive-simplification run, confirming the guard
+// (not the shape) is what blocks the field case above.
+
+// SIMP-LABEL: @iota_int_size1_folds
+func.func @iota_int_size1_folds() -> tensor<1xi32> {
+  %0 = stablehlo.iota dim = 0 : tensor<1xi32>
+  // SIMP-NOT: stablehlo.iota
+  // SIMP: stablehlo.constant
+  return %0 : tensor<1xi32>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+// EC group-law round-trip: non-constant args survive the prime-ir round-trip
+// (ConvertEC*  →  canonicalize  →  ConvertEC*Back) unchanged.
+//===----------------------------------------------------------------------===//
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+
+// CHECK-LABEL: @ec_add_roundtrip
+func.func @ec_add_roundtrip(%a: tensor<2x!jac>, %b: tensor<2x!jac>)
+    -> tensor<2x!jac> {
+  // CHECK: stablehlo.add %arg0, %arg1 : tensor<2x!{{.*}}>
+  // CHECK-NOT: elliptic_curve.add
+  %0 = stablehlo.add %a, %b : tensor<2x!jac>
+  return %0 : tensor<2x!jac>
+}
+
+// -----
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+
+// CHECK-LABEL: @ec_sub_roundtrip
+func.func @ec_sub_roundtrip(%a: tensor<2x!jac>, %b: tensor<2x!jac>)
+    -> tensor<2x!jac> {
+  // CHECK: stablehlo.subtract %arg0, %arg1 : tensor<2x!{{.*}}>
+  // CHECK-NOT: elliptic_curve.sub
+  %0 = stablehlo.subtract %a, %b : tensor<2x!jac>
+  return %0 : tensor<2x!jac>
+}
+
+// -----
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+
+// CHECK-LABEL: @ec_negate_roundtrip
+func.func @ec_negate_roundtrip(%a: tensor<2x!jac>) -> tensor<2x!jac> {
+  // CHECK: stablehlo.negate %arg0 : tensor<2x!{{.*}}>
+  // CHECK-NOT: elliptic_curve.negate
+  %0 = stablehlo.negate %a : tensor<2x!jac>
+  return %0 : tensor<2x!jac>
+}
+
+// -----
+
+// scalar*point round-trips back to multiply with the scalar operand first
+// (ConvertECScalarMulBack emits multiply(scalar, point)).
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!sf = !field.pf<21888242871839275222246405745257275088548364400416034343698204186575808495617:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+
+// CHECK-LABEL: @ec_scalar_mul_roundtrip
+func.func @ec_scalar_mul_roundtrip(%s: tensor<!sf>, %p: tensor<!jac>)
+    -> tensor<!jac> {
+  // CHECK: stablehlo.multiply %arg0, %arg1
+  // CHECK-NOT: elliptic_curve.scalar_mul
+  %0 = stablehlo.multiply %s, %p : (tensor<!sf>, tensor<!jac>) -> tensor<!jac>
+  return %0 : tensor<!jac>
 }
 
 // -----

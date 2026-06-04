@@ -1339,3 +1339,52 @@ func.func @refine_bitcast_convert_field_type_no_crash(
     : (tensor<4x4x!pf_koalabear_mont>) -> tensor<?x!ef_koalabear_4>
   return %0 : tensor<?x!ef_koalabear_4>
 }
+
+// -----
+
+// Equal-width PF->int bitcast_convert refines the dynamic result dim.
+// A 32-bit prime field shares its storage width with i32 (hlo::getBitWidth
+// on the field type returns 32), so the bit-width guard passes and the
+// pattern substitutes the operand shape: ? -> 4.
+!pf_koalabear_mont = !field.pf<2130706433 : i32, true>
+// CHECK-LABEL: func @refine_bitcast_convert_pf_to_int_equal_width
+func.func @refine_bitcast_convert_pf_to_int_equal_width(
+    %arg0: tensor<4x!pf_koalabear_mont>) -> tensor<?xi32> {
+  // CHECK: stablehlo.bitcast_convert{{.*}} -> tensor<4xi32>
+  %0 = stablehlo.bitcast_convert %arg0
+    : (tensor<4x!pf_koalabear_mont>) -> tensor<?xi32>
+  return %0 : tensor<?xi32>
+}
+
+// -----
+
+// Equal-width EC-point self bitcast_convert. A jacobian over an i256 prime
+// field stores 3*256 = 768 bits; bitcasting to the same point type keeps the
+// width equal, so the pattern refines ? -> 2 rather than bailing. (i768 is
+// not a legal HLO int width, so a point->int bitcast is not exercised here;
+// the same-type case still drives hlo::getBitWidth through the EC branch.)
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+// CHECK-LABEL: func @refine_bitcast_convert_ec_point_equal_width
+func.func @refine_bitcast_convert_ec_point_equal_width(
+    %arg0: tensor<2x!jac>) -> tensor<?x!jac> {
+  // CHECK: stablehlo.bitcast_convert{{.*}} -> tensor<2x!jacobian>
+  %0 = stablehlo.bitcast_convert %arg0 : (tensor<2x!jac>) -> tensor<?x!jac>
+  return %0 : tensor<?x!jac>
+}
+
+// -----
+
+// Equal-width EF->EF bitcast_convert. Operand and result are the same
+// extension-field type, so the bit-width guard passes and the dynamic
+// result dim refines ? -> 4.
+!pf_koalabear_mont = !field.pf<2130706433 : i32, true>
+!ef_koalabear_4 = !field.ef<4x!pf_koalabear_mont, 1040383999 : i32>
+// CHECK-LABEL: func @refine_bitcast_convert_ef_to_ef_equal_width
+func.func @refine_bitcast_convert_ef_to_ef_equal_width(
+    %arg0: tensor<4x!ef_koalabear_4>) -> tensor<?x!ef_koalabear_4> {
+  // CHECK: stablehlo.bitcast_convert{{.*}} -> tensor<4x!field.ef<4x!pf_koalabear_mont, 1040383999 : i32>>
+  %0 = stablehlo.bitcast_convert %arg0
+    : (tensor<4x!ef_koalabear_4>) -> tensor<?x!ef_koalabear_4>
+  return %0 : tensor<?x!ef_koalabear_4>
+}

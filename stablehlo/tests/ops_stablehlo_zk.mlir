@@ -843,3 +843,428 @@ func.func @power_pf_i256(%base: tensor<!pf_bn254>, %exp: tensor<i256>) -> tensor
   %0 = "stablehlo.power"(%base, %exp) : (tensor<!pf_bn254>, tensor<i256>) -> tensor<!pf_bn254>
   func.return %0 : tensor<!pf_bn254>
 }
+
+// -----
+
+// CHECK-LABEL: func @convert_i128_to_pf
+!pf_bn254 = !field.pf<21888242871839275222246405745257275088548364400416034343698204186575808495617:i256>
+func.func @convert_i128_to_pf(%arg0: tensor<4xi128>) -> tensor<4x!pf_bn254> {
+  %0 = stablehlo.convert %arg0 : (tensor<4xi128>) -> tensor<4x!pf_bn254>
+  func.return %0 : tensor<4x!pf_bn254>
+}
+
+// -----
+
+// =============================================================================
+// AddOp — PF + EF where PF is NOT the EF's base field (negative)
+// =============================================================================
+
+// The PF+EF fast path in verifyAddOp requires ef.getBaseField() == pf. With an
+// unrelated PF the match fails and control falls through to the homogeneous
+// element-type check, which rejects the mismatch.
+
+!pf_a = !field.pf<2013265921:i32>
+!pf_other = !field.pf<2130706433:i32>
+!ef_a4 = !field.ef<4x!pf_a, 11:i32>
+
+func.func @add_pf_ef_wrong_base(%a: tensor<4x!pf_other>, %b: tensor<4x!ef_a4>) -> tensor<4x!ef_a4> {
+  // expected-error @+1 {{op requires the same element type for all operands and results}}
+  %0 = "stablehlo.add"(%a, %b) : (tensor<4x!pf_other>, tensor<4x!ef_a4>) -> tensor<4x!ef_a4>
+  func.return %0 : tensor<4x!ef_a4>
+}
+
+// -----
+
+// =============================================================================
+// AddOp — PF + EF with result element = PF, not the EF (negative)
+// =============================================================================
+
+// Even when the PF is the EF's base field, the result must keep the wider EF
+// element type (resEl == rhsEl). A PF result fails the fast path and falls
+// through to the homogeneous element-type check.
+
+!pf_bb = !field.pf<2013265921:i32>
+!ef_bb4 = !field.ef<4x!pf_bb, 11:i32>
+
+func.func @add_pf_ef_result_pf(%a: tensor<4x!pf_bb>, %b: tensor<4x!ef_bb4>) -> tensor<4x!pf_bb> {
+  // expected-error @+1 {{op requires the same element type for all operands and results}}
+  %0 = "stablehlo.add"(%a, %b) : (tensor<4x!pf_bb>, tensor<4x!ef_bb4>) -> tensor<4x!pf_bb>
+  func.return %0 : tensor<4x!pf_bb>
+}
+
+// -----
+
+// =============================================================================
+// AddOp — two points on DIFFERENT curves (negative)
+// =============================================================================
+
+!pf_c = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+#curve_a = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !pf_c
+#curve_b = #elliptic_curve.sw<0:i256, 1:i256, (2:i256, 3:i256)> : !pf_c
+!affine_a = !elliptic_curve.affine<#curve_a>
+!affine_b = !elliptic_curve.affine<#curve_b>
+!jacobian_a = !elliptic_curve.jacobian<#curve_a>
+
+func.func @add_ec_different_curves(%a: tensor<4x!affine_a>, %b: tensor<4x!affine_b>) -> tensor<4x!jacobian_a> {
+  // expected-error @+1 {{EC operands and result must be on the same curve}}
+  %0 = "stablehlo.add"(%a, %b) : (tensor<4x!affine_a>, tensor<4x!affine_b>) -> tensor<4x!jacobian_a>
+  func.return %0 : tensor<4x!jacobian_a>
+}
+
+// -----
+
+// =============================================================================
+// AddOp — homogeneous element-type mismatch i32 + f32 (negative)
+// =============================================================================
+
+func.func @add_i32_f32_mismatch(%a: tensor<4xi32>, %b: tensor<4xf32>) -> tensor<4xi32> {
+  // expected-error @+1 {{op requires the same element type for all operands and results}}
+  %0 = "stablehlo.add"(%a, %b) : (tensor<4xi32>, tensor<4xf32>) -> tensor<4xi32>
+  func.return %0 : tensor<4xi32>
+}
+
+// -----
+
+// =============================================================================
+// MultiplyOp — scalar × point with NON-point result (negative)
+// =============================================================================
+
+// MulOp carries InferTypeOpInterface: inferMulOp resolves field×point to the
+// point operand type, so a non-point explicit result is rejected at the
+// infer-vs-result reconciliation before verifyMulOp's scalar-mult check runs.
+
+!pf_m = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!sf_m = !field.pf<21888242871839275222246405745257275088548364400416034343698204186575808495617:i256>
+#curve_m = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !pf_m
+!affine_m = !elliptic_curve.affine<#curve_m>
+
+func.func @multiply_scalar_point_nonpoint_result(%a: tensor<4x!sf_m>, %b: tensor<4x!affine_m>) -> tensor<4x!sf_m> {
+  // expected-error @+1 {{scalar multiplication result must be an EC point on the same curve as the point operand}}
+  %0 = "stablehlo.multiply"(%a, %b) : (tensor<4x!sf_m>, tensor<4x!affine_m>) -> tensor<4x!sf_m>
+  func.return %0 : tensor<4x!sf_m>
+}
+
+// -----
+
+// =============================================================================
+// MultiplyOp — scalar × point with result point on DIFFERENT curve (negative)
+// =============================================================================
+
+// Same infer-then-reconcile path: inferMulOp picks the point operand's curve;
+// a result point on a different curve fails reconciliation before the verifier.
+
+!pf_m2 = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!sf_m2 = !field.pf<21888242871839275222246405745257275088548364400416034343698204186575808495617:i256>
+#curve_m2 = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !pf_m2
+#curve_m2b = #elliptic_curve.sw<0:i256, 1:i256, (2:i256, 3:i256)> : !pf_m2
+!affine_m2 = !elliptic_curve.affine<#curve_m2>
+!jacobian_m2b = !elliptic_curve.jacobian<#curve_m2b>
+
+func.func @multiply_scalar_point_wrong_curve(%a: tensor<4x!sf_m2>, %b: tensor<4x!affine_m2>) -> tensor<4x!jacobian_m2b> {
+  // expected-error @+1 {{scalar multiplication result must be an EC point on the same curve as the point operand}}
+  %0 = "stablehlo.multiply"(%a, %b) : (tensor<4x!sf_m2>, tensor<4x!affine_m2>) -> tensor<4x!jacobian_m2b>
+  func.return %0 : tensor<4x!jacobian_m2b>
+}
+
+// -----
+
+// =============================================================================
+// PowerOp — field base + int exponent, result element ≠ base (negative)
+// =============================================================================
+
+!pf_p = !field.pf<2013265921:i32>
+!pf_p_other = !field.pf<2130706433:i32>
+
+func.func @power_field_result_mismatch(%base: tensor<4x!pf_p>, %exp: tensor<4xi32>) -> tensor<4x!pf_p_other> {
+  // expected-error @+1 {{stablehlo.power result element type must match base}}
+  %0 = "stablehlo.power"(%base, %exp) : (tensor<4x!pf_p>, tensor<4xi32>) -> tensor<4x!pf_p_other>
+  func.return %0 : tensor<4x!pf_p_other>
+}
+
+// -----
+
+// =============================================================================
+// PowerOp — i32 base with f32 exponent, homogeneous mismatch (negative)
+// =============================================================================
+
+func.func @power_i32_f32_mismatch(%base: tensor<4xi32>, %exp: tensor<4xf32>) -> tensor<4xi32> {
+  // expected-error @+1 {{stablehlo.power requires a compatible element type for base, exponent, and result}}
+  %0 = "stablehlo.power"(%base, %exp) : (tensor<4xi32>, tensor<4xf32>) -> tensor<4xi32>
+  func.return %0 : tensor<4xi32>
+}
+
+// -----
+
+// =============================================================================
+// PairingCheckOp — unrelated curves, no bilinear pair (negative)
+// =============================================================================
+
+// G1 and G2 are both prime-field curves with different curve constants: neither
+// the same-curve branch nor the (PF, EF-over-PF) bilinear-pair branch matches.
+
+!pf_pc = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+#curve_pc1 = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !pf_pc
+#curve_pc2 = #elliptic_curve.sw<0:i256, 1:i256, (2:i256, 3:i256)> : !pf_pc
+!g1_pc = !elliptic_curve.affine<#curve_pc1>
+!g2_pc = !elliptic_curve.affine<#curve_pc2>
+
+func.func @pairing_check_unrelated_curves(%g1: tensor<4x!g1_pc>, %g2: tensor<4x!g2_pc>) -> tensor<i1> {
+  // expected-error @+2 {{failed to infer returned types}}
+  // expected-error @+1 {{pairing_check operands must be on the same curve, or form a bilinear pair (G1 on a prime field, G2 on a degree>=2 extension of that prime field)}}
+  %0 = stablehlo.pairing_check %g1, %g2 : (tensor<4x!g1_pc>, tensor<4x!g2_pc>) -> tensor<i1>
+  func.return %0 : tensor<i1>
+}
+
+// -----
+
+// =============================================================================
+// MsmOp — rank-2 operands (negative)
+// =============================================================================
+
+!Fr_msm = !field.pf<21888242871839275222246405745257275088548364400416034343698204186575808495617:i256>
+#curve_msm = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!affine_msm = !elliptic_curve.affine<#curve_msm>
+
+func.func @msm_rank2_operands(%scalars: tensor<4x8x!Fr_msm>, %bases: tensor<4x8x!affine_msm>) -> tensor<!affine_msm> {
+  // expected-error @+2 {{failed to infer returned types}}
+  // expected-error @+1 {{msm requires rank-1 operands; got ranks 2 and 2.}}
+  %0 = stablehlo.msm %scalars, %bases : (tensor<4x8x!Fr_msm>, tensor<4x8x!affine_msm>) -> tensor<!affine_msm>
+  func.return %0 : tensor<!affine_msm>
+}
+
+// -----
+
+// =============================================================================
+// MsmOp — are_points_shared, scalars length ≠ batch*bases (negative)
+// =============================================================================
+
+!Fr_msm2 = !field.pf<21888242871839275222246405745257275088548364400416034343698204186575808495617:i256>
+#curve_msm2 = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!affine_msm2 = !elliptic_curve.affine<#curve_msm2>
+!xyzz_msm2 = !elliptic_curve.xyzz<#curve_msm2>
+
+func.func @msm_shared_bad_length(%scalars: tensor<2000x!Fr_msm2>, %bases: tensor<1024x!affine_msm2>) -> tensor<2x!xyzz_msm2> {
+  // expected-error @+2 {{failed to infer returned types}}
+  // expected-error @+1 {{msm with batch_size=2 and are_points_shared=true requires scalars length == batch_size * bases length; got 2000 and 1024.}}
+  %0 = stablehlo.msm %scalars, %bases {batch_size = 2 : i32, are_points_shared = true} : (tensor<2000x!Fr_msm2>, tensor<1024x!affine_msm2>) -> tensor<2x!xyzz_msm2>
+  func.return %0 : tensor<2x!xyzz_msm2>
+}
+
+// -----
+
+// =============================================================================
+// BitReverseOp — over a field element type (positive)
+// =============================================================================
+
+!pf_br = !field.pf<2013265921:i32>
+
+// CHECK-LABEL: func @bit_reverse_field
+func.func @bit_reverse_field(%arg0: tensor<8x!pf_br>) -> tensor<8x!pf_br> {
+  %0 = stablehlo.bit_reverse %arg0, dims = [0] : tensor<8x!pf_br>
+  func.return %0 : tensor<8x!pf_br>
+}
+
+// -----
+
+// =============================================================================
+// ExtensionField Arithmetic — EF×EF, EF÷EF, power, negate (positive)
+// =============================================================================
+
+!pf_ef = !field.pf<2013265921:i32>
+!ef4 = !field.ef<4x!pf_ef, 11:i32>
+
+// CHECK-LABEL: func @multiply_ef_ef
+func.func @multiply_ef_ef(%a: tensor<4x!ef4>, %b: tensor<4x!ef4>) -> tensor<4x!ef4> {
+  %0 = stablehlo.multiply %a, %b : tensor<4x!ef4>
+  func.return %0 : tensor<4x!ef4>
+}
+
+// CHECK-LABEL: func @divide_ef_ef
+func.func @divide_ef_ef(%a: tensor<4x!ef4>, %b: tensor<4x!ef4>) -> tensor<4x!ef4> {
+  %0 = stablehlo.divide %a, %b : tensor<4x!ef4>
+  func.return %0 : tensor<4x!ef4>
+}
+
+// CHECK-LABEL: func @power_ef_int
+func.func @power_ef_int(%base: tensor<4x!ef4>, %exp: tensor<4xi32>) -> tensor<4x!ef4> {
+  %0 = stablehlo.power %base, %exp : (tensor<4x!ef4>, tensor<4xi32>) -> tensor<4x!ef4>
+  func.return %0 : tensor<4x!ef4>
+}
+
+// CHECK-LABEL: func @negate_ef
+func.func @negate_ef(%arg0: tensor<4x!ef4>) -> tensor<4x!ef4> {
+  %0 = stablehlo.negate %arg0 : tensor<4x!ef4>
+  func.return %0 : tensor<4x!ef4>
+}
+
+// -----
+
+// =============================================================================
+// CompareOp — prime field EQ and LT (both positive; PF is unrestricted)
+// =============================================================================
+
+!pf_cmp = !field.pf<2013265921:i32>
+
+// CHECK-LABEL: func @compare_pf_eq
+func.func @compare_pf_eq(%a: tensor<4x!pf_cmp>, %b: tensor<4x!pf_cmp>) -> tensor<4xi1> {
+  %0 = stablehlo.compare EQ, %a, %b : (tensor<4x!pf_cmp>, tensor<4x!pf_cmp>) -> tensor<4xi1>
+  func.return %0 : tensor<4xi1>
+}
+
+// CHECK-LABEL: func @compare_pf_lt
+func.func @compare_pf_lt(%a: tensor<4x!pf_cmp>, %b: tensor<4x!pf_cmp>) -> tensor<4xi1> {
+  %0 = stablehlo.compare LT, %a, %b : (tensor<4x!pf_cmp>, tensor<4x!pf_cmp>) -> tensor<4xi1>
+  func.return %0 : tensor<4xi1>
+}
+
+// -----
+
+// =============================================================================
+// CompareOp — extension field EQ (positive)
+// =============================================================================
+
+!pf_cmp_ef = !field.pf<2013265921:i32>
+!ef_cmp = !field.ef<4x!pf_cmp_ef, 11:i32>
+
+// CHECK-LABEL: func @compare_ef_eq
+func.func @compare_ef_eq(%a: tensor<4x!ef_cmp>, %b: tensor<4x!ef_cmp>) -> tensor<4xi1> {
+  %0 = stablehlo.compare EQ, %a, %b : (tensor<4x!ef_cmp>, tensor<4x!ef_cmp>) -> tensor<4xi1>
+  func.return %0 : tensor<4xi1>
+}
+
+// -----
+
+// =============================================================================
+// SelectOp — over EC point tensors (positive)
+// =============================================================================
+
+!pf_sel = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+#curve_sel = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !pf_sel
+!jacobian_sel = !elliptic_curve.jacobian<#curve_sel>
+
+// CHECK-LABEL: func @select_ec_jacobian
+func.func @select_ec_jacobian(%pred: tensor<4xi1>, %a: tensor<4x!jacobian_sel>, %b: tensor<4x!jacobian_sel>) -> tensor<4x!jacobian_sel> {
+  %0 = stablehlo.select %pred, %a, %b : tensor<4xi1>, tensor<4x!jacobian_sel>
+  func.return %0 : tensor<4x!jacobian_sel>
+}
+
+// -----
+
+// =============================================================================
+// IotaOp — over an extension field element type (positive)
+// =============================================================================
+
+!pf_iota = !field.pf<2013265921:i32>
+!ef_iota = !field.ef<4x!pf_iota, 11:i32>
+
+// CHECK-LABEL: func @iota_ef
+func.func @iota_ef() -> tensor<8x!ef_iota> {
+  %0 = stablehlo.iota dim = 0 : tensor<8x!ef_iota>
+  func.return %0 : tensor<8x!ef_iota>
+}
+
+// -----
+
+// =============================================================================
+// PowerOp — EC-point base rejected by ODS operand constraint (negative)
+// =============================================================================
+
+!pf_pow_ec = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+#curve_pow_ec = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !pf_pow_ec
+!affine_pow_ec = !elliptic_curve.affine<#curve_pow_ec>
+
+func.func @power_ec_base_invalid(%base: tensor<4x!affine_pow_ec>, %exp: tensor<4xi32>) -> tensor<4x!affine_pow_ec> {
+  // expected-error @+1 {{operand #0 must be ranked tensor of}}
+  %0 = "stablehlo.power"(%base, %exp) : (tensor<4x!affine_pow_ec>, tensor<4xi32>) -> tensor<4x!affine_pow_ec>
+  func.return %0 : tensor<4x!affine_pow_ec>
+}
+
+// -----
+
+// =============================================================================
+// Wide-int arithmetic — i256 / i128 (positive)
+// =============================================================================
+
+// CHECK-LABEL: func @add_i256
+func.func @add_i256(%a: tensor<4xi256>, %b: tensor<4xi256>) -> tensor<4xi256> {
+  %0 = stablehlo.add %a, %b : tensor<4xi256>
+  func.return %0 : tensor<4xi256>
+}
+
+// CHECK-LABEL: func @subtract_i256
+func.func @subtract_i256(%a: tensor<4xi256>, %b: tensor<4xi256>) -> tensor<4xi256> {
+  %0 = stablehlo.subtract %a, %b : tensor<4xi256>
+  func.return %0 : tensor<4xi256>
+}
+
+// CHECK-LABEL: func @multiply_i256
+func.func @multiply_i256(%a: tensor<4xi256>, %b: tensor<4xi256>) -> tensor<4xi256> {
+  %0 = stablehlo.multiply %a, %b : tensor<4xi256>
+  func.return %0 : tensor<4xi256>
+}
+
+// CHECK-LABEL: func @divide_i256
+func.func @divide_i256(%a: tensor<4xi256>, %b: tensor<4xi256>) -> tensor<4xi256> {
+  %0 = stablehlo.divide %a, %b : tensor<4xi256>
+  func.return %0 : tensor<4xi256>
+}
+
+// CHECK-LABEL: func @add_i128
+func.func @add_i128(%a: tensor<4xi128>, %b: tensor<4xi128>) -> tensor<4xi128> {
+  %0 = stablehlo.add %a, %b : tensor<4xi128>
+  func.return %0 : tensor<4xi128>
+}
+
+// CHECK-LABEL: func @subtract_i128
+func.func @subtract_i128(%a: tensor<4xi128>, %b: tensor<4xi128>) -> tensor<4xi128> {
+  %0 = stablehlo.subtract %a, %b : tensor<4xi128>
+  func.return %0 : tensor<4xi128>
+}
+
+// CHECK-LABEL: func @multiply_i128
+func.func @multiply_i128(%a: tensor<4xi128>, %b: tensor<4xi128>) -> tensor<4xi128> {
+  %0 = stablehlo.multiply %a, %b : tensor<4xi128>
+  func.return %0 : tensor<4xi128>
+}
+
+// CHECK-LABEL: func @divide_i128
+func.func @divide_i128(%a: tensor<4xi128>, %b: tensor<4xi128>) -> tensor<4xi128> {
+  %0 = stablehlo.divide %a, %b : tensor<4xi128>
+  func.return %0 : tensor<4xi128>
+}
+
+// -----
+
+// =============================================================================
+// Wide-int constants — i256 / i128 (positive)
+// =============================================================================
+
+// CHECK-LABEL: func @constant_i256
+func.func @constant_i256() -> tensor<2xi256> {
+  %0 = stablehlo.constant dense<[1, 2]> : tensor<2xi256>
+  func.return %0 : tensor<2xi256>
+}
+
+// CHECK-LABEL: func @constant_i128
+func.func @constant_i128() -> tensor<2xi128> {
+  %0 = stablehlo.constant dense<[3, 4]> : tensor<2xi128>
+  func.return %0 : tensor<2xi128>
+}
+
+// -----
+
+// =============================================================================
+// Unsigned wide-int arithmetic — ui128 / ui256 (positive; HLO_UInt admits both)
+// =============================================================================
+
+// CHECK-LABEL: func @add_ui128
+func.func @add_ui128(%a: tensor<4xui128>, %b: tensor<4xui128>) -> tensor<4xui128> {
+  %0 = stablehlo.add %a, %b : tensor<4xui128>
+  func.return %0 : tensor<4xui128>
+}
+
+// CHECK-LABEL: func @add_ui256
+func.func @add_ui256(%a: tensor<4xui256>, %b: tensor<4xui256>) -> tensor<4xui256> {
+  %0 = stablehlo.add %a, %b : tensor<4xui256>
+  func.return %0 : tensor<4xui256>
+}
