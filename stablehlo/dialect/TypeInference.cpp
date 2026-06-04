@@ -461,13 +461,10 @@ unsigned getBitWidth(Type type) {
   if (auto bf = dyn_cast<prime_ir::field::BinaryFieldType>(type))
     return bf.getStorageBitWidth();
   if (auto pt = dyn_cast<prime_ir::elliptic_curve::PointTypeInterface>(type)) {
-    auto base = pt.getBaseFieldType();
-    unsigned base_bits = 0;
-    if (auto pf = dyn_cast<prime_ir::field::PrimeFieldType>(base))
-      base_bits = pf.getStorageBitWidth();
-    else if (auto ef = dyn_cast<prime_ir::field::ExtensionFieldType>(base))
-      base_bits = ef.getStorageBitWidth();
-    return pt.getNumCoords() * base_bits;
+    // A point's storage is numCoords copies of its base-field storage.
+    // Recurse on the base so any field flavor (prime / extension / binary)
+    // is handled by the branches above rather than re-enumerated here.
+    return pt.getNumCoords() * getBitWidth(pt.getBaseFieldType());
   }
   return type.getIntOrFloatBitWidth();
 }
@@ -652,10 +649,12 @@ LogicalResult verifyAddOp(std::optional<Location> location, Operation* op,
   Type resEl = getElementTypeOrSelf(resultType);
 
   // PF + EF (or EF + PF) is allowed when the PF is the EF's base field, and
-  // the result must keep the wider element type (the EF). Mirrors the
-  // mixed-type compat rule in
-  // Base.cpp::isCompatibleElementTypeForHloTypeInference, but stablehlo.add
-  // bypasses that path — it has its own verifier.
+  // the result must keep the wider element type (the EF): adding a base-field
+  // scalar to an extension-field element embeds the scalar in the constant
+  // term, so the sum is still an extension-field element. add has its own
+  // verifier (not the shared HLO_CompatibleOperandsAndResultType trait)
+  // because it must also enforce the EC group-law coordinate rules below,
+  // which a pure element-type compatibility predicate cannot express.
   using PFType = prime_ir::field::PrimeFieldType;
   using EFType = prime_ir::field::ExtensionFieldType;
   if (auto pf = dyn_cast<PFType>(lhsEl)) {
@@ -682,19 +681,26 @@ LogicalResult verifyAddOp(std::optional<Location> location, Operation* op,
       return emitOptionalError(
           location, "EC operands and result must be on the same curve");
     using namespace prime_ir::elliptic_curve;
-    // Rule 1: same lhs/rhs type, result is jacobian or xyzz
-    //   affine+affine → jacobian/xyzz
-    //   jacobian+jacobian → jacobian
-    //   xyzz+xyzz → xyzz
-    if (Type(lhsPt) == Type(rhsPt) && isa<JacobianType, XYZZType>(resPt))
+    // Accept exactly the coordinate combinations elliptic_curve.add/sub can
+    // lower to (prime_ir's verifyBinaryOp contract):
+    //   affine+affine -> jacobian|xyzz   (only affine inputs choose the
+    //                                     output system; the group law lands
+    //                                     in projective/extended coordinates)
+    //   affine+T      -> T               (mixed addition; T non-affine, the
+    //                                     result must equal the non-affine
+    //                                     operand)
+    //   T+T           -> T               (same non-affine system in and out)
+    bool lhsAffine = isa<AffineType>(lhsPt);
+    bool rhsAffine = isa<AffineType>(rhsPt);
+    if (lhsAffine && rhsAffine && isa<JacobianType, XYZZType>(resPt))
       return success();
-    // Rule 2: one operand is affine, result matches the other (non-affine).
-    //   affine+jacobian → jacobian
-    //   xyzz+affine → xyzz
-    bool resAffine = isa<AffineType>(resPt);
-    if (!resAffine &&
-        (Type(lhsPt) == Type(resPt) || Type(rhsPt) == Type(resPt)))
-      return success();
+    if (!isa<AffineType>(resPt)) {
+      if (lhsAffine && Type(rhsPt) == Type(resPt)) return success();
+      if (rhsAffine && Type(lhsPt) == Type(resPt)) return success();
+      if (!lhsAffine && !rhsAffine && Type(lhsPt) == Type(rhsPt) &&
+          Type(rhsPt) == Type(resPt))
+        return success();
+    }
     return emitOptionalError(
         location, "invalid EC point type combination for binary operation");
   }
@@ -707,29 +713,126 @@ LogicalResult verifyAddOp(std::optional<Location> location, Operation* op,
   return success();
 }
 
+LogicalResult verifySubtractOp(std::optional<Location> location, Operation* op,
+                               Type lhsType, Type rhsType, Type resultType) {
+  // Point subtraction lowers to elliptic_curve.sub, which is the add of the
+  // inverse and accepts exactly the add coordinate combinations, so subtract
+  // shares add's type rules.
+  return verifyAddOp(location, op, lhsType, rhsType, resultType);
+}
+
+LogicalResult verifyMulOp(std::optional<Location> location, Operation* op,
+                          Type lhsType, Type rhsType, Type resultType) {
+  llvm::SmallVector<Type, 3> typeEntries{lhsType, rhsType, resultType};
+  if (anyQuantized<quant::QuantizedType>(typeEntries))
+    return verifyBinaryOpQuantizationConstraints(location, lhsType, rhsType,
+                                                 resultType);
+
+  Type lhsEl = getElementTypeOrSelf(lhsType);
+  Type rhsEl = getElementTypeOrSelf(rhsType);
+  Type resEl = getElementTypeOrSelf(resultType);
+
+  // Scalar multiplication: a field scalar times an EC point yields a point on
+  // the same curve. This is the one mixed field/point form multiply admits,
+  // and it lives here (not in the shared element-type compatibility predicate)
+  // so that subtract/divide and the other binary ops do not also accept it.
+  using FieldTypeInterface = prime_ir::field::FieldTypeInterface;
+  using PointTypeInterface = prime_ir::elliptic_curve::PointTypeInterface;
+  auto lhsField = isa<FieldTypeInterface>(lhsEl);
+  auto rhsField = isa<FieldTypeInterface>(rhsEl);
+  auto lhsPt = dyn_cast<PointTypeInterface>(lhsEl);
+  auto rhsPt = dyn_cast<PointTypeInterface>(rhsEl);
+  if ((lhsField && rhsPt) || (lhsPt && rhsField)) {
+    auto pointEl = lhsPt ? lhsPt : rhsPt;
+    auto resPt = dyn_cast<PointTypeInterface>(resEl);
+    if (!resPt || resPt.getCurveAttr() != pointEl.getCurveAttr())
+      return emitOptionalError(
+          location,
+          "scalar multiplication result must be an EC point on the same curve "
+          "as the point operand");
+    return success();
+  }
+
+  // Two EC points cannot be multiplied — the group operation is add, and
+  // scalar multiplication (above) is the only multiplicative form.
+  if (lhsPt && rhsPt)
+    return emitOptionalError(location,
+                             "EC points cannot be multiplied with each other");
+
+  // Otherwise operands and result must share a compatible element type — the
+  // same notion as the HLO_CompatibleOperandsAndResultType trait multiply used
+  // before it grew this verifier (homogeneous types, prime/extension-field
+  // products, quantized-compatible, bounded dims).
+  if (!isCompatibleElementTypeForHloTypeInference(lhsEl, rhsEl) ||
+      !isCompatibleElementTypeForHloTypeInference(lhsEl, resEl))
+    return emitOptionalError(
+        location,
+        "op requires compatible element types for all operands and results");
+
+  return success();
+}
+
+LogicalResult inferMulOp(std::optional<Location> location,
+                         TypeRange operandTypes,
+                         SmallVectorImpl<Type>& inferredReturnTypes) {
+  if (operandTypes.size() != 2)
+    return emitOptionalError(
+        location, "Expected two operands for MulOp::inferReturnTypes");
+
+  // Scalar multiplication (field scalar * EC point) yields the point type; the
+  // operand types are not most-specific reconcilable, so resolve this form
+  // before the homogeneous fallback.
+  Type lhsEl = getElementTypeOrSelf(operandTypes[0]);
+  Type rhsEl = getElementTypeOrSelf(operandTypes[1]);
+  bool lhsField = isa<prime_ir::field::FieldTypeInterface>(lhsEl);
+  bool rhsField = isa<prime_ir::field::FieldTypeInterface>(rhsEl);
+  bool lhsPoint = isa<prime_ir::elliptic_curve::PointTypeInterface>(lhsEl);
+  bool rhsPoint = isa<prime_ir::elliptic_curve::PointTypeInterface>(rhsEl);
+  if (lhsField && rhsPoint) {
+    inferredReturnTypes.emplace_back(operandTypes[1]);
+    return success();
+  }
+  if (lhsPoint && rhsField) {
+    inferredReturnTypes.emplace_back(operandTypes[0]);
+    return success();
+  }
+
+  auto inferredTypeOrErr = inferMostSpecificType(location, operandTypes);
+  if (failed(inferredTypeOrErr)) return failure();
+  inferredReturnTypes.emplace_back(*inferredTypeOrErr);
+  return success();
+}
+
 LogicalResult verifyPowOp(std::optional<Location> location, Type lhsType,
                           Type rhsType, Type resultType) {
   Type lhsEl = getElementTypeOrSelf(lhsType);
   Type rhsEl = getElementTypeOrSelf(rhsType);
   Type resEl = getElementTypeOrSelf(resultType);
 
-  // Result element type must always match the base (lhs).
-  if (lhsEl != resEl)
-    return emitOptionalError(
-        location, "stablehlo.power result element type must match base");
-
-  // Field base + integer exponent: ZK pattern.
+  // Field base + integer exponent (ZK pattern): the result keeps the field
+  // element type; the integer exponent is not an arithmetic operand so it is
+  // exempt from the homogeneous-element-type rule below.
   if (isa<prime_ir::field::FieldTypeInterface>(lhsEl) &&
-      isa<IntegerType>(rhsEl))
+      isa<IntegerType>(rhsEl)) {
+    if (lhsEl != resEl)
+      return emitOptionalError(
+          location, "stablehlo.power result element type must match base");
     return success();
+  }
 
-  // Otherwise: rhs element type must match lhs (upstream homogeneous form
-  // — float/int/complex/quantized).
-  if (lhsEl != rhsEl)
+  // Upstream homogeneous form (float / int / complex / quantized): base,
+  // exponent, and result share a *compatible* element type. Use the same
+  // compatibility notion as the shared HLO_CompatibleOperandsAndResultType
+  // trait this op used before it grew a custom verifier, so quantized
+  // operands with different-but-compatible parameters are still accepted
+  // rather than rejected by exact-equality.
+  if (!isCompatibleElementTypeForHloTypeInference(lhsEl, rhsEl) ||
+      !isCompatibleElementTypeForHloTypeInference(lhsEl, resEl))
     return emitOptionalError(
         location,
-        "stablehlo.power exponent element type must match base, or be an "
-        "integer when the base is a field type");
+        "stablehlo.power requires a compatible element type for base, "
+        "exponent, and result, or an integer exponent when the base is a "
+        "field type");
 
   return success();
 }
@@ -2977,9 +3080,10 @@ LogicalResult inferFftOp(
 
 // PointType is enforced at the td level. Shape constraints: both operands
 // rank-1, lengths match (or are dynamic), element types are EC point types
-// of the same curve. Group identity (G1 vs G2) is not enforced here: the
-// prototype currently has only G1 PrimitiveTypes, so allowing same-group
-// inputs lets the op shape-check until G2 lands.
+// of the same curve. The G1-vs-G2 group distinction is not checked: the point
+// types carry only a curve, not which of the pairing's two source groups they
+// belong to, so a same-curve pair is the strongest constraint expressible
+// here. Pairing semantics (e1 in G1, e2 in G2) are validated downstream.
 LogicalResult inferPairingCheckOp(
     std::optional<Location> location, Value g1Points, Value g2Points,
     SmallVectorImpl<ShapedTypeComponents>& inferredReturnShapes) {

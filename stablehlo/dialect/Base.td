@@ -274,8 +274,20 @@ def HLO_FpOrQuantizedIntTensor : RankedTensorOf<[HLO_Float, HLO_QuantizedInt]>;
 def HLO_FpComplexOrQuantizedIntTensor : RankedTensorOf<[HLO_Float, HLO_Complex, HLO_QuantizedInt]>;
 
 // Any int, floating-point, complex or quantized tensor types
-def HLO_IntFpOrComplexOrQuantizedIntTensor : RankedTensorOf<[HLO_Int, HLO_Float, HLO_Complex, HLO_QuantizedInt,
-                                                             Field_AnyFieldType, PointType]>;
+def HLO_IntFpOrComplexOrQuantizedIntTensor : RankedTensorOf<[HLO_Int, HLO_Float, HLO_Complex, HLO_QuantizedInt]>;
+
+// As above plus finite-field element types, for the ops with a field form:
+// divide (exact field division) and the base/result of power (field base,
+// integer exponent). Remainder and the power exponent stay field-free —
+// field division is exact so a remainder is meaningless, and a field-typed
+// exponent has no canonical-vs-Montgomery reading.
+def HLO_IntFpOrComplexOrQuantizedIntOrFieldTensor : RankedTensorOf<[HLO_Int, HLO_Float, HLO_Complex, HLO_QuantizedInt,
+                                                                    Field_AnyFieldType]>;
+
+// As above plus EC point types, for the ops with a group-law form
+// (negate: point inversion; subtract: add of the inverse).
+def HLO_IntFpOrComplexOrQuantizedIntOrFieldOrPointTensor : RankedTensorOf<[HLO_Int, HLO_Float, HLO_Complex, HLO_QuantizedInt,
+                                                                           Field_AnyFieldType, PointType]>;
 
 // Any pred, int or floating-point tensor types
 def HLO_PredIntOrFpTensor : RankedTensorOf<[HLO_Pred, HLO_Int, HLO_Float]>;

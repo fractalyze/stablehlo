@@ -89,22 +89,20 @@ bool isCompatibleElementTypeForHloTypeInference(Type tp1, Type tp2) {
   tp1 = getElementTypeOrSelf(tp1);
   tp2 = getElementTypeOrSelf(tp2);
 
-  // Two EC point types are compatible if they live on the same curve. The
-  // coordinate system (affine / jacobian / xyzz) is allowed to differ — the
-  // EC dialect's own verifiers police which combinations are physically
-  // realizable; here we only gate cross-curve mixing.
+  // Two EC point types reconcile when they live on the same curve. This
+  // exists for the inferred-vs-declared result check: the EC group ops infer
+  // the most-specific operand type, and the declared result may legitimately
+  // be a different coordinate system (affine + affine -> jacobian). It does
+  // NOT decide which operand combinations an op accepts — the realizable
+  // coordinate tables live in verifyAddOp / verifySubtractOp, verifyMulOp
+  // rejects point-by-point multiplication, and ops with no EC form (divide,
+  // remainder, power) exclude point element types in ODS. Field-by-point
+  // mixing is likewise multiply-only and handled in verifyMulOp/inferMulOp,
+  // not here.
   using PointTypeInterface = prime_ir::elliptic_curve::PointTypeInterface;
   auto pt1 = dyn_cast<PointTypeInterface>(tp1);
   auto pt2 = dyn_cast<PointTypeInterface>(tp2);
   if (pt1 && pt2) return pt1.getCurveAttr() == pt2.getCurveAttr();
-
-  // Field × EC point: compatible. This is what unblocks
-  // `stablehlo.multiply scalar, point` so it can be lowered to
-  // `elliptic_curve.scalar_mul`.
-  using FieldTypeInterface = prime_ir::field::FieldTypeInterface;
-  auto ft1 = dyn_cast<FieldTypeInterface>(tp1);
-  auto ft2 = dyn_cast<FieldTypeInterface>(tp2);
-  if ((ft1 && pt2) || (pt1 && ft2)) return true;
 
   // Prime field × extension field: compatible when the PF is the EF's base
   // field. Enables `stablehlo.add ef, pf` and the symmetric forms used in

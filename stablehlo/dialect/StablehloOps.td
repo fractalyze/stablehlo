@@ -551,7 +551,7 @@ def StableHLO_NotOp: StableHLO_UnaryElementwiseOp<"not",
 }
 
 def StableHLO_NegOp: StableHLO_UnaryElementwiseOp<"negate",
-    [HLO_CompatibleOperandsAndResultType], HLO_IntFpOrComplexOrQuantizedIntTensor> {
+    [HLO_CompatibleOperandsAndResultType], HLO_IntFpOrComplexOrQuantizedIntOrFieldOrPointTensor> {
   let summary = "Neg operation";
   let description = [{
     Performs element-wise negation of `operand` tensor and produces a `result`
@@ -919,7 +919,7 @@ def StableHLO_ComplexOp: StableHLO_BinaryElementwiseOp<"complex",
 
 def StableHLO_DivOp : StableHLO_BinaryElementwiseOp<"divide",
     [HLO_CompatibleOperandsAndResultType /* div_c1 */],
-    HLO_IntFpOrComplexOrQuantizedIntTensor /* div_i1, div_i2 */> {
+    HLO_IntFpOrComplexOrQuantizedIntOrFieldTensor /* div_i1, div_i2 */> {
   let summary = "Div operation";
   let description = [{
     Performs element-wise division of dividend `lhs` and divisor `rhs` tensors
@@ -970,11 +970,18 @@ def StableHLO_MinOp : StableHLO_BinaryElementwiseOp<"minimum",
 }
 
 def StableHLO_MulOp : StableHLO_BinaryElementwiseOp<"multiply",
-      [HLO_Commutative, HLO_CompatibleOperandsAndResultType]> {
+      [HLO_Commutative, InferTypeOpInterface,
+      DeclareOpInterfaceMethods<InferShapedTypeOpInterface, ["inferReturnTypeComponents"]>]> {
   let summary = "Mul operation";
   let description = [{
     Performs element-wise product of two tensors `lhs` and `rhs` and produces a
     `result` tensor.
+
+    For the field/EC overlay, multiply additionally accepts scalar
+    multiplication: a field scalar times an EC point produces a point on the
+    same curve (lowered to elliptic_curve.scalar_mul). That mixed form is not a
+    most-specific reconciliation of the operands, so it is inferred and verified
+    explicitly rather than through the shared compatible-type trait.
 
     See:
     https://github.com/openxla/stablehlo/blob/main/docs/spec.md#multiply
@@ -984,6 +991,21 @@ def StableHLO_MulOp : StableHLO_BinaryElementwiseOp<"multiply",
     %result = stablehlo.multiply %lhs, %rhs : tensor<2xi32>
     ```
   }];
+
+  let extraClassDeclaration = binaryElementwiseOpCommonClassDeclaration # [{
+    static LogicalResult inferReturnTypes(
+        MLIRContext * /*context*/, std::optional<Location> location,
+        ValueRange operands, DictionaryAttr /*attributes*/,
+        PropertyRef /*properties*/, RegionRange /*regions*/,
+        SmallVectorImpl<Type> &inferredReturnTypes) {
+      // Defined in TypeInference.cpp so the field/EC scalar-mul case can use
+      // prime_ir types without leaking them into this header.
+      return ::mlir::hlo::inferMulOp(location, operands.getTypes(),
+                                     inferredReturnTypes);
+    }
+  }];
+
+  let hasVerifier = 1;
 }
 
 def StableHLO_PowOp : StableHLO_Op<"power",
@@ -1015,10 +1037,10 @@ def StableHLO_PowOp : StableHLO_Op<"power",
     ```
   }];
   let arguments = (ins
-    HLO_IntFpOrComplexOrQuantizedIntTensor:$lhs,
+    HLO_IntFpOrComplexOrQuantizedIntOrFieldTensor:$lhs,
     HLO_IntFpOrComplexOrQuantizedIntTensor:$rhs
   );
-  let results = (outs HLO_IntFpOrComplexOrQuantizedIntTensor:$result);
+  let results = (outs HLO_IntFpOrComplexOrQuantizedIntOrFieldTensor:$result);
 
   let assemblyFormat = [{
     $lhs `,` $rhs attr-dict
@@ -1118,11 +1140,18 @@ def StableHLO_ShiftRightLogicalOp : StableHLO_BinaryElementwiseOp<"shift_right_l
 }
 
 def StableHLO_SubtractOp : StableHLO_BinaryElementwiseOp<"subtract",
-      [HLO_CompatibleOperandsAndResultType], HLO_IntFpOrComplexOrQuantizedIntTensor> {
+      [InferTypeOpInterface,
+      DeclareOpInterfaceMethods<InferShapedTypeOpInterface, ["inferReturnTypeComponents"]>],
+      HLO_IntFpOrComplexOrQuantizedIntOrFieldOrPointTensor> {
   let summary = "Subtract operation";
   let description = [{
     Performs element-wise subtraction of two tensors `lhs` and `rhs` and
     produces a `result` tensor.
+
+    For the field/EC overlay, subtraction of EC points follows the same
+    coordinate rules as addition (it lowers to elliptic_curve.sub, the add of
+    the inverse), so it shares add's verifier instead of the compatible-type
+    trait.
 
     See:
     https://github.com/openxla/stablehlo/blob/main/docs/spec.md#subtract
@@ -1132,6 +1161,27 @@ def StableHLO_SubtractOp : StableHLO_BinaryElementwiseOp<"subtract",
     %result = stablehlo.subtract %lhs, %rhs : tensor<2xi32>
     ```
   }];
+
+  let extraClassDeclaration = binaryElementwiseOpCommonClassDeclaration # [{
+    static LogicalResult inferReturnTypes(
+        MLIRContext * /*context*/, std::optional<Location> location,
+        ValueRange operands, DictionaryAttr /*attributes*/,
+        PropertyRef /*properties*/, RegionRange /*regions*/,
+        SmallVectorImpl<Type> &inferredReturnTypes) {
+      if (operands.empty())
+        return emitOptionalError(
+            location,
+            "Expected non-empty operands for SubtractOp::inferReturnTypes");
+
+      auto inferredTypeOrErr =
+          mlir::hlo::inferMostSpecificType(location, operands.getTypes());
+      if (failed(inferredTypeOrErr)) return failure();
+      inferredReturnTypes.emplace_back(*inferredTypeOrErr);
+      return success();
+    }
+  }];
+
+  let hasVerifier = 1;
 }
 
 //===----------------------------------------------------------------------===//

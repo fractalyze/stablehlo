@@ -67,6 +67,14 @@ LogicalResult checkDimsDistinct(std::optional<Location> loc,
 
 bool verifyCompatibleDims(int64_t dimSize1, int64_t dimSize2);
 
+// Element storage width in bits, field/EC-aware: complex doubles its element,
+// quantized uses its storage type, prime_ir field types report their own
+// storage width, and an EC point is numCoords * base-field width. Falls back
+// to getIntOrFloatBitWidth for builtin int/float. Use this instead of
+// getIntOrFloatBitWidth on any type that may carry a prime_ir element type —
+// getIntOrFloatBitWidth segfaults on non-int/float types.
+unsigned getBitWidth(Type type);
+
 // WindowDimension described how the kernel window moves across the base area
 // in a particular dimension.
 // Describes the windowing in an operation such as convolution.
@@ -435,6 +443,12 @@ LogicalResult inferWhileOp(std::optional<Location> location, ValueRange operand,
 //===----------------------------------------------------------------------===//
 
 LogicalResult verifyAddOp(std::optional<Location> location, Operation* op,
+                          Type lhsType, Type rhsType, Type resultType);
+
+LogicalResult verifySubtractOp(std::optional<Location> location, Operation* op,
+                               Type lhsType, Type rhsType, Type resultType);
+
+LogicalResult verifyMulOp(std::optional<Location> location, Operation* op,
                           Type lhsType, Type rhsType, Type resultType);
 
 LogicalResult verifyPowOp(std::optional<Location> location, Type lhsType,
