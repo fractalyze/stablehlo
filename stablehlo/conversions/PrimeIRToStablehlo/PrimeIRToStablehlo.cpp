@@ -239,6 +239,21 @@ struct ConvertECScalarMulBack
   }
 };
 
+/// elliptic_curve.convert_point_type → stablehlo.convert. The inverse of
+/// ConvertECConvert; without it, point-representation converts (e.g.
+/// affine → jacobian from `astype`) leak out of the canonicalize round-trip
+/// as prime-ir ops and fail HLO export.
+struct ConvertECConvertPointTypeBack
+    : public OpRewritePattern<prime_ir::elliptic_curve::ConvertPointTypeOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(prime_ir::elliptic_curve::ConvertPointTypeOp op,
+                                PatternRewriter &rewriter) const override {
+    rewriter.replaceOpWithNewOp<ConvertOp>(op, op.getType(), op.getInput());
+    return success();
+  }
+};
+
 }  // namespace
 
 void populatePrimeIRToStablehloPatterns(RewritePatternSet &patterns) {
@@ -250,7 +265,8 @@ void populatePrimeIRToStablehloPatterns(RewritePatternSet &patterns) {
            ConvertFieldInverseBack, ConvertFieldConstantBack>(ctx);
   // EC → StableHLO
   patterns.add<ConvertECAddBack, ConvertECSubBack, ConvertECNegBack,
-               ConvertECDoubleBack, ConvertECScalarMulBack>(ctx);
+               ConvertECDoubleBack, ConvertECScalarMulBack,
+               ConvertECConvertPointTypeBack>(ctx);
 }
 
 }  // namespace mlir::stablehlo

@@ -217,6 +217,26 @@ func.func @ec_convert_jacobian_to_affine(%j: tensor<4x!jac>)
 
 // -----
 
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!jac = !elliptic_curve.jacobian<#curve>
+
+// Identity EC convert folds to its operand: convert_point_type
+// verifier-rejects same-type conversion. Identity converts arise from
+// jax.export's shape-refinement convert wrappers after symbolic shapes
+// are refined.
+
+// CHECK-LABEL: func @ec_convert_identity
+// CHECK-SAME: (%[[ARG:.*]]: tensor<4x!jacobian>
+func.func @ec_convert_identity(%j: tensor<4x!jac>) -> tensor<4x!jac> {
+  // CHECK-NOT: elliptic_curve.convert_point_type
+  // CHECK-NOT: stablehlo.convert
+  // CHECK: return %[[ARG]]
+  %0 = stablehlo.convert %j : (tensor<4x!jac>) -> tensor<4x!jac>
+  func.return %0 : tensor<4x!jac>
+}
+
+// -----
+
 // Negative case: float ops are not field-typed, so the pass leaves them
 // alone. Guards against an over-eager pattern that ignores element type.
 

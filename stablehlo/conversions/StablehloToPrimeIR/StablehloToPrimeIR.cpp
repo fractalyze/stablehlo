@@ -171,6 +171,15 @@ struct ConvertECConvert : public OpRewritePattern<ConvertOp> {
                                 PatternRewriter &rewriter) const override {
     if (!hasECElementType(op.getOperand())) return failure();
     if (!hasECElementType(op.getResult())) return failure();
+    // Same-type convert is the identity; fold it away instead of emitting a
+    // convert_point_type the prime_ir verifier rejects ("Converting on same
+    // types"). Identity converts reach this pass e.g. from jax.export, which
+    // wraps arguments of re-imported modules in shape-refinement converts
+    // that become element-identity once symbolic shapes are refined.
+    if (op.getType() == op.getOperand().getType()) {
+      rewriter.replaceOp(op, op.getOperand());
+      return success();
+    }
     rewriter.replaceOpWithNewOp<prime_ir::elliptic_curve::ConvertPointTypeOp>(
         op, op.getType(), op.getOperand());
     return success();

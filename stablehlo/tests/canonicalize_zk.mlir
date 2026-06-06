@@ -375,3 +375,20 @@ func.func @divide_broadcast_field_constant_ef(%arg0: tensor<4x!ef4>) -> tensor<4
   %2 = stablehlo.divide %1, %arg0 : tensor<4x!ef4>
   return %2 : tensor<4x!ef4>
 }
+
+// -----
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!aff = !elliptic_curve.affine<#curve>
+!jac = !elliptic_curve.jacobian<#curve>
+
+// Point-representation converts must survive the round-trip as
+// stablehlo.convert — a leaked elliptic_curve.convert_point_type has no
+// HLO export and fails compilation.
+// CHECK-LABEL: @ec_convert_roundtrip
+func.func @ec_convert_roundtrip(%a: tensor<4x!aff>) -> tensor<4x!jac> {
+  // CHECK: stablehlo.convert %arg0 : (tensor<4x!{{.*}}>) -> tensor<4x!{{.*}}>
+  // CHECK-NOT: elliptic_curve.convert_point_type
+  %0 = stablehlo.convert %a : (tensor<4x!aff>) -> tensor<4x!jac>
+  return %0 : tensor<4x!jac>
+}
