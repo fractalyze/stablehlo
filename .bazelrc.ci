@@ -12,11 +12,39 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# CI bazel options for the self-hosted runners. The runner hosts keep a
-# persistent, disk-backed bazel-remote server shared across runs and branches.
-# The CI workflow copies this file to .bazelrc.user (try-imported by .bazelrc)
-# so every bazel invocation in the CI scripts — bazel-diff hashing, build,
-# test, docs — picks it up; a --bazelrc startup flag would have to be threaded
-# through each script invocation individually.
-build --remote_cache=grpc://127.0.0.1:9092
+# CI bazel options for the self-hosted runners. The CI workflow copies this
+# file to .bazelrc.user (try-imported by .bazelrc) so every bazel build/test
+# invocation in the CI scripts picks it up; a --bazelrc startup flag would
+# have to be threaded through each script invocation individually.
+#
+# `build` (not `common`) activation: the remote config only defines
+# build:remote stanzas, and a config that expands to nothing for a command
+# is a hard error — `common` breaks `bazel query` (bazel-diff hashing).
+# build-class rc lines inherit to test/run, so coverage is unchanged.
+#
+# Remote execution on Buildbarn: one shared sharded CAS/AC for every runner
+# host AND local dev (replaces the per-host bazel-remote daemons, whose
+# host-local caches made each runner a cache island). Builds AND tests fan
+# out to the spot worker fleet.
+#
+# Each runner host needs the mTLS client material at /etc/rbe-certs/
+# ({ca,client}.pem, client.key — readable by the runner user). Auth is the
+# client cert, not source IP.
+build --config=remote
+build:remote --remote_executor=grpcs://43.201.213.94:8980
+build:remote --remote_cache=grpcs://43.201.213.94:8980
+build:remote --tls_certificate=/etc/rbe-certs/ca.pem
+build:remote --tls_client_certificate=/etc/rbe-certs/client.pem
+build:remote --tls_client_key=/etc/rbe-certs/client.key
+build:remote --remote_retries=8
+# Root REAPI instance name, overriding the checked-in `main`: the Buildbarn
+# workers advertise the root instance prefix and every cache entry lives
+# there — a non-empty instance name here would silently fork the AC/CAS
+# namespace away from dev builds and pay every action twice.
+build:remote --remote_instance_name=
 test --test_output=errors
+# Self-heal lost CAS blobs (storage-node restart inside the persistence
+# epoch window, block-rotation eviction): on a missing-blob error bazel
+# invalidates the stale AC entry and re-executes the producing action
+# instead of failing the build (exit 39).
+build:remote --experimental_remote_cache_eviction_retries=5

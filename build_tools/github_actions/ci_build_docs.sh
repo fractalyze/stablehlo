@@ -50,7 +50,11 @@ targets[":stablehlo_builder_inc_filegroup"]="bazel-bin/stablehlo/integrations/cp
 targets[":chlo_builder_inc_filegroup"]="bazel-bin/stablehlo/integrations/cpp/builder/ChloBuilder.md"
 targets[":func_builder_inc_filegroup"]="bazel-bin/stablehlo/integrations/cpp/builder/FuncBuilder.md"
 
-bazel build "${!targets[@]}"
+# --remote_download_outputs=all: the .md files copied below are sibling
+# outputs of the *_inc_gen rules, not declared outputs of the filegroup
+# targets, so the default toplevel download mode under remote execution
+# never materializes them in bazel-bin. Harmless for local execution.
+bazel build --remote_download_outputs=all "${!targets[@]}"
 
 cp "${targets[@]}" docs/generated
 
