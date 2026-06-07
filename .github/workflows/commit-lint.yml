@@ -12,7 +12,10 @@ on:
 jobs:
   lint:
     if: github.actor != 'fractalyze-dev'
-    runs-on: [self-hosted, cpu]
+    # GH-hosted: the job is a seconds-long message check with no repo build
+    # deps; keeping it off the self-hosted runners means PR merges never
+    # queue behind long bazel jobs for a lint verdict.
+    runs-on: ubuntu-22.04
     name: Commit Lint
     permissions:
       contents: read

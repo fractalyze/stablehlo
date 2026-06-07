@@ -23,9 +23,10 @@ build --host_cxxopt=-fno-rtti
 # this only works for Clang toolchain AFAIK
 # https://github.com/bazelbuild/bazel/pull/11440
 build --features=layering_check
-# Set the default compiler to the `clang` binary on the `PATH`.
-# TODO(fzakaria): Make this a toolchain or hermetic somehow
-build --repo_env=CC=clang
+# Use the hermetic toolchains_llvm clang registered in WORKSPACE.bazel via
+# C++ toolchain resolution (default-on in Bazel 7; set explicitly for clarity)
+# instead of whatever `clang` sits on the worker PATH.
+build --incompatible_enable_cc_toolchain_resolution
 
 # turn on fission https://gcc.gnu.org/wiki/DebugFission
 # this separates the debug information and can improve link times
@@ -84,5 +85,39 @@ common --noenable_bzlmod --enable_workspace
 # Checked in (not left to user rc files) so CI and local builds produce the
 # same keys and can share the bazel-remote cache.
 build --incompatible_strict_action_env
+
+# ----------------------------------------------------------------------------
+# Remote build execution (NativeLink RBE pool).
+#
+# Opt-in via `--config=remote`. The endpoint is a placeholder; the real
+# DNS/EIP is set at provisioning. One NativeLink node serves execution + CAS +
+# AC behind a single grpcs listener (:50051).
+#
+# The :50051 listener is mTLS: --tls_certificate=<infra ca.pem> (server-trust)
+# plus --tls_client_certificate=<client.pem> + --tls_client_key=<client.key> (the
+# mTLS client leaf, CN=bazel-client, from infra gen-tls.sh) are passed
+# per-invocation / via CI env, never checked in (the paths are machine-local).
+#
+# Override ordering note: .bazelrc.user (try-import'd below) sets an
+# unconditional `build --remote_cache=grpc://127.0.0.1:9092`. Bazel reads rc
+# files top-to-bottom and inlines `--config=remote` expansion AFTER all rc
+# files, so these `build:remote` flags are applied last and the grpcs endpoint
+# wins cleanly (later flag for the same option). Verified with
+# `bazel info --config=remote --announce_rc`. If .bazelrc.user is ever moved to
+# load after a future command-line config expansion, this override would break.
+build:remote --remote_executor=grpcs://rbe.fractalyze.internal:50051
+build:remote --remote_cache=grpcs://rbe.fractalyze.internal:50051
+build:remote --remote_instance_name=main
+build:remote --remote_download_minimal
+build:remote --jobs=256
+# --digest_function is a STARTUP option (Bazel 7.x), so it cannot be scoped to
+# config=remote. SHA256 is already Bazel 7.7's default; NativeLink's CAS is
+# SHA256 content-addressed, so the client digest matches the CAS without an
+# explicit pin. Left comment-only: a `startup --digest_function` flag forces a
+# server restart and applies to every invocation, not just remote. Add one only
+# if a future default change requires it.
+build:remote --extra_execution_platforms=//build_tools/rbe:linux_remote
+build:remote --remote_timeout=3600
+# ----------------------------------------------------------------------------
 
 try-import %workspace%/.bazelrc.user
