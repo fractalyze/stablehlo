@@ -1,0 +1,37 @@
+# Copyright 2026 The StableHLO Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Pin Bump
+
+on:
+  repository_dispatch:
+    types: [pin-bump]
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.BUMPER_GH_PAT }}
+
+      - name: Route and bump pin
+        uses: fractalyze/github-actions/pin-bump@main
+        if: github.event.client_payload.source_repo == 'prime-ir'
+        with:
+          upstream_repo: prime-ir
+          upstream_commit: ${{ github.event.client_payload.commit }}
+          pin_file: third_party/prime_ir/workspace.bzl
+          var_prefix: PRIME_IR
+          github_token: ${{ secrets.BUMPER_GH_PAT }}
