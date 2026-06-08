@@ -87,13 +87,15 @@ common --noenable_bzlmod --enable_workspace
 build --incompatible_strict_action_env
 
 # ----------------------------------------------------------------------------
-# Remote build execution (NativeLink RBE pool).
+# Remote build execution (Buildbarn).
 #
-# Opt-in via `--config=remote`. The endpoint is a placeholder; the real
-# DNS/EIP is set at provisioning. One NativeLink node serves execution + CAS +
-# AC behind a single grpcs listener (:50051).
+# Opt-in via `--config=remote`. The endpoint here is a placeholder — the real
+# EIP + mTLS cert paths are supplied by the consumer: CI via .bazelrc.ci,
+# dev via .bazelrc.user (both override these grpcs lines, last-wins). One
+# Buildbarn node serves execution + CAS + AC behind a single grpcs listener
+# (:8980); the worker fleet autoscales behind it.
 #
-# The :50051 listener is mTLS: --tls_certificate=<infra ca.pem> (server-trust)
+# The :8980 listener is mTLS: --tls_certificate=<infra ca.pem> (server-trust)
 # plus --tls_client_certificate=<client.pem> + --tls_client_key=<client.key> (the
 # mTLS client leaf, CN=bazel-client, from infra gen-tls.sh) are passed
 # per-invocation / via CI env, never checked in (the paths are machine-local).
@@ -105,13 +107,16 @@ build --incompatible_strict_action_env
 # wins cleanly (later flag for the same option). Verified with
 # `bazel info --config=remote --announce_rc`. If .bazelrc.user is ever moved to
 # load after a future command-line config expansion, this override would break.
-build:remote --remote_executor=grpcs://rbe.fractalyze.internal:50051
-build:remote --remote_cache=grpcs://rbe.fractalyze.internal:50051
-build:remote --remote_instance_name=main
+build:remote --remote_executor=grpcs://rbe.fractalyze.internal:8980
+build:remote --remote_cache=grpcs://rbe.fractalyze.internal:8980
+# Root REAPI instance name: Buildbarn workers + every cache entry live on the
+# root instance. A non-empty name forks the AC/CAS namespace and pays every
+# action twice (consumers must not override this to a non-empty value).
+build:remote --remote_instance_name=
 build:remote --remote_download_minimal
 build:remote --jobs=256
 # --digest_function is a STARTUP option (Bazel 7.x), so it cannot be scoped to
-# config=remote. SHA256 is already Bazel 7.7's default; NativeLink's CAS is
+# config=remote. SHA256 is already Bazel 7.7's default; Buildbarn's CAS is
 # SHA256 content-addressed, so the client digest matches the CAS without an
 # explicit pin. Left comment-only: a `startup --digest_function` flag forces a
 # server restart and applies to every invocation, not just remote. Add one only
