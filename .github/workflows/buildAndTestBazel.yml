@@ -86,11 +86,18 @@ jobs:
     - name: Build and Test StableHLO (Diff Only)
       if: ${{ github.event_name == 'pull_request' }}
       shell: bash
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         START_HASH=${{ github.event.pull_request.base.sha }}
         END_HASH=${{ github.event.pull_request.head.sha }}
         BAZEL_DIFF=/tmp/bazel-diff.jar
-        curl -Lo "$BAZEL_DIFF" https://github.com/Tinder/bazel-diff/releases/download/17.0.2/bazel-diff_deploy.jar
+        # Fetch via the release API rather than the browser-download CDN: the
+        # latter intermittently 504s and a bare `curl -Lo` would save the HTML
+        # error page as a corrupt jar. `gh` validates the asset and --clobber
+        # overwrites any stale file at the target path.
+        gh release download 17.0.2 --repo Tinder/bazel-diff \
+          --pattern bazel-diff_deploy.jar --output "$BAZEL_DIFF" --clobber
         ./build_tools/github_actions/ci_build_bazel.sh "$BAZEL_DIFF" "$START_HASH" "$END_HASH"
 
     - name: Build and Test StableHLO (All)
