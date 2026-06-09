@@ -116,6 +116,113 @@ struct ConvertFieldConstant : public OpRewritePattern<ConstantOp> {
   }
 };
 
+// Match an integer element width to `targetTy`'s by zero-extend / truncate,
+// returning the value unchanged when widths already agree.
+static Value matchIntWidth(PatternRewriter &rewriter, Location loc, Value v,
+                           ShapedType targetTy) {
+  unsigned srcW =
+      cast<IntegerType>(getElementTypeOrSelf(v.getType())).getWidth();
+  unsigned dstW = cast<IntegerType>(targetTy.getElementType()).getWidth();
+  if (srcW == dstW) return v;
+  if (srcW < dstW)
+    return arith::ExtUIOp::create(rewriter, loc, targetTy, v).getResult();
+  return arith::TruncIOp::create(rewriter, loc, targetTy, v).getResult();
+}
+
+// stablehlo.convert between an integer tensor and a prime-field tensor.
+//
+// The tiled (xtile) emitter emits this op verbatim. Without a lowering here it
+// survives field->storage scalarization as a scalar `stablehlo.convert i32 ->
+// i32`, which both skips Montgomery encoding (a silent wrong-value bug) and
+// crashes LoopInvariantCodeMotion: its `isPure` query runs ConvertOp's
+// SpeculatableIfStaticDimInOutputIsStaticInInput trait, which casts the
+// now-scalar operand to RankedTensorType.
+//
+//   int -> prime field: reinterpret the integer as the field's standard-form
+//   storage (width-matched) via field.bitcast, then field.to_mont when the
+//   target is Montgomery.
+//   prime field -> int: the inverse (from_mont, bitcast to storage, widen).
+//
+// Mirrors the scalar elemental EmitZkFieldConvert (xla_fork
+// elemental_hlo_to_mlir.cc); here the ops stay tensor-typed and a later pass
+// scalarizes them.
+//
+// Extension-field operands are out of scope: field.ext_from_coeffs /
+// ext_to_coeffs reject tensors ("cannot be applied elementwise"), so the EF
+// coefficient embedding cannot be expressed at this tensor level. Such
+// converts are left untouched for a follow-up.
+struct ConvertFieldConvert : public OpRewritePattern<ConvertOp> {
+  using OpRewritePattern::OpRewritePattern;
+  LogicalResult matchAndRewrite(ConvertOp op,
+                                PatternRewriter &rewriter) const override {
+    Type inElem = getElementTypeOrSelf(op.getOperand().getType());
+    Type outElem = getElementTypeOrSelf(op.getType());
+    bool inField = isa<FieldTypeInterface>(inElem);
+    bool outField = isa<FieldTypeInterface>(outElem);
+    if (!inField && !outField) return failure();
+
+    // Same field type is the identity (e.g. jax.export shape-refinement
+    // converts that become element-identity once symbolic shapes resolve).
+    if (op.getType() == op.getOperand().getType()) {
+      rewriter.replaceOp(op, op.getOperand());
+      return success();
+    }
+
+    Location loc = op.getLoc();
+
+    // int -> prime field.
+    if (!inField && outField) {
+      auto pfTy = dyn_cast<prime_ir::field::PrimeFieldType>(outElem);
+      auto srcShaped = dyn_cast<ShapedType>(op.getOperand().getType());
+      if (!pfTy || !isa<IntegerType>(inElem) || !srcShaped) return failure();
+      Type stdResTy = prime_ir::field::getStandardFormType(op.getType());
+      auto storageInt =
+          cast<prime_ir::field::PrimeFieldType>(getElementTypeOrSelf(stdResTy))
+              .getStorageType();
+      Value asStorage = matchIntWidth(rewriter, loc, op.getOperand(),
+                                      srcShaped.clone(storageInt));
+      Value fieldStd = prime_ir::field::BitcastOp::create(rewriter, loc,
+                                                          stdResTy, asStorage);
+      Value result = pfTy.isMontgomery()
+                         ? prime_ir::field::ToMontOp::create(
+                               rewriter, loc, op.getType(), fieldStd)
+                               .getResult()
+                         : fieldStd;
+      rewriter.replaceOp(op, result);
+      return success();
+    }
+
+    // prime field -> int.
+    if (inField && !outField) {
+      auto pfTy = dyn_cast<prime_ir::field::PrimeFieldType>(inElem);
+      auto dstInt = dyn_cast<IntegerType>(outElem);
+      auto resShaped = dyn_cast<ShapedType>(op.getType());
+      if (!pfTy || !dstInt || !resShaped) return failure();
+      Type stdSrcTy =
+          prime_ir::field::getStandardFormType(op.getOperand().getType());
+      auto storageInt =
+          cast<prime_ir::field::PrimeFieldType>(getElementTypeOrSelf(stdSrcTy))
+              .getStorageType();
+      // Narrowing field -> int is unsupported (the scalar emitter rejects it
+      // too); leave it untouched rather than silently truncating.
+      if (dstInt.getWidth() < storageInt.getWidth()) return failure();
+      Value canonical = pfTy.isMontgomery()
+                            ? prime_ir::field::FromMontOp::create(
+                                  rewriter, loc, stdSrcTy, op.getOperand())
+                                  .getResult()
+                            : op.getOperand();
+      Value asInt = prime_ir::field::BitcastOp::create(
+          rewriter, loc, resShaped.clone(storageInt), canonical);
+      Value result = matchIntWidth(rewriter, loc, asInt, resShaped);
+      rewriter.replaceOp(op, result);
+      return success();
+    }
+
+    // Both sides field (EF embedding / field<->field Mont change): deferred.
+    return failure();
+  }
+};
+
 //===----------------------------------------------------------------------===//
 // EC type conversion patterns
 //===----------------------------------------------------------------------===//
@@ -302,8 +409,9 @@ struct ConvertPairingCheck : public OpRewritePattern<PairingCheckOp> {
 
 void populateStablehloToPrimeIRArithPatterns(RewritePatternSet &patterns) {
   MLIRContext *ctx = patterns.getContext();
-  patterns.add<ConvertFieldAdd, ConvertFieldSub, ConvertFieldMul,
-               ConvertFieldDiv, ConvertFieldNeg, ConvertFieldConstant>(ctx);
+  patterns
+      .add<ConvertFieldAdd, ConvertFieldSub, ConvertFieldMul, ConvertFieldDiv,
+           ConvertFieldNeg, ConvertFieldConstant, ConvertFieldConvert>(ctx);
   patterns.add<ConvertECAdd, ConvertECSub, ConvertECNeg, ConvertECScalarMul,
                ConvertECConvert>(ctx);
 }
