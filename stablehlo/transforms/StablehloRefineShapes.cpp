@@ -564,11 +564,14 @@ struct RefineBitcastConvertOpPattern
     if (operandBitWidth == resultBitWidth)
       return refineReturnShape(rewriter, op, operandType.getShape());
 
-    // Differing element widths change the rank by one (bitcast_convert_c1):
-    // the smaller-element side carries a trailing limb axis of
-    // bigger/smaller. Mirror verifyBitcastConvertOp's shape relation. The
-    // operand is already refined (bottom-up), so derive the result shape from
-    // it. EF->PF (widen→narrow) appends the limb axis; PF->EF drops it.
+    // Cross-width bitcast_convert changes rank by exactly one (spec
+    // bitcast_convert_c1): the narrower-element side carries one trailing axis
+    // of size bigger/smaller-width — the storage ratio of the two element
+    // types (e.g. an extension field's degree over its base field; for a tower
+    // it is the relative degree of this single bitcast step, always one axis,
+    // never more). Mirror verifyBitcastConvertOp so verify and refine agree on
+    // the shape. The operand is already refined (bottom-up), so a wider operand
+    // element (EF->PF) appends that axis and a narrower one (PF->EF) drops it.
     SmallVector<int64_t> refinedShape(operandType.getShape());
     if (operandBitWidth > resultBitWidth)
       refinedShape.push_back(operandBitWidth / resultBitWidth);
