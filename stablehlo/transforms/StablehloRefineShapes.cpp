@@ -272,10 +272,9 @@ class RefinementKey {
 
   // stablehlo.composite refines like a call: its decomposition is a FuncOp.
   static FailureOr<RefinementKey> fromCompositeOp(CompositeOp compositeOp) {
-    return fromCallee(
-        compositeOp, compositeOp.getOperands(),
-        FlatSymbolRefAttr::get(compositeOp->getContext(),
-                               compositeOp.getDecomposition()));
+    return fromCallee(compositeOp, compositeOp.getOperands(),
+                      FlatSymbolRefAttr::get(compositeOp->getContext(),
+                                             compositeOp.getDecomposition()));
   }
 
   static FailureOr<RefinementKey> fromCallee(Operation* op, ValueRange operands,
