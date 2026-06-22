@@ -554,21 +554,29 @@ struct RefineBitcastConvertOpPattern
   LogicalResult matchAndRewrite(BitcastConvertOp op,
                                 PatternRewriter& rewriter) const override {
     auto operandType = op.getOperand().getType();
-
-    // If bit widths of the operand and the result are different, then
-    // operand and result shapes have different ranks.
-    // This complicates the logic quite a bit and is not needed to pass the
-    // current tests, so we leave this for future work.
     auto resultType = op.getType();
     // hlo::getBitWidth is field/EC-aware (getIntOrFloatBitWidth segfaults on
     // prime_ir types). Share it with the bitcast_convert verifier so both
     // sites agree on a field type's storage width — a divergent formula here
     // would let an op verify with one width and refine with another.
-    if (hlo::getBitWidth(operandType.getElementType()) !=
-        hlo::getBitWidth(resultType.getElementType()))
-      return rewriter.notifyMatchFailure(op, "unsupported bit width");
+    int64_t operandBitWidth = hlo::getBitWidth(operandType.getElementType());
+    int64_t resultBitWidth = hlo::getBitWidth(resultType.getElementType());
 
-    return refineReturnShape(rewriter, op, operandType.getShape());
+    if (operandBitWidth == resultBitWidth)
+      return refineReturnShape(rewriter, op, operandType.getShape());
+
+    // Differing element widths change the rank by one (bitcast_convert_c1):
+    // the smaller-element side carries a trailing limb axis of
+    // bigger/smaller. Mirror verifyBitcastConvertOp's shape relation. The
+    // operand is already refined (bottom-up), so derive the result shape from
+    // it. EF->PF (widen→narrow) appends the limb axis; PF->EF drops it.
+    SmallVector<int64_t> refinedShape(operandType.getShape());
+    if (operandBitWidth > resultBitWidth)
+      refinedShape.push_back(operandBitWidth / resultBitWidth);
+    else
+      refinedShape.pop_back();
+
+    return refineReturnShape(rewriter, op, refinedShape);
   }
 };
 

@@ -589,9 +589,12 @@ func.func @refine_all_gather_flattened_ids(%arg0: tensor<4x4xf32>) -> tensor<4x?
 
 // -----
 
+// Cross-width bitcast_convert is rank-changing: the smaller element type
+// carries a trailing limb axis of bigger/smaller. f32->i8 (32/8 = 4) appends
+// a size-4 axis, so the dynamic result refines ?x? -> 4x4.
 // CHECK-LABEL: func @refine_bitcast_convert_different_bitwidths
 func.func @refine_bitcast_convert_different_bitwidths(%arg0 : tensor<4xf32>) -> tensor<?x?xi8> {
-  // CHECK: stablehlo.bitcast_convert{{.*}} -> tensor<?x?xi8>
+  // CHECK: stablehlo.bitcast_convert{{.*}} -> tensor<4x4xi8>
   %0 = stablehlo.bitcast_convert %arg0 : (tensor<4xf32>) -> tensor<?x?xi8>
   func.return %0 : tensor<?x?xi8>
 }
@@ -1321,23 +1324,38 @@ func.func @refine_ntt(%arg0: tensor<8x!field.pf<2130706433 : i32, true>>) -> ten
 // now branches on PrimeFieldType / ExtensionFieldType before the
 // generic int/float path.
 //
-// The cross-width PF↔EF case (operand bit width != result bit width)
-// is rank-changing; the pattern intentionally bails with
-// "unsupported bit width" rather than refining (the rank-handling is
-// noted as future work in the source). Pre-fix the bail-out path
-// itself segfaulted because the bit-width check called
-// ``getIntOrFloatBitWidth()``. The CHECK below asserts the IR parses
-// and the pass exits cleanly — any output is acceptable.
+// The cross-width PF<->EF case (operand bit width != result bit width) is
+// rank-changing and mirrors verifyBitcastConvertOp's shape relation: the
+// smaller-element side carries a trailing limb axis of bigger/smaller. PF->EF
+// (32 -> 128) collapses the 4-limb trailing axis, so 4x4 PF refines to 4 EF.
 !pf_koalabear_mont = !field.pf<2130706433 : i32, true>
 !ef_koalabear_4 = !field.ef<4x!pf_koalabear_mont, 1040383999 : i32>
-// CHECK-LABEL: func @refine_bitcast_convert_field_type_no_crash
-func.func @refine_bitcast_convert_field_type_no_crash(
+// CHECK-LABEL: func @refine_bitcast_convert_pf_to_ef_collapses_limb_axis
+func.func @refine_bitcast_convert_pf_to_ef_collapses_limb_axis(
     %arg0: tensor<4x4x!pf_koalabear_mont>
 ) -> tensor<?x!ef_koalabear_4> {
-  // CHECK: stablehlo.bitcast_convert
+  // CHECK: stablehlo.bitcast_convert{{.*}} -> tensor<4x!field.ef<4x!pf_koalabear_mont, 1040383999 : i32>>
   %0 = stablehlo.bitcast_convert %arg0
     : (tensor<4x4x!pf_koalabear_mont>) -> tensor<?x!ef_koalabear_4>
   return %0 : tensor<?x!ef_koalabear_4>
+}
+
+// -----
+
+// EF->PF (128 -> 32) is the inverse: an EF tensor expands to PF with an
+// appended size-4 limb axis. This is the EF->PF limb expansion the symbolic-K
+// jagged-PCS transcript absorb relies on (tensor<kxEF> -> tensor<kx4xPF>); the
+// leading dim passes through, dynamic ? refines to 4.
+!pf_koalabear_mont = !field.pf<2130706433 : i32, true>
+!ef_koalabear_4 = !field.ef<4x!pf_koalabear_mont, 1040383999 : i32>
+// CHECK-LABEL: func @refine_bitcast_convert_ef_to_pf_appends_limb_axis
+func.func @refine_bitcast_convert_ef_to_pf_appends_limb_axis(
+    %arg0: tensor<4x!ef_koalabear_4>
+) -> tensor<?x?x!pf_koalabear_mont> {
+  // CHECK: stablehlo.bitcast_convert{{.*}} -> tensor<4x4x!pf_koalabear_mont>
+  %0 = stablehlo.bitcast_convert %arg0
+    : (tensor<4x!ef_koalabear_4>) -> tensor<?x?x!pf_koalabear_mont>
+  return %0 : tensor<?x?x!pf_koalabear_mont>
 }
 
 // -----
