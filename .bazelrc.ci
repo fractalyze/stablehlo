@@ -37,6 +37,14 @@ build:remote --tls_certificate=/etc/rbe-certs/ca.pem
 build:remote --tls_client_certificate=/etc/rbe-certs/client.pem
 build:remote --tls_client_key=/etc/rbe-certs/client.key
 build:remote --remote_retries=8
+# Self-heal a degraded CAS shard: if remote execution fails to obtain an action
+# or input (exit-34 FAILED_PRECONDITION "Shard N: Object not found" — a blob the
+# shard lost; bazel#21778, which --experimental_remote_cache_eviction_retries
+# does NOT cover), fall back to LOCAL execution on the runner. The local result
+# then uploads to CAS (--remote_upload_local_results defaults on), refilling the
+# hole, so subsequent remote builds find it. Unlike the exit-39 retry this also
+# covers freshly-changed actions whose new digests were never warmed.
+build:remote --remote_local_fallback
 # Root REAPI instance name, overriding the checked-in `main`: the Buildbarn
 # workers advertise the root instance prefix and every cache entry lives
 # there — a non-empty instance name here would silently fork the AC/CAS
