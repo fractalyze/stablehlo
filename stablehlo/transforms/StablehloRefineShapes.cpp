@@ -267,19 +267,30 @@ class RefinementKey {
         functionalArgumentTypes(functionalArgumentTypes) {}
 
   static FailureOr<RefinementKey> fromCallOp(func::CallOp callOp) {
-    LLVM_DEBUG(llvm::dbgs() << "RefinementKey::fromCallOp: "
-                            << callOp.getCalleeType() << "\n");
-    int64_t leadingTokenOperands = countLeadingTokenOperands(callOp);
-    SmallVector<APSInt> globalConstants =
-        getGlobalConstants(callOp, leadingTokenOperands);
-    SmallVector<Type> functionalArgumentTypes = getFunctionalArgumentTypes(
-        callOp, leadingTokenOperands, globalConstants.size());
+    return fromCallee(callOp, callOp.getOperands(), callOp.getCalleeAttr());
+  }
 
-    FlatSymbolRefAttr calleeName = callOp.getCalleeAttr();
-    const SymbolTable symbolTable(callOp->getParentOfType<ModuleOp>());
+  // stablehlo.composite refines like a call: its decomposition is a FuncOp.
+  static FailureOr<RefinementKey> fromCompositeOp(CompositeOp compositeOp) {
+    return fromCallee(compositeOp, compositeOp.getOperands(),
+                      FlatSymbolRefAttr::get(compositeOp->getContext(),
+                                             compositeOp.getDecomposition()));
+  }
+
+  static FailureOr<RefinementKey> fromCallee(Operation* op, ValueRange operands,
+                                             FlatSymbolRefAttr calleeName) {
+    LLVM_DEBUG(llvm::dbgs()
+               << "RefinementKey::fromCallee: " << calleeName << "\n");
+    int64_t leadingTokenOperands = countLeadingTokenOperands(operands);
+    SmallVector<APSInt> globalConstants =
+        getGlobalConstants(operands, leadingTokenOperands);
+    SmallVector<Type> functionalArgumentTypes = getFunctionalArgumentTypes(
+        operands, leadingTokenOperands, globalConstants.size());
+
+    const SymbolTable symbolTable(op->getParentOfType<ModuleOp>());
     auto callee = symbolTable.lookupNearestSymbolFrom<func::FuncOp>(
-        callOp, calleeName.getAttr());
-    if (!callee) return callOp.emitOpError() << "cannot resolve function call";
+        op, calleeName.getAttr());
+    if (!callee) return op->emitOpError() << "cannot resolve callee";
     return RefinementKey(callee, leadingTokenOperands, globalConstants,
                          functionalArgumentTypes);
   }
@@ -320,9 +331,9 @@ class RefinementKey {
   }
 
  private:
-  static int64_t countLeadingTokenOperands(func::CallOp callOp) {
+  static int64_t countLeadingTokenOperands(ValueRange operands) {
     int64_t nrLeadingTokenOperands = 0;
-    for (auto operand : callOp.getOperands()) {
+    for (auto operand : operands) {
       if (!isa<TokenType>(operand.getType())) break;
       nrLeadingTokenOperands++;
     }
@@ -332,10 +343,9 @@ class RefinementKey {
   // global-constant arguments follow token args, and are scalar integer
   // constants These represent the known values of symbolic shapes sizes. I.e.
   // tensor<Axf32> : A = constant(5)
-  static SmallVector<APSInt> getGlobalConstants(func::CallOp callOp,
+  static SmallVector<APSInt> getGlobalConstants(ValueRange operands,
                                                 int64_t leadingTokenOperands) {
     SmallVector<APSInt> globalConstants;
-    auto operands = callOp.getOperands();
     for (size_t i = leadingTokenOperands; i < operands.size(); ++i) {
       auto operandType = dyn_cast<RankedTensorType>(operands[i].getType());
       if (!operandType || operandType.getRank() != 0 ||
@@ -353,10 +363,9 @@ class RefinementKey {
   // arguments. These are the values that will remain after symbolic shape
   // refinement.
   static SmallVector<Type> getFunctionalArgumentTypes(
-      func::CallOp callOp, int64_t leadingTokenOperands,
+      ValueRange operands, int64_t leadingTokenOperands,
       int64_t globalConstantsSize) {
     SmallVector<Type> functionalArgumentTypes;
-    auto operands = callOp.getOperands();
     for (size_t i = leadingTokenOperands + globalConstantsSize;
          i < operands.size(); ++i) {
       functionalArgumentTypes.push_back(operands[i].getType());
@@ -544,21 +553,32 @@ struct RefineBitcastConvertOpPattern
   LogicalResult matchAndRewrite(BitcastConvertOp op,
                                 PatternRewriter& rewriter) const override {
     auto operandType = op.getOperand().getType();
-
-    // If bit widths of the operand and the result are different, then
-    // operand and result shapes have different ranks.
-    // This complicates the logic quite a bit and is not needed to pass the
-    // current tests, so we leave this for future work.
     auto resultType = op.getType();
     // hlo::getBitWidth is field/EC-aware (getIntOrFloatBitWidth segfaults on
     // prime_ir types). Share it with the bitcast_convert verifier so both
     // sites agree on a field type's storage width — a divergent formula here
     // would let an op verify with one width and refine with another.
-    if (hlo::getBitWidth(operandType.getElementType()) !=
-        hlo::getBitWidth(resultType.getElementType()))
-      return rewriter.notifyMatchFailure(op, "unsupported bit width");
+    int64_t operandBitWidth = hlo::getBitWidth(operandType.getElementType());
+    int64_t resultBitWidth = hlo::getBitWidth(resultType.getElementType());
 
-    return refineReturnShape(rewriter, op, operandType.getShape());
+    if (operandBitWidth == resultBitWidth)
+      return refineReturnShape(rewriter, op, operandType.getShape());
+
+    // Cross-width bitcast_convert changes rank by exactly one (spec
+    // bitcast_convert_c1): the narrower-element side carries one trailing axis
+    // of size bigger/smaller-width — the storage ratio of the two element
+    // types (e.g. an extension field's degree over its base field; for a tower
+    // it is the relative degree of this single bitcast step, always one axis,
+    // never more). Mirror verifyBitcastConvertOp so verify and refine agree on
+    // the shape. The operand is already refined (bottom-up), so a wider operand
+    // element (EF->PF) appends that axis and a narrower one (PF->EF) drops it.
+    SmallVector<int64_t> refinedShape(operandType.getShape());
+    if (operandBitWidth > resultBitWidth)
+      refinedShape.push_back(operandBitWidth / resultBitWidth);
+    else
+      refinedShape.pop_back();
+
+    return refineReturnShape(rewriter, op, refinedShape);
   }
 };
 
@@ -604,6 +624,46 @@ struct RefineCallOpPattern : public OpRewritePattern<func::CallOp> {
       LLVM_DEBUG(llvm::dbgs() << "Replaced call with " << op << "\n");
     }
     return refineReturnTypes(rewriter, op, callee.getResultTypes());
+  }
+
+ private:
+  RefineShapeState& state;
+};
+
+// Mirrors RefineCallOpPattern for stablehlo.composite: refine the decomposition
+// FuncOp for the concrete operand shapes, drop the global-constant (dim) args,
+// then refine the composite's result types.
+struct RefineCompositeOpPattern : public OpRewritePattern<CompositeOp> {
+  RefineCompositeOpPattern(MLIRContext* context, RefineShapeState& state)
+      : OpRewritePattern<CompositeOp>(context), state(state) {}
+
+  LogicalResult matchAndRewrite(CompositeOp op,
+                                PatternRewriter& rewriter) const override {
+    auto refinementKey = RefinementKey::fromCompositeOp(op);
+    if (failed(refinementKey)) return failure();
+    if (failed(refineFunction(*rewriter.getContext(), state, *refinementKey)))
+      return failure();
+
+    auto decomposition = refinementKey->getFunc();
+    if (!refinementKey->getGlobalConstants().empty()) {
+      // Refined decomposition no longer takes the dim args; drop them so we
+      // don't keep re-refining the new op.
+      SmallVector<Value> newOperands;
+      auto leadingTokenOperands =
+          op.getOperands().take_front(refinementKey->getLeadingTokenOperands());
+      auto functionalOperands = op.getOperands().take_back(
+          refinementKey->getFunctionalArgumentTypes().size());
+      newOperands.append(leadingTokenOperands.begin(),
+                         leadingTokenOperands.end());
+      newOperands.append(functionalOperands.begin(), functionalOperands.end());
+      auto newOp = CompositeOp::create(
+          rewriter, op.getLoc(), op.getResultTypes(), newOperands, op.getName(),
+          op.getCompositeAttributes(), decomposition.getSymName(),
+          op.getVersion());
+      rewriter.replaceOp(op, newOp.getResults());
+      op = newOp;
+    }
+    return refineReturnTypes(rewriter, op, decomposition.getResultTypes());
   }
 
  private:
@@ -1063,6 +1123,7 @@ LogicalResult applyShapeRefinementPatterns(func::FuncOp func,
 
   populateStablehloRefineShapesPatterns(context, &patterns);
   patterns.add<RefineCallOpPattern>(context, state);
+  patterns.add<RefineCompositeOpPattern>(context, state);
 
   // Populate additional patterns for StableHLO extensions.
   state.addAdditionalPatterns(patterns);
