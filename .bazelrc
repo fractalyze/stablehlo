@@ -123,6 +123,13 @@ build:remote --jobs=256
 # if a future default change requires it.
 build:remote --extra_execution_platforms=//build_tools/rbe:linux_remote
 build:remote --remote_timeout=3600
+# Stopgap: under the strict remote-exec input tree the hermetic toolchain's
+# modular gtest headers trip layering_check (mlir_builder_test #include
+# "gtest/gtest.h" -> "does not depend on a module exporting 'gtest/gtest.h'").
+# The non-strict local sandbox sees the header via a non-module include path
+# and tolerates it, so this only fires on the Buildbarn workers. Mirrors
+# xla_fork's config=remote carve-out for the same hermetic-headers class.
+build:remote --features=-layering_check
 # ----------------------------------------------------------------------------
 
 try-import %workspace%/.bazelrc.user
