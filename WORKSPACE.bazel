@@ -100,6 +100,13 @@ load("@toolchains_llvm//toolchain:rules.bzl", "llvm_toolchain")
 
 llvm_toolchain(
     name = "llvm_toolchain",
+    # Clang implicitly reads lib/clang/<major>/share/asan_ignorelist.txt under
+    # -fsanitize=address. toolchains_llvm doesn't put it in compiler_files, so a
+    # --config=asan build fails Bazel's strict-deps check with "undeclared
+    # inclusion(s)". extra_compiler_files folds the file into compiler-files so
+    # the inclusion is declared. Path uses the clang resource-dir major version
+    # (20), which tracks llvm_version's major below.
+    extra_compiler_files = "@llvm_toolchain_llvm//:lib/clang/20/share/asan_ignorelist.txt",
     llvm_version = "20.1.7",
     sysroot = {
         "linux-x86_64": "@org_chromium_sysroot_linux_x64//:sysroot",
