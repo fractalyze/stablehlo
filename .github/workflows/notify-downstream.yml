@@ -22,11 +22,11 @@ jobs:
   dispatch:
     runs-on: ubuntu-latest
     steps:
-      - name: Dispatch pin-bump to xla_fork
+      - name: Dispatch pin-bump to xla
         env:
           GH_TOKEN: ${{ secrets.BUMPER_GH_PAT }}
         run: |
-          gh api repos/fractalyze/xla_fork/dispatches \
+          gh api repos/fractalyze/xla/dispatches \
             -f event_type=pin-bump \
-            -f 'client_payload[source_repo]=stablehlo_fork' \
+            -f 'client_payload[source_repo]=stablehlo' \
             -f 'client_payload[commit]=${{ github.sha }}'
