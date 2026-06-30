@@ -946,13 +946,24 @@ struct FoldConcatenateAdjacentSplatsOpPattern final
           continue;
         }
 
-        // Resize the splat and append it to the new operands.
-        SmallVector<int64_t> newShape =
-            llvm::to_vector(currSplat.getType().getShape());
-        newShape[op.getDimension()] *= nOccurrences;
+        // Resize the splat and append it to the new operands. The splat's
+        // value attr is storage-typed, so its element type (and, for EC-point
+        // constants, its trailing coordinate dims) differs from the operand's
+        // result type. Build the merged constant with the operand's result
+        // type — resizing the result and storage shapes separately along the
+        // concatenation dim — so the rewritten concatenate stays well-typed.
+        // For plain int/float splats the two types coincide.
+        auto resultType = cast<ShapedType>(operand.getType());
+        auto storageType = cast<ShapedType>(currSplat.getType());
+        SmallVector<int64_t> newResultShape =
+            llvm::to_vector(resultType.getShape());
+        SmallVector<int64_t> newStorageShape =
+            llvm::to_vector(storageType.getShape());
+        newResultShape[op.getDimension()] *= nOccurrences;
+        newStorageShape[op.getDimension()] *= nOccurrences;
         newOperands.push_back(ConstantOp::create(
-            rewriter, op.getLoc(),
-            currSplat.resizeSplat(currSplat.getType().clone(newShape))));
+            rewriter, op.getLoc(), resultType.clone(newResultShape),
+            currSplat.resizeSplat(storageType.clone(newStorageShape))));
 
         // Set `i` to j-1 so that next iteration processes the next operand.
         i = j - 1;
