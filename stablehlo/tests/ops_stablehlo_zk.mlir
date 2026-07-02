@@ -620,6 +620,18 @@ func.func @ntt_with_generator(%x: tensor<1024x!pf_babybear_mont>) -> tensor<1024
   func.return %0 : tensor<1024x!pf_babybear_mont>
 }
 
+// CHECK-LABEL: func @negacyclic_ntt_1d
+func.func @negacyclic_ntt_1d(%x: tensor<1024x!pf_babybear_mont>) -> tensor<1024x!pf_babybear_mont> {
+  %0 = stablehlo.ntt %x, type = NEGACYCLIC_NTT, length = 1024 : tensor<1024x!pf_babybear_mont>
+  func.return %0 : tensor<1024x!pf_babybear_mont>
+}
+
+// CHECK-LABEL: func @negacyclic_intt_1d
+func.func @negacyclic_intt_1d(%x: tensor<1024x!pf_babybear_mont>) -> tensor<1024x!pf_babybear_mont> {
+  %0 = stablehlo.ntt %x, type = NEGACYCLIC_INTT, length = 1024 : tensor<1024x!pf_babybear_mont>
+  func.return %0 : tensor<1024x!pf_babybear_mont>
+}
+
 // -----
 
 // =============================================================================
