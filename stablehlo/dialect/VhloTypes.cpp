@@ -205,6 +205,10 @@ void VhloTypeConverter::addBuiltinToVhloConversions() {
     return ExtensionFieldV1Type::get(type.getContext(), type.getDegree(),
                                      convertedBaseField, type.getNonResidue());
   });
+  addConversion([&](prime_ir::field::BinaryFieldType type) -> Type {
+    return BinaryFieldV1Type::get(type.getContext(), type.getTowerLevel(),
+                                  type.getIsGhash());
+  });
   addConversion([&](prime_ir::elliptic_curve::AffineType type) -> Type {
     return AffineV1Type::get(type.getContext(), type.getCurve());
   });
@@ -388,6 +392,10 @@ void VhloTypeConverter::addVhloToBuiltinConversions() {
     return prime_ir::field::ExtensionFieldType::get(
         type.getContext(), type.getDegree(), convertedBaseField,
         type.getNonResidue());
+  });
+  addConversion([&](BinaryFieldV1Type type) -> Type {
+    return prime_ir::field::BinaryFieldType::get(
+        type.getContext(), type.getTowerLevel(), type.getIsGhash());
   });
   addConversion([&](AffineV1Type type) -> Type {
     auto curve = dyn_cast<prime_ir::elliptic_curve::ShortWeierstrassAttr>(
