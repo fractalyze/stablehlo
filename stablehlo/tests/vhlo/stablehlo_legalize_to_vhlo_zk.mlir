@@ -161,3 +161,21 @@ func.func @op_negate_xyzz(%arg0: tensor<4x!ec_xyzz>) -> tensor<4x!ec_xyzz> {
   %0 = stablehlo.negate %arg0 : tensor<4x!ec_xyzz>
   func.return %0 : tensor<4x!ec_xyzz>
 }
+
+// Binary field round-trip + downgrade (covers vhlo.bf_v1 bytecode codes). The
+// isGhash flag must survive: !field.bf<7, ghash> (flat GHASH basis, 2*3 = 6) is
+// a distinct type from the tower !field.bf<7> (2*3 = 1).
+// LEGALIZE-LABEL: "op_bf_ghash_passthrough"
+// LEGALIZE: !vhlo.bf_v1<7, true>
+// DOWNGRADE-LABEL: vhlo.func_v1 @op_bf_ghash_passthrough
+// DOWNGRADE: vhlo.add_v1
+// DOWNGRADE-SAME: !vhlo.bf_v1<7, true>
+// ROUNDTRIP-LABEL: @op_bf_ghash_passthrough
+// ROUNDTRIP: stablehlo.add
+// ROUNDTRIP-SAME: !field.bf<7, ghash>
+func.func @op_bf_ghash_passthrough(
+    %arg0: tensor<4x!field.bf<7, ghash>>
+  ) -> tensor<4x!field.bf<7, ghash>> {
+  %0 = stablehlo.add %arg0, %arg0 : tensor<4x!field.bf<7, ghash>>
+  func.return %0 : tensor<4x!field.bf<7, ghash>>
+}

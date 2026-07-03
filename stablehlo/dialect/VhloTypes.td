@@ -394,6 +394,15 @@ def VHLO_ExtensionFieldV1 : VHLO_TypeDef<"ExtensionFieldV1", "ef_v1", "1.13.0", 
   let assemblyFormat = "`<` $degree `x` $baseField `,` $nonResidue `>`";
 }
 
+// Corresponds to field::BinaryFieldType from the prime_ir dialect.
+def VHLO_BinaryFieldV1 : VHLO_TypeDef<"BinaryFieldV1", "bf_v1", "1.13.0", "current"> {
+  let parameters = (ins
+    "unsigned":$towerLevel,
+    "bool":$isGhash
+  );
+  let assemblyFormat = "`<` $towerLevel `,` $isGhash `>`";
+}
+
 // Corresponds to elliptic_curve::AffineType from the prime_ir dialect.
 def VHLO_AffineV1 : VHLO_TypeDef<"AffineV1", "affine_v1", "1.13.0", "current"> {
   let parameters = (ins "::mlir::Attribute":$curve);

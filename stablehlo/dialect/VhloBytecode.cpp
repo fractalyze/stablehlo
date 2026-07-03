@@ -468,6 +468,12 @@ enum TypeCode {
   ///   }
   kExtensionFieldV1Type = 48,
 
+  ///   BinaryFieldV1Type {
+  ///     towerLevel: varint
+  ///     isGhash: varint
+  ///   }
+  kBinaryFieldV1Type = 52,
+
   ///   AffineV1Type {
   ///     curve: Attribute
   ///   }
@@ -609,6 +615,7 @@ class VhloBytecodeInterface : public BytecodeDialectInterface {
   RankedBufferV1Type readRankedBufferV1Type(
       DialectBytecodeReader& reader) const;
   PrimeFieldV1Type readPrimeFieldV1Type(DialectBytecodeReader& reader) const;
+  BinaryFieldV1Type readBinaryFieldV1Type(DialectBytecodeReader& reader) const;
   ExtensionFieldV1Type readExtensionFieldV1Type(
       DialectBytecodeReader& reader) const;
   AffineV1Type readAffineV1Type(DialectBytecodeReader& reader) const;
@@ -629,6 +636,7 @@ class VhloBytecodeInterface : public BytecodeDialectInterface {
   void write(UnrankedTensorV1Type type, DialectBytecodeWriter& writer) const;
   void write(RankedBufferV1Type type, DialectBytecodeWriter& writer) const;
   void write(PrimeFieldV1Type type, DialectBytecodeWriter& writer) const;
+  void write(BinaryFieldV1Type type, DialectBytecodeWriter& writer) const;
   void write(ExtensionFieldV1Type type, DialectBytecodeWriter& writer) const;
   void write(AffineV1Type type, DialectBytecodeWriter& writer) const;
   void write(JacobianV1Type type, DialectBytecodeWriter& writer) const;
@@ -1341,6 +1349,8 @@ Type VhloBytecodeInterface::readType(DialectBytecodeReader& reader) const {
       return readRankedBufferV1Type(reader);
     case vhlo_encoding::kPrimeFieldV1Type:
       return readPrimeFieldV1Type(reader);
+    case vhlo_encoding::kBinaryFieldV1Type:
+      return readBinaryFieldV1Type(reader);
     case vhlo_encoding::kExtensionFieldV1Type:
       return readExtensionFieldV1Type(reader);
     case vhlo_encoding::kAffineV1Type:
@@ -1362,11 +1372,12 @@ LogicalResult VhloBytecodeInterface::writeType(
       .Case<ComplexV1Type, FunctionV1Type, RankedTensorV1Type, TokenV1Type,
             FutureV1Type, TupleV1Type, UnrankedTensorV1Type,
             UniformQuantizedPerAxisV1Type, UniformQuantizedV1Type,
-            RankedBufferV1Type, PrimeFieldV1Type, ExtensionFieldV1Type,
-            AffineV1Type, JacobianV1Type, XYZZV1Type>([&](auto type) {
-        LOG_WRITE_CALL;
-        return write(type, writer), success();
-      })
+            RankedBufferV1Type, PrimeFieldV1Type, BinaryFieldV1Type,
+            ExtensionFieldV1Type, AffineV1Type, JacobianV1Type, XYZZV1Type>(
+          [&](auto type) {
+            LOG_WRITE_CALL;
+            return write(type, writer), success();
+          })
       .Case([&](BooleanV1Type) {
         LOG_WRITE_CALL;
         return writer.writeVarInt(vhlo_encoding::kBooleanV1Type), success();
@@ -1817,6 +1828,29 @@ void VhloBytecodeInterface::write(PrimeFieldV1Type type,
   writer.writeVarInt(vhlo_encoding::kPrimeFieldV1Type);
   writer.writeAttribute(type.getModulus());
   writer.writeVarInt(type.getIsMontgomery() ? 1 : 0);
+}
+
+//===----------------------------------------------------------------------===//
+// BinaryFieldV1Type
+//===----------------------------------------------------------------------===//
+
+BinaryFieldV1Type VhloBytecodeInterface::readBinaryFieldV1Type(
+    DialectBytecodeReader& reader) const {
+  LOG_READ_CALL;
+  uint64_t towerLevel = 0;
+  uint64_t isGhash = 0;
+  if (failed(reader.readVarInt(towerLevel)) ||
+      failed(reader.readVarInt(isGhash)))
+    return BinaryFieldV1Type();
+  return BinaryFieldV1Type::get(getContext(), static_cast<unsigned>(towerLevel),
+                                static_cast<bool>(isGhash));
+}
+
+void VhloBytecodeInterface::write(BinaryFieldV1Type type,
+                                  DialectBytecodeWriter& writer) const {
+  writer.writeVarInt(vhlo_encoding::kBinaryFieldV1Type);
+  writer.writeVarInt(type.getTowerLevel());
+  writer.writeVarInt(type.getIsGhash() ? 1 : 0);
 }
 
 //===----------------------------------------------------------------------===//
