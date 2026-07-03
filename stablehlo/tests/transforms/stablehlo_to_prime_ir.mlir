@@ -41,6 +41,72 @@ func.func @field_multiply(%a: tensor<4x!field.pf<7681:i32>>,
 
 // -----
 
+// Binary tower fields implement FieldTypeInterface, so a binary multiply is
+// legalized to field.mul like any other field (regression: it used to be
+// skipped and left as stablehlo.multiply, dying at bufferization).
+// CHECK-LABEL: func @binary_field_multiply
+func.func @binary_field_multiply(%a: tensor<4x!field.bf<3>>,
+                                 %b: tensor<4x!field.bf<3>>)
+    -> tensor<4x!field.bf<3>> {
+  // CHECK: field.mul
+  // CHECK-NOT: stablehlo.multiply
+  %0 = stablehlo.multiply %a, %b : tensor<4x!field.bf<3>>
+  func.return %0 : tensor<4x!field.bf<3>>
+}
+
+// -----
+
+// Every field op is gated on FieldTypeInterface, so add/subtract legalize for
+// binary fields too (both are XOR in characteristic 2).
+// CHECK-LABEL: func @binary_field_add
+func.func @binary_field_add(%a: tensor<4x!field.bf<3>>,
+                            %b: tensor<4x!field.bf<3>>)
+    -> tensor<4x!field.bf<3>> {
+  // CHECK: field.add
+  // CHECK-NOT: stablehlo.add
+  %0 = stablehlo.add %a, %b : tensor<4x!field.bf<3>>
+  func.return %0 : tensor<4x!field.bf<3>>
+}
+
+// -----
+
+// CHECK-LABEL: func @binary_field_subtract
+func.func @binary_field_subtract(%a: tensor<4x!field.bf<3>>,
+                                 %b: tensor<4x!field.bf<3>>)
+    -> tensor<4x!field.bf<3>> {
+  // CHECK: field.sub
+  // CHECK-NOT: stablehlo.subtract
+  %0 = stablehlo.subtract %a, %b : tensor<4x!field.bf<3>>
+  func.return %0 : tensor<4x!field.bf<3>>
+}
+
+// -----
+
+// Same for the flat GHASH GF(2^128) basis.
+// CHECK-LABEL: func @ghash_field_multiply
+func.func @ghash_field_multiply(%a: tensor<4x!field.bf<7, ghash>>,
+                                %b: tensor<4x!field.bf<7, ghash>>)
+    -> tensor<4x!field.bf<7, ghash>> {
+  // CHECK: field.mul
+  // CHECK-NOT: stablehlo.multiply
+  %0 = stablehlo.multiply %a, %b : tensor<4x!field.bf<7, ghash>>
+  func.return %0 : tensor<4x!field.bf<7, ghash>>
+}
+
+// -----
+
+// CHECK-LABEL: func @ghash_field_add
+func.func @ghash_field_add(%a: tensor<4x!field.bf<7, ghash>>,
+                           %b: tensor<4x!field.bf<7, ghash>>)
+    -> tensor<4x!field.bf<7, ghash>> {
+  // CHECK: field.add
+  // CHECK-NOT: stablehlo.add
+  %0 = stablehlo.add %a, %b : tensor<4x!field.bf<7, ghash>>
+  func.return %0 : tensor<4x!field.bf<7, ghash>>
+}
+
+// -----
+
 // stablehlo.divide(x, y) over a field becomes x * inverse(y); there is no
 // direct field.div, so the rewrite synthesizes the inverse explicitly.
 
