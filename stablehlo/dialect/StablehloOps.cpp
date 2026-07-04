@@ -1418,6 +1418,38 @@ LogicalResult NttOp::reifyReturnTypeShapes(
                                      &reifiedReturnShapes);
 }
 
+LogicalResult NttOp::verify() {
+  // Binary tower fields use the additive (LCH14) NTT: the evaluation domain is
+  // an F2-linear subspace, not a multiplicative subgroup, so the prime-field
+  // notions of a root-of-unity generator and two-adicity do not apply.
+  auto binaryField = dyn_cast<prime_ir::field::BinaryFieldType>(
+      getElementTypeOrSelf(getOperand().getType()));
+  if (!binaryField) return success();
+
+  // A `generator` derives ntt roots as gen^((p-1)/n); there is no such root in
+  // characteristic 2. The attribute defaults to 0 (omitted); any explicit value
+  // signals a misuse. (INTT needs no field inverse either — the additive
+  // inverse is the forward butterfly with its two steps reversed.)
+  if (getGenerator() != 0)
+    return emitOpError()
+           << "generator is not valid for a binary field NTT: the domain is an "
+              "F2-linear subspace, not a multiplicative subgroup";
+
+  int64_t n = getNttLength();
+  if (n <= 0 || !llvm::isPowerOf2_64(static_cast<uint64_t>(n)))
+    return emitOpError() << "ntt_length must be a positive power of two, got "
+                         << n;
+
+  // The subspace has dimension log2(n) over F2 and must fit inside the field's
+  // own F2-dimension (its bit width) — i.e. ntt_length <= field size.
+  unsigned logN = llvm::Log2_64(static_cast<uint64_t>(n));
+  if (logN > binaryField.getBitWidth())
+    return emitOpError() << "ntt_length " << n
+                         << " exceeds the binary field size (2^"
+                         << binaryField.getBitWidth() << ")";
+  return success();
+}
+
 //===----------------------------------------------------------------------===//
 // GatherOp
 //===----------------------------------------------------------------------===//

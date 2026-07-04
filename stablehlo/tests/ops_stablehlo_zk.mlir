@@ -634,6 +634,57 @@ func.func @negacyclic_intt_1d(%x: tensor<1024x!pf_babybear_mont>) -> tensor<1024
 
 // -----
 
+// Binary tower fields take the additive (LCH14) NTT. Forward and inverse are
+// accepted with no generator; the domain is an F2-linear subspace.
+!bf8 = !field.bf<3>     // GF(2^8)
+!bf16 = !field.bf<4>    // GF(2^16)
+
+// CHECK-LABEL: func @binary_ntt_1d
+func.func @binary_ntt_1d(%x: tensor<16x!bf8>) -> tensor<16x!bf8> {
+  %0 = stablehlo.ntt %x, type = NTT, length = 16 : tensor<16x!bf8>
+  func.return %0 : tensor<16x!bf8>
+}
+
+// CHECK-LABEL: func @binary_intt_1d
+func.func @binary_intt_1d(%x: tensor<1024x!bf16>) -> tensor<1024x!bf16> {
+  %0 = stablehlo.ntt %x, type = INTT, length = 1024 : tensor<1024x!bf16>
+  func.return %0 : tensor<1024x!bf16>
+}
+
+// -----
+
+// A generator is a multiplicative-subgroup notion — meaningless for a binary
+// field, whose NTT domain is an F2-linear subspace.
+!bf8 = !field.bf<3>
+func.func @binary_ntt_rejects_generator(%x: tensor<16x!bf8>) -> tensor<16x!bf8> {
+  // expected-error @+1 {{generator is not valid for a binary field NTT}}
+  %0 = stablehlo.ntt %x, type = NTT, length = 16, generator = 5 : tensor<16x!bf8>
+  func.return %0 : tensor<16x!bf8>
+}
+
+// -----
+
+// The subspace dimension log2(ntt_length) must fit the field's F2-dimension:
+// bf<3> is GF(2^8), so ntt_length <= 2^8; length 512 (2^9) is too large.
+!bf8 = !field.bf<3>
+func.func @binary_ntt_length_exceeds_field(%x: tensor<512x!bf8>) -> tensor<512x!bf8> {
+  // expected-error @+1 {{ntt_length 512 exceeds the binary field size (2^8)}}
+  %0 = stablehlo.ntt %x, type = NTT, length = 512 : tensor<512x!bf8>
+  func.return %0 : tensor<512x!bf8>
+}
+
+// -----
+
+// The additive NTT is radix-2; ntt_length must be a power of two.
+!bf8 = !field.bf<3>
+func.func @binary_ntt_not_power_of_two(%x: tensor<15x!bf8>) -> tensor<15x!bf8> {
+  // expected-error @+1 {{ntt_length must be a positive power of two, got 15}}
+  %0 = stablehlo.ntt %x, type = NTT, length = 15 : tensor<15x!bf8>
+  func.return %0 : tensor<15x!bf8>
+}
+
+// -----
+
 // =============================================================================
 // EC Scalar Multiplication — field × EC point (positive tests)
 // =============================================================================
