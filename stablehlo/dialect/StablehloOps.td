@@ -3038,6 +3038,7 @@ def StableHLO_NttOp: StableHLO_ShapedInterfaceOp<"ntt",
       (`,` `generator` `=` $generator^)?
       attr-dict `:` custom<SameOperandsAndResultType>(type($operand), type($result))
   }];
+  let hasVerifier = 1;
 }
 
 def StableHLO_GatherOp: StableHLO_Op<"gather",
