@@ -543,6 +543,37 @@ func.func @constant_jacobian_wrong_coord_count() -> tensor<!jac_c> {
 }
 
 // -----
+// Integer-attr constants materialize as binary-field tensors — same pairing
+// rule as prime fields (identical shape, one storage int per element), for
+// both the tower and the flat GHASH basis. This is the form jax emits for a
+// binary-field host constant (e.g. reduce's zero init in jnp.sum).
+
+// CHECK-LABEL: func @constant_bf_tower_from_int
+func.func @constant_bf_tower_from_int() -> tensor<4x!field.bf<7>> {
+  %0 = "stablehlo.constant"() <{value = dense<1> : tensor<4xi128>}> : () -> tensor<4x!field.bf<7>>
+  func.return %0 : tensor<4x!field.bf<7>>
+}
+
+// -----
+// CHECK-LABEL: func @constant_bf_ghash_from_int
+func.func @constant_bf_ghash_from_int() -> tensor<!field.bf<7, ghash>> {
+  %0 = "stablehlo.constant"() <{value = dense<0> : tensor<i128>}> : () -> tensor<!field.bf<7, ghash>>
+  func.return %0 : tensor<!field.bf<7, ghash>>
+}
+
+// -----
+// The binary-field pairing requires an identical shape — a binary field
+// element is one storage int, not a coefficient vector, so there is no
+// trailing-dim form to fall back to.
+
+func.func @constant_bf_shape_mismatch() -> tensor<4x!field.bf<7, ghash>> {
+  // expected-error@+2 {{failed to infer returned types}}
+  // expected-error@+1 {{inferred type(s) 'tensor<2xi128>' are incompatible with return type(s) of operation}}
+  %0 = "stablehlo.constant"() <{value = dense<1> : tensor<2xi128>}> : () -> tensor<4x!field.bf<7, ghash>>
+  func.return %0 : tensor<4x!field.bf<7, ghash>>
+}
+
+// -----
 // Malformed field constant literal. The pretty form delegates to prime-ir's
 // field-constant fallback only after the standard ElementsAttr parser fails;
 // the fallback's diagnostics are dropped, so the surfaced error is the
