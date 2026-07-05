@@ -450,10 +450,13 @@ bool ConstantOp::isCompatibleReturnTypes(TypeRange l, TypeRange r) {
   Type lhsElementType = getElementTypeOrSelf(lhsTy);
   Type rhsElementType = getElementTypeOrSelf(rhsTy);
   // Allow integer-attr (storage-int) constants to materialize as prime-field
-  // tensors. The verifier accepts the int attr; downstream passes interpret
-  // each integer as the storage encoding of the field element.
+  // or binary-field tensors. The verifier accepts the int attr; downstream
+  // passes interpret each integer as the storage encoding of the field
+  // element. Binary fields (tower and GHASH basis) store one integer per
+  // element exactly like prime fields.
   if (isa<IntegerType>(lhsElementType) &&
-      isa<prime_ir::field::PrimeFieldType>(rhsElementType))
+      isa<prime_ir::field::PrimeFieldType, prime_ir::field::BinaryFieldType>(
+          rhsElementType))
     return lhsTy.clone(rhsElementType) == rhsTy;
   // Allow integer-attr constants to materialize as extension-field tensors.
   // The attribute carries an int tensor of shape [resultDims..., towerDims...]
