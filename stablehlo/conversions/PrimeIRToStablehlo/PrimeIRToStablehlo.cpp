@@ -112,30 +112,42 @@ struct ConvertFieldInverseBack
                                 PatternRewriter &rewriter) const override {
     Type elemType = getElementTypeOrSelf(op.getType());
 
-    // Resolve the base prime field type — for PF it's the type itself,
-    // for EF we extract the underlying prime field.
-    prime_ir::field::PrimeFieldType pfType;
-    if (auto pf = dyn_cast<prime_ir::field::PrimeFieldType>(elemType))
-      pfType = pf;
-    else if (auto ef = dyn_cast<prime_ir::field::ExtensionFieldType>(elemType))
-      pfType = ef.getBasePrimeField();
-    else
-      return failure();
-
     // stablehlo is tensor-only; a bare scalar field.inverse (legal in
     // prime-ir) has no stablehlo form, so leave it unconverted.
     auto shapedResult = dyn_cast<ShapedType>(op.getType());
     if (!shapedResult) return failure();
-
-    // Build a base-field "1" constant. DivOp supports mixed PF / EF
-    // operands (div_c1 compatibility), so a scalar PF "1" works for both.
-    auto fieldOne = prime_ir::field::FieldOperation(uint64_t{1}, pfType);
-    APInt val = static_cast<APInt>(fieldOne);
     auto resultShape = shapedResult.getShape();
-    auto oneAttr = DenseIntElementsAttr::get(
-        RankedTensorType::get(resultShape, pfType.getStorageType()), {val});
 
-    auto oneType = RankedTensorType::get(resultShape, pfType);
+    // Pick the field type that carries the "1" constant and its storage int.
+    // Prime and binary fields encode the identity on themselves (for binary
+    // fields it is storage bit-pattern 1 in both the tower and GHASH bases);
+    // extension fields resolve their base prime field, since DivOp supports
+    // the mixed PF / EF operand pairing (div_c1 compatibility).
+    Type oneElemType;
+    IntegerType storageType;
+    if (auto pf = dyn_cast<prime_ir::field::PrimeFieldType>(elemType)) {
+      oneElemType = pf;
+      storageType = pf.getStorageType();
+    } else if (auto ef =
+                   dyn_cast<prime_ir::field::ExtensionFieldType>(elemType)) {
+      auto pf = ef.getBasePrimeField();
+      oneElemType = pf;
+      storageType = pf.getStorageType();
+    } else if (auto bf = dyn_cast<prime_ir::field::BinaryFieldType>(elemType)) {
+      oneElemType = bf;
+      storageType = bf.getStorageType();
+    } else {
+      return failure();
+    }
+
+    // Build the "1" constant in that field's storage encoding (this is what
+    // handles Montgomery-form prime fields, where storage(1) != 1).
+    auto fieldOne = prime_ir::field::FieldOperation(uint64_t{1}, oneElemType);
+    APInt val = static_cast<APInt>(fieldOne);
+    auto oneAttr = DenseIntElementsAttr::get(
+        RankedTensorType::get(resultShape, storageType), {val});
+
+    auto oneType = RankedTensorType::get(resultShape, oneElemType);
     auto one = rewriter.create<ConstantOp>(op.getLoc(), oneType, oneAttr);
     rewriter.replaceOpWithNewOp<DivOp>(op, op.getType(), one, op.getInput());
     return success();
