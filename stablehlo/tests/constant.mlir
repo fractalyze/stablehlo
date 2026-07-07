@@ -9,6 +9,18 @@ func.func private @constant_with_i32(%x: tensor<15xi32>) -> tensor<i32> {
 
 // -----
 
+// Raw-int width above the 256-bit tier: BLS12-381 chip fillers seed i384
+// iter-args, so tensor verification must admit it (HLO_SInt/HLO_UInt
+// allowlist).
+func.func private @constant_with_i384() -> tensor<2xi384> {
+  %0 = stablehlo.constant dense<0> : tensor<2xi384>
+  return %0 : tensor<2xi384>
+}
+
+// CHECK: @constant_with_i384
+
+// -----
+
 !pf_babybear = !field.pf<2013265921 : i32, true>
 
 func.func @constant_with_babybear() -> tensor<!pf_babybear> {
