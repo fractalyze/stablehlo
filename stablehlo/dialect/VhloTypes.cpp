@@ -206,8 +206,10 @@ void VhloTypeConverter::addBuiltinToVhloConversions() {
                                      convertedBaseField, type.getNonResidue());
   });
   addConversion([&](prime_ir::field::BinaryFieldType type) -> Type {
+    // VHLO's isGhash parameter predates the aes basis; it stores the flat
+    // flag.
     return BinaryFieldV1Type::get(type.getContext(), type.getTowerLevel(),
-                                  type.getIsGhash());
+                                  type.getIsFlat());
   });
   addConversion([&](prime_ir::elliptic_curve::AffineType type) -> Type {
     return AffineV1Type::get(type.getContext(), type.getCurve());
