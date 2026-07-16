@@ -148,8 +148,8 @@ struct ConvertFieldInverseBack
     // Build the "1" constant in that field's storage encoding (this is what
     // handles Montgomery-form prime fields, where storage(1) != 1).
     auto fieldOne = prime_ir::field::FieldOperation(uint64_t{1}, oneElemType);
-    APInt val = static_cast<APInt>(fieldOne).zextOrTrunc(
-        storageType.getWidth());
+    APInt val =
+        static_cast<APInt>(fieldOne).zextOrTrunc(storageType.getWidth());
     auto oneAttr = DenseIntElementsAttr::get(
         RankedTensorType::get(resultShape, storageType), {val});
 
@@ -193,9 +193,8 @@ struct ConvertFieldConstantBack
         auto intType = dyn_cast<IntegerType>(denseAttr.getElementType());
         if (intType && intType.getWidth() < 8) {
           auto byteType = IntegerType::get(intType.getContext(), 8);
-          elementsAttr = denseAttr.mapValues(byteType, [](const APInt &v) {
-            return v.zext(8);
-          });
+          elementsAttr = denseAttr.mapValues(
+              byteType, [](const APInt &v) { return v.zext(8); });
         }
       }
     }
