@@ -32,6 +32,22 @@ func.func @inverse_binary_field_tower(%a: tensor<4x!field.bf<7>>)
 }
 
 // -----
+// Sub-byte binary field: the "1" literal must be byte-rounded (i8, matching
+// XLA's byte-per-element storage of t0-t2) — an i2-typed literal exports as
+// s2 whose storage width mismatches the field's and trips bitcast-convert
+// shape inference.
+
+// CHECK-LABEL: func @inverse_binary_field_subbyte
+func.func @inverse_binary_field_subbyte(%a: tensor<4x!field.bf<1>>)
+    -> tensor<4x!field.bf<1>> {
+  // CHECK: %[[ONE:.*]] = stablehlo.constant() <{value = dense<1> : tensor<4xi8>}> : () -> tensor<4x!field.bf<1>>
+  // CHECK: stablehlo.divide %[[ONE]], %arg0 : tensor<4x!field.bf<1>>
+  // CHECK-NOT: field.inverse
+  %0 = field.inverse %a : tensor<4x!field.bf<1>>
+  func.return %0 : tensor<4x!field.bf<1>>
+}
+
+// -----
 // CHECK-LABEL: func @inverse_binary_field_ghash
 func.func @inverse_binary_field_ghash(%a: tensor<3x!field.bf<7, ghash>>)
     -> tensor<3x!field.bf<7, ghash>> {

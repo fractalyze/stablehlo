@@ -135,15 +135,23 @@ struct ConvertFieldInverseBack
       storageType = pf.getStorageType();
     } else if (auto bf = dyn_cast<prime_ir::field::BinaryFieldType>(elemType)) {
       oneElemType = bf;
+      // getStorageType is byte-rounded for sub-byte fields (prime-ir#401),
+      // so the literal exports at the width XLA's bitcast-convert shape
+      // inference expects. Field arithmetic still runs at the element
+      // width, hence the zextOrTrunc below.
       storageType = bf.getStorageType();
     } else {
       return failure();
     }
 
     // Build the "1" constant in that field's storage encoding (this is what
-    // handles Montgomery-form prime fields, where storage(1) != 1).
+    // handles Montgomery-form prime fields, where storage(1) != 1). The
+    // zextOrTrunc is load-bearing for sub-byte binary fields: their
+    // FieldOperation APInt is element-width (2 bits for bf<1>) while the
+    // attr is typed at the byte-rounded storage.
     auto fieldOne = prime_ir::field::FieldOperation(uint64_t{1}, oneElemType);
-    APInt val = static_cast<APInt>(fieldOne);
+    APInt val =
+        static_cast<APInt>(fieldOne).zextOrTrunc(storageType.getWidth());
     auto oneAttr = DenseIntElementsAttr::get(
         RankedTensorType::get(resultShape, storageType), {val});
 
