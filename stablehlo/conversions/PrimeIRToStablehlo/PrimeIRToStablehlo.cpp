@@ -145,7 +145,10 @@ struct ConvertFieldInverseBack
     }
 
     // Build the "1" constant in that field's storage encoding (this is what
-    // handles Montgomery-form prime fields, where storage(1) != 1).
+    // handles Montgomery-form prime fields, where storage(1) != 1). The
+    // zextOrTrunc is load-bearing for sub-byte binary fields: their
+    // FieldOperation APInt is element-width (2 bits for bf<1>) while the
+    // attr is typed at the byte-rounded storage.
     auto fieldOne = prime_ir::field::FieldOperation(uint64_t{1}, oneElemType);
     APInt val =
         static_cast<APInt>(fieldOne).zextOrTrunc(storageType.getWidth());
