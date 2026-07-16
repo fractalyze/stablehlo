@@ -135,7 +135,12 @@ struct ConvertFieldInverseBack
       storageType = pf.getStorageType();
     } else if (auto bf = dyn_cast<prime_ir::field::BinaryFieldType>(elemType)) {
       oneElemType = bf;
-      storageType = bf.getStorageType();
+      // Byte-round sub-byte storage: XLA stores t0-t2 byte-per-element
+      // (StorageBitWidth 8), so an i2/i4-typed literal would export as
+      // s2/s4 whose storage width mismatches the field's and trips
+      // bitcast-convert shape inference ("ratio of bit-widths").
+      storageType = IntegerType::get(
+          bf.getContext(), std::max(bf.getStorageType().getWidth(), 8u));
     } else {
       return failure();
     }
@@ -143,7 +148,8 @@ struct ConvertFieldInverseBack
     // Build the "1" constant in that field's storage encoding (this is what
     // handles Montgomery-form prime fields, where storage(1) != 1).
     auto fieldOne = prime_ir::field::FieldOperation(uint64_t{1}, oneElemType);
-    APInt val = static_cast<APInt>(fieldOne);
+    APInt val = static_cast<APInt>(fieldOne).zextOrTrunc(
+        storageType.getWidth());
     auto oneAttr = DenseIntElementsAttr::get(
         RankedTensorType::get(resultShape, storageType), {val});
 
@@ -178,6 +184,21 @@ struct ConvertFieldConstantBack
     }
     auto elementsAttr = dyn_cast<ElementsAttr>(value);
     if (!elementsAttr) return failure();
+    // Byte-round sub-byte binary-field literals (same rationale as
+    // ConvertFieldInverseBack: an i1/i2/i4-typed literal exports with a
+    // storage width that mismatches the field's byte-per-element storage).
+    if (isa<prime_ir::field::BinaryFieldType>(
+            getElementTypeOrSelf(op.getType()))) {
+      if (auto denseAttr = dyn_cast<DenseIntElementsAttr>(elementsAttr)) {
+        auto intType = dyn_cast<IntegerType>(denseAttr.getElementType());
+        if (intType && intType.getWidth() < 8) {
+          auto byteType = IntegerType::get(intType.getContext(), 8);
+          elementsAttr = denseAttr.mapValues(byteType, [](const APInt &v) {
+            return v.zext(8);
+          });
+        }
+      }
+    }
     rewriter.replaceOpWithNewOp<ConstantOp>(op, op.getType(), elementsAttr);
     return success();
   }
