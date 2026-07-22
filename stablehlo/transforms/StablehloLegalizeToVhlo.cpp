@@ -962,6 +962,10 @@ LogicalResult addDefaults(const OpConversionPattern<StablehloOpTy>& pattern,
   if constexpr (std::is_same<StablehloOpTy, stablehlo::NttOp>::value) {
     if (!stablehloOp.getGeneratorAttr())
       addDefaultAttr("generator", builder.getI64IntegerAttr(0));
+    // Same treatment for the optional `coset` attribute (0 = base subspace);
+    // the proto layer maps proto.ntt_coset==0 back to std::nullopt.
+    if (!stablehloOp.getCosetAttr())
+      addDefaultAttr("coset", builder.getI64IntegerAttr(0));
   }
   if constexpr (std::is_same<StablehloOpTy,
                              stablehlo::DynamicBroadcastInDimOp>::value) {

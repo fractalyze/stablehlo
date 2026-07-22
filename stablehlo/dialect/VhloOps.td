@@ -867,7 +867,8 @@ def VHLO_NttOpV1 : VHLO_Op<"ntt_v1", "1.13.0", "current"> {
     VHLO_AnyType:$operand,
     VHLO_AnyAttr:$ntt_type,
     VHLO_AnyAttr:$ntt_length,
-    VHLO_AnyAttr:$generator
+    VHLO_AnyAttr:$generator,
+    VHLO_AnyAttr:$coset
   );
   let results = (outs VHLO_AnyType:$result);
 }

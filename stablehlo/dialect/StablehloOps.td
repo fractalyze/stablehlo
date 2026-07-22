@@ -3030,12 +3030,14 @@ def StableHLO_NttOp: StableHLO_ShapedInterfaceOp<"ntt",
     HLO_FieldTensor:$operand,
     StableHLO_NttTypeAttr:$ntt_type,
     ConfinedAttr<I64Attr, [IntNonNegative]>:$ntt_length,
-    DefaultValuedOptionalAttr<I64Attr, "0">:$generator
+    DefaultValuedOptionalAttr<I64Attr, "0">:$generator,
+    DefaultValuedOptionalAttr<I64Attr, "0">:$coset
   );
   let results = (outs HLO_FieldTensor:$result);
   let assemblyFormat = [{
     $operand `,` `type` `=` $ntt_type `,` `length` `=` $ntt_length
       (`,` `generator` `=` $generator^)?
+      (`,` `coset` `=` $coset^)?
       attr-dict `:` custom<SameOperandsAndResultType>(type($operand), type($result))
   }];
   let hasVerifier = 1;
