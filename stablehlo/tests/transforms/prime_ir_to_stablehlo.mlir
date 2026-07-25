@@ -1,4 +1,9 @@
 // RUN: stablehlo-opt --prime-ir-to-stablehlo --split-input-file %s | FileCheck %s
+// RUN: stablehlo-opt --prime-ir-to-stablehlo --split-input-file --mlir-print-op-generic %s | FileCheck %s --check-prefix=STORAGE
+
+// The pretty form prints field constants against the field type, so the
+// storage width each "1" is materialized at is only visible in generic form —
+// hence the second run and the STORAGE lines below.
 
 // The reverse leg of the stablehlo↔prime-ir round trip: prime-ir field ops
 // that survive canonicalization must be rebuilt as stablehlo ops or they hit
@@ -9,7 +14,8 @@
 // CHECK-LABEL: func @inverse_prime_field
 func.func @inverse_prime_field(%a: tensor<4x!field.pf<7681:i32>>)
     -> tensor<4x!field.pf<7681:i32>> {
-  // CHECK: %[[ONE:.*]] = stablehlo.constant() <{value = dense<1> : tensor<4xi32>}>
+  // CHECK: %[[ONE:.*]] = stablehlo.constant dense<1> : tensor<4x!pf7681_i32>
+  // STORAGE: dense<1> : tensor<4xi32>
   // CHECK: stablehlo.divide %[[ONE]], %arg0
   // CHECK-NOT: field.inverse
   %0 = field.inverse %a : tensor<4x!field.pf<7681:i32>>
@@ -24,7 +30,8 @@ func.func @inverse_prime_field(%a: tensor<4x!field.pf<7681:i32>>)
 // CHECK-LABEL: func @inverse_binary_field_tower
 func.func @inverse_binary_field_tower(%a: tensor<4x!field.bf<7>>)
     -> tensor<4x!field.bf<7>> {
-  // CHECK: %[[ONE:.*]] = stablehlo.constant() <{value = dense<1> : tensor<4xi128>}> : () -> tensor<4x!field.bf<7>>
+  // CHECK: %[[ONE:.*]] = stablehlo.constant dense<1> : tensor<4x!field.bf<7>>
+  // STORAGE: dense<1> : tensor<4xi128>
   // CHECK: stablehlo.divide %[[ONE]], %arg0 : tensor<4x!field.bf<7>>
   // CHECK-NOT: field.inverse
   %0 = field.inverse %a : tensor<4x!field.bf<7>>
@@ -40,7 +47,8 @@ func.func @inverse_binary_field_tower(%a: tensor<4x!field.bf<7>>)
 // CHECK-LABEL: func @inverse_binary_field_subbyte
 func.func @inverse_binary_field_subbyte(%a: tensor<4x!field.bf<1>>)
     -> tensor<4x!field.bf<1>> {
-  // CHECK: %[[ONE:.*]] = stablehlo.constant() <{value = dense<1> : tensor<4xi8>}> : () -> tensor<4x!field.bf<1>>
+  // CHECK: %[[ONE:.*]] = stablehlo.constant dense<1> : tensor<4x!field.bf<1>>
+  // STORAGE: dense<1> : tensor<4xi8>
   // CHECK: stablehlo.divide %[[ONE]], %arg0 : tensor<4x!field.bf<1>>
   // CHECK-NOT: field.inverse
   %0 = field.inverse %a : tensor<4x!field.bf<1>>
@@ -51,7 +59,8 @@ func.func @inverse_binary_field_subbyte(%a: tensor<4x!field.bf<1>>)
 // CHECK-LABEL: func @inverse_binary_field_ghash
 func.func @inverse_binary_field_ghash(%a: tensor<3x!field.bf<7, ghash>>)
     -> tensor<3x!field.bf<7, ghash>> {
-  // CHECK: %[[ONE:.*]] = stablehlo.constant() <{value = dense<1> : tensor<3xi128>}> : () -> tensor<3x!field.bf<7, ghash>>
+  // CHECK: %[[ONE:.*]] = stablehlo.constant dense<1> : tensor<3x!field.bf<7, ghash>>
+  // STORAGE: dense<1> : tensor<3xi128>
   // CHECK: stablehlo.divide %[[ONE]], %arg0 : tensor<3x!field.bf<7, ghash>>
   // CHECK-NOT: field.inverse
   %0 = field.inverse %a : tensor<3x!field.bf<7, ghash>>
@@ -66,7 +75,8 @@ func.func @inverse_binary_field_ghash(%a: tensor<3x!field.bf<7, ghash>>)
 func.func @inverse_extension_field(
     %a: tensor<2x!field.ef<2x!field.pf<7:i32>, 6:i32>>)
     -> tensor<2x!field.ef<2x!field.pf<7:i32>, 6:i32>> {
-  // CHECK: %[[ONE:.*]] = stablehlo.constant() <{value = dense<1> : tensor<2xi32>}>
+  // CHECK: %[[ONE:.*]] = stablehlo.constant dense<1> : tensor<2x!pf7_i32>
+  // STORAGE: dense<1> : tensor<2xi32>
   // CHECK: stablehlo.divide %[[ONE]], %arg0
   // CHECK-NOT: field.inverse
   %0 = field.inverse %a : tensor<2x!field.ef<2x!field.pf<7:i32>, 6:i32>>

@@ -45,7 +45,11 @@ limitations under the License.
 #include "mlir/IR/ValueRange.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/LogicalResult.h"
+#include "prime_ir/Dialect/EllipticCurve/IR/EllipticCurveTypes.h"
 #include "prime_ir/Dialect/Field/IR/FieldOps.h"
+#include "prime_ir/Dialect/Field/IR/FieldTypes.h"
+#include "prime_ir/IR/Attributes.h"
+#include "prime_ir/Utils/AssemblyFormatUtils.h"
 #include "stablehlo/dialect/Base.h"
 
 #define DEBUG_TYPE "hlo-assembly"
@@ -143,10 +147,60 @@ ParseResult parseVariadicSameOperandsAndResultType(
   return detail::parseSameOperandsAndResultTypeImpl(parser, typePtrs, result);
 }
 
+namespace {
+// The field type whose Montgomery state governs how `elementType`'s constant
+// values are stored, or null if `elementType` is not field-backed. A point's
+// coordinates are base-field elements, so the point type itself carries no
+// Montgomery state.
+Type getStorageGoverningFieldType(Type elementType) {
+  if (isa<prime_ir::field::PrimeFieldType, prime_ir::field::ExtensionFieldType,
+          prime_ir::field::BinaryFieldType>(elementType))
+    return elementType;
+  if (auto pointType =
+          dyn_cast<prime_ir::elliptic_curve::PointTypeInterface>(elementType))
+    return pointType.getBaseFieldType();
+  return nullptr;
+}
+
+// Shape of the value attribute backing a point-typed constant: the tensor's
+// own shape, then a coordinate dimension, then the base field's tower
+// dimensions when the coordinates are extension-field elements.
+SmallVector<int64_t> getPointAttrShape(
+    prime_ir::elliptic_curve::PointTypeInterface pointType,
+    ArrayRef<int64_t> tensorShape) {
+  SmallVector<int64_t> shape(tensorShape);
+  shape.push_back(static_cast<int64_t>(pointType.getNumCoords()));
+  if (auto efType = dyn_cast<prime_ir::field::ExtensionFieldType>(
+          pointType.getBaseFieldType()))
+    llvm::append_range(shape, efType.getAttrShape());
+  return shape;
+}
+}  // namespace
+
 void printConstantOp(OpAsmPrinter& p, Operation* op, ElementsAttr value) {
   assert(op->getNumResults() == 1);
+  Type resultType = op->getResultTypes().front();
+  Type fieldType =
+      getStorageGoverningFieldType(getElementTypeOrSelf(resultType));
+  auto denseValue = dyn_cast<DenseElementsAttr>(value);
+  if (fieldType && denseValue) {
+    // A field or EC constant's stored value is raw coefficient/coordinate
+    // integers, carried either as a native prime-ir dense attr or as a plain
+    // int tensor whose type differs from the result type. Neither prints as a
+    // literal parseConstantOp accepts, so retype to the storage-int form and
+    // undo Montgomery, yielding the `dense<values> : type` spelling the
+    // parser round-trips.
+    p.printOptionalAttrDict(op->getAttrs(), /*elidedAttrs=*/{"value"});
+    p << ' ';
+    p.printAttributeWithoutType(prime_ir::field::maybeToStandard(
+        fieldType, prime_ir::maybeConvertPrimeIRToBuiltinAttr(denseValue)));
+    p << " : ";
+    p.printType(resultType);
+    return;
+  }
+
   // If not all types are the same, use generic form.
-  if (value.getType() != op->getResultTypes().front()) {
+  if (value.getType() != resultType) {
     p.printGenericOp(op, /*printOpName=*/false);
     return;
   }
@@ -155,6 +209,80 @@ void printConstantOp(OpAsmPrinter& p, Operation* op, ElementsAttr value) {
   p << ' ';
   p.printStrippedAttrOrType(value);
 }
+
+namespace {
+// Reads the trailing type of a `dense<values> : type` literal without emitting
+// diagnostics, leaving the parser positioned after it. Which parse a constant
+// needs is decided by that type, and the decision has to be made before any
+// pass runs: OpAsmParser::emitError latches a flag that fails the whole op
+// parse even when a later alternative succeeds, so a wrong guess is not
+// recoverable. Only the `parseOptional*` primitives are used, and the values
+// themselves are skipped rather than interpreted.
+ParseResult peekConstantType(OpAsmParser& parser, Type& type) {
+  if (failed(parser.parseOptionalKeyword("dense")) ||
+      failed(parser.parseOptionalLess()))
+    return failure();
+  while (true) {
+    APInt ignored;
+    if (parser.parseOptionalInteger(ignored).has_value()) continue;
+    if (succeeded(parser.parseOptionalComma()) ||
+        succeeded(parser.parseOptionalLSquare()) ||
+        succeeded(parser.parseOptionalRSquare()))
+      continue;
+    break;
+  }
+  if (failed(parser.parseOptionalGreater()) ||
+      failed(parser.parseOptionalColon()))
+    return failure();
+  OptionalParseResult typeResult = parser.parseOptionalType(type);
+  return failure(!typeResult.has_value() || failed(*typeResult));
+}
+
+// Parses `dense<values> : tensor<...x!elliptic_curve.*>` into the raw-integer
+// value attribute the op stores. prime-ir's field parser rejects point element
+// types, and the coordinate/tower dimensions a point contributes are only
+// derivable from the point type, so EC constants get their own pass here.
+ParseResult parseECConstant(
+    OpAsmParser& parser, OperationState& result,
+    prime_ir::elliptic_curve::PointTypeInterface pointType) {
+  Type baseFieldType = pointType.getBaseFieldType();
+  SmallVector<APInt> parsedInts;
+  Type parsedType;
+
+  auto getModulus = [&](APInt& modulus) -> ParseResult {
+    modulus = prime_ir::field::getBasePrimeField(baseFieldType)
+                  .getModulus()
+                  .getValue();
+    return success();
+  };
+
+  auto validateShape = [&](ArrayRef<int64_t> typeShape,
+                           ArrayRef<int64_t> parsedShape) -> ParseResult {
+    SmallVector<int64_t> expected = getPointAttrShape(pointType, typeShape);
+    if (ArrayRef<int64_t>(expected) == parsedShape) return success();
+    return parser.emitError(parser.getCurrentLocation(),
+                            "elliptic curve constant shape [")
+           << llvm::make_range(parsedShape.begin(), parsedShape.end())
+           << "] does not match expected shape ["
+           << llvm::make_range(expected.begin(), expected.end()) << "]";
+  };
+
+  if (failed(prime_ir::parseModularIntegerList(parser, parsedInts, parsedType,
+                                               getModulus, validateShape)))
+    return failure();
+
+  // parseModularIntegerList rejects non-shaped and dynamically shaped types.
+  auto shapedType = cast<ShapedType>(parsedType);
+  auto attrType = RankedTensorType::get(
+      getPointAttrShape(pointType, shapedType.getShape()),
+      prime_ir::field::getBasePrimeField(baseFieldType).getStorageType());
+  result.addAttribute("value", prime_ir::field::maybeToMontgomery(
+                                   baseFieldType, DenseIntElementsAttr::get(
+                                                      attrType, parsedInts)));
+  result.addTypes(parsedType);
+  return success();
+}
+}  // namespace
 
 ParseResult parseConstantOp(OpAsmParser& parser, OperationState& result) {
   // Parse the generic form.
@@ -199,17 +327,26 @@ ParseResult parseConstantOp(OpAsmParser& parser, OperationState& result) {
 
   if (succeeded(parseStandardAttribute())) return success();
 
-  // The standard parser fails on field-typed dense literals
+  // The standard parser fails on field- and point-typed dense literals
   // (`dense<0> : tensor<!field.pf<...>>` triggers MLIR's "expected string
   // token" since !field.pf isn't IntegerType/FloatType). Rewind to the
-  // start of the value attribute and delegate to prime-ir's
-  // parseOptionalFieldConstant. The fallback's diagnostics are captured
-  // and dropped, so the standard parser's original error remains the
-  // surfaced diagnostic when the input wasn't field-typed.
+  // start of the value attribute and retry with the prime-ir passes. The
+  // field pass's diagnostics are captured and dropped, so the standard
+  // parser's original error remains the surfaced diagnostic when the input
+  // wasn't field-typed.
   while (result.attributes.getAttrs().size() > numAttrs)
     result.attributes.pop_back();
   result.types.resize(numTypes);
   parser.resetToken(startPtr);
+
+  Type peekedType;
+  auto pointType = succeeded(peekConstantType(parser, peekedType))
+                       ? dyn_cast<prime_ir::elliptic_curve::PointTypeInterface>(
+                             getElementTypeOrSelf(peekedType))
+                       : nullptr;
+  parser.resetToken(startPtr);
+
+  if (pointType) return parseECConstant(parser, result, pointType);
   return prime_ir::field::parseOptionalFieldConstant(parser, result);
 }
 
