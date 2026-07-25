@@ -1,4 +1,5 @@
 // RUN: stablehlo-opt --stablehlo-aggressive-folder=fold-op-element-limit=100 --split-input-file --verify-diagnostics %s | FileCheck %s
+// RUN: stablehlo-opt --stablehlo-aggressive-folder=fold-op-element-limit=100 --split-input-file --verify-diagnostics --mlir-print-op-generic %s | FileCheck %s --check-prefix=STORAGE
 
 // Adjacent-splat concatenate folding over field / elliptic-curve element types.
 // The matched splat's value attr is storage-typed (an i256/i32 integer tensor),
@@ -6,6 +7,9 @@
 // type, not the storage type. Otherwise it lowers to a storage-typed constant
 // feeding a field-typed concatenate, which fails shape inference downstream
 // ("Cannot concatenate arrays with different element types: PALLAS_SF vs S256").
+// The pretty form prints a field/EC constant against its result type, so the
+// storage typing under test is only visible in generic form — hence the second
+// run and the STORAGE lines.
 
 !pf7 = !field.pf<7 : i32>
 
@@ -13,8 +17,9 @@
 func.func @fold_concatenate_splat_leading_field(%arg0: tensor<1x!pf7>) -> tensor<3x!pf7> {
   // The two leading splats merge into one constant whose value attr stays
   // storage-typed (tensor<2xi32>) but whose result type is the field type.
-  // CHECK:      %[[CST:.+]] = stablehlo.constant() <{value = dense<1> : tensor<2xi32>}> : () -> tensor<2x!{{.+}}>
+  // CHECK:      %[[CST:.+]] = stablehlo.constant dense<1> : tensor<2x!{{.+}}>
   // CHECK-NEXT: stablehlo.concatenate %[[CST]], %arg0, dim = 0
+  // STORAGE:    dense<1> : tensor<2xi32>
   %cst0 = "stablehlo.constant"() <{value = dense<1> : tensor<1xi32>}> : () -> tensor<1x!pf7>
   %0 = stablehlo.concatenate %cst0, %cst0, %arg0, dim = 0 : (tensor<1x!pf7>, tensor<1x!pf7>, tensor<1x!pf7>) -> tensor<3x!pf7>
   return %0 : tensor<3x!pf7>
@@ -26,8 +31,9 @@ func.func @fold_concatenate_splat_leading_field(%arg0: tensor<1x!pf7>) -> tensor
 
 // CHECK-LABEL: func.func @fold_concatenate_splat_middle_field
 func.func @fold_concatenate_splat_middle_field(%arg0: tensor<1x!pf7>) -> tensor<4x!pf7> {
-  // CHECK:      %[[CST:.+]] = stablehlo.constant() <{value = dense<1> : tensor<2xi32>}> : () -> tensor<2x!{{.+}}>
+  // CHECK:      %[[CST:.+]] = stablehlo.constant dense<1> : tensor<2x!{{.+}}>
   // CHECK-NEXT: stablehlo.concatenate %arg0, %[[CST]], %arg0, dim = 0
+  // STORAGE:    dense<1> : tensor<2xi32>
   %cst0 = "stablehlo.constant"() <{value = dense<1> : tensor<1xi32>}> : () -> tensor<1x!pf7>
   %0 = stablehlo.concatenate %arg0, %cst0, %cst0, %arg0, dim = 0 : (tensor<1x!pf7>, tensor<1x!pf7>, tensor<1x!pf7>, tensor<1x!pf7>) -> tensor<4x!pf7>
   return %0 : tensor<4x!pf7>
@@ -43,8 +49,9 @@ func.func @fold_concatenate_splat_leading_ec(%arg0: tensor<1x!ec>) -> tensor<3x!
   // EC-point constants encode coordinates as trailing storage dims, so the
   // value attr resizes along the leading (concatenation) dim only — here
   // tensor<1x2xi256> -> tensor<2x2xi256> — while the result stays the EC type.
-  // CHECK:      %[[CST:.+]] = stablehlo.constant() <{value = dense<1> : tensor<2x2xi256>}> : () -> tensor<2x!{{.+}}>
+  // CHECK:      %[[CST:.+]] = stablehlo.constant dense<1> : tensor<2x!{{.+}}>
   // CHECK-NEXT: stablehlo.concatenate %[[CST]], %arg0, dim = 0
+  // STORAGE:    dense<1> : tensor<2x2xi256>
   %cst0 = "stablehlo.constant"() <{value = dense<1> : tensor<1x2xi256>}> : () -> tensor<1x!ec>
   %0 = stablehlo.concatenate %cst0, %cst0, %arg0, dim = 0 : (tensor<1x!ec>, tensor<1x!ec>, tensor<1x!ec>) -> tensor<3x!ec>
   return %0 : tensor<3x!ec>

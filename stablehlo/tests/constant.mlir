@@ -5,7 +5,8 @@ func.func private @constant_with_i32(%x: tensor<15xi32>) -> tensor<i32> {
   return %0 : tensor<i32>
 }
 
-// CHECK: @constant_with_i32
+// CHECK-LABEL: @constant_with_i32
+// CHECK: stablehlo.constant dense<0> : tensor<i32>
 
 // -----
 
@@ -17,7 +18,8 @@ func.func private @constant_with_i384() -> tensor<2xi384> {
   return %0 : tensor<2xi384>
 }
 
-// CHECK: @constant_with_i384
+// CHECK-LABEL: @constant_with_i384
+// CHECK: stablehlo.constant dense<0> : tensor<2xi384>
 
 // -----
 
@@ -28,7 +30,8 @@ func.func @constant_with_babybear() -> tensor<!pf_babybear> {
   return %0 : tensor<!pf_babybear>
 }
 
-// CHECK: @constant_with_babybear
+// CHECK-LABEL: @constant_with_babybear
+// CHECK: stablehlo.constant dense<0> : tensor<!pf_babybear_mont>
 
 // -----
 
@@ -40,7 +43,8 @@ func.func @constant_with_ef2_scalar() -> tensor<!EF2> {
   return %0 : tensor<!EF2>
 }
 
-// CHECK: @constant_with_ef2_scalar
+// CHECK-LABEL: @constant_with_ef2_scalar
+// CHECK: stablehlo.constant dense<[1, 2]> : tensor<!field.ef<2x!pf_babybear_mont, 11 : i32>>
 
 // -----
 
@@ -52,7 +56,8 @@ func.func @constant_with_ef2_1d() -> tensor<2x!EF2> {
   return %0 : tensor<2x!EF2>
 }
 
-// CHECK: @constant_with_ef2_1d
+// CHECK-LABEL: @constant_with_ef2_1d
+// CHECK: stablehlo.constant dense<{{\[}}[1, 2], [3, 4]]> : tensor<2x!field.ef<2x!pf_babybear_mont, 11 : i32>>
 
 // -----
 
@@ -65,7 +70,8 @@ func.func @constant_with_tower_ext_field() -> tensor<!TowerF6> {
   return %0 : tensor<!TowerF6>
 }
 
-// CHECK: @constant_with_tower_ext_field
+// CHECK-LABEL: @constant_with_tower_ext_field
+// CHECK: stablehlo.constant dense<{{\[}}[1, 2], [3, 4], [5, 6]]> : tensor<!field.ef<3x!field.ef<2x!pf7_i32, 6 : i32>, 2 : i32>>
 
 // -----
 
@@ -75,11 +81,12 @@ func.func @constant_with_tower_ext_field() -> tensor<!TowerF6> {
 !g1_affine = !elliptic_curve.affine<#g1_curve>
 
 func.func @constant_with_g1_affine() -> tensor<!g1_affine> {
-  %0 = "stablehlo.constant"() <{value = dense<[1, 2]> : tensor<2xi256>}> : () -> tensor<!g1_affine>
+  %0 = stablehlo.constant dense<[1, 2]> : tensor<!g1_affine>
   return %0 : tensor<!g1_affine>
 }
 
-// CHECK: @constant_with_g1_affine
+// CHECK-LABEL: @constant_with_g1_affine
+// CHECK: stablehlo.constant dense<[1, 2]> : tensor<!affine>
 
 // -----
 
@@ -89,11 +96,12 @@ func.func @constant_with_g1_affine() -> tensor<!g1_affine> {
 !g1_affine = !elliptic_curve.affine<#g1_curve>
 
 func.func @constant_with_g1_affine_1d() -> tensor<2x!g1_affine> {
-  %0 = "stablehlo.constant"() <{value = dense<[[1, 2], [3, 4]]> : tensor<2x2xi256>}> : () -> tensor<2x!g1_affine>
+  %0 = stablehlo.constant dense<[[1, 2], [3, 4]]> : tensor<2x!g1_affine>
   return %0 : tensor<2x!g1_affine>
 }
 
-// CHECK: @constant_with_g1_affine_1d
+// CHECK-LABEL: @constant_with_g1_affine_1d
+// CHECK: stablehlo.constant dense<{{\[}}[1, 2], [3, 4]]> : tensor<2x!affine>
 
 // -----
 
@@ -103,11 +111,12 @@ func.func @constant_with_g1_affine_1d() -> tensor<2x!g1_affine> {
 !g1_jacobian = !elliptic_curve.jacobian<#g1_curve>
 
 func.func @constant_with_g1_jacobian() -> tensor<!g1_jacobian> {
-  %0 = "stablehlo.constant"() <{value = dense<[1, 2, 1]> : tensor<3xi256>}> : () -> tensor<!g1_jacobian>
+  %0 = stablehlo.constant dense<[1, 2, 1]> : tensor<!g1_jacobian>
   return %0 : tensor<!g1_jacobian>
 }
 
-// CHECK: @constant_with_g1_jacobian
+// CHECK-LABEL: @constant_with_g1_jacobian
+// CHECK: stablehlo.constant dense<[1, 2, 1]> : tensor<!jacobian>
 
 // -----
 
@@ -117,11 +126,12 @@ func.func @constant_with_g1_jacobian() -> tensor<!g1_jacobian> {
 !g1_xyzz = !elliptic_curve.xyzz<#g1_curve>
 
 func.func @constant_with_g1_xyzz() -> tensor<!g1_xyzz> {
-  %0 = "stablehlo.constant"() <{value = dense<[1, 2, 1, 1]> : tensor<4xi256>}> : () -> tensor<!g1_xyzz>
+  %0 = stablehlo.constant dense<[1, 2, 1, 1]> : tensor<!g1_xyzz>
   return %0 : tensor<!g1_xyzz>
 }
 
-// CHECK: @constant_with_g1_xyzz
+// CHECK-LABEL: @constant_with_g1_xyzz
+// CHECK: stablehlo.constant dense<[1, 2, 1, 1]> : tensor<!xyzz>
 
 // -----
 
@@ -137,11 +147,12 @@ func.func @constant_with_g1_xyzz() -> tensor<!g1_xyzz> {
 !g2_affine = !elliptic_curve.affine<#g2_curve>
 
 func.func @constant_with_g2_affine() -> tensor<!g2_affine> {
-  %0 = "stablehlo.constant"() <{value = dense<[[1, 0], [2, 0]]> : tensor<2x2xi256>}> : () -> tensor<!g2_affine>
+  %0 = stablehlo.constant dense<[[1, 0], [2, 0]]> : tensor<!g2_affine>
   return %0 : tensor<!g2_affine>
 }
 
-// CHECK: @constant_with_g2_affine
+// CHECK-LABEL: @constant_with_g2_affine
+// CHECK: stablehlo.constant dense<{{\[}}[1, 0], [2, 0]]> : tensor<!affine>
 
 // -----
 
@@ -151,11 +162,12 @@ func.func @constant_with_g2_affine() -> tensor<!g2_affine> {
 !g1_jacobian = !elliptic_curve.jacobian<#g1_curve>
 
 func.func @constant_with_g1_jacobian_1d() -> tensor<2x!g1_jacobian> {
-  %0 = "stablehlo.constant"() <{value = dense<[[1, 2, 1], [3, 4, 1]]> : tensor<2x3xi256>}> : () -> tensor<2x!g1_jacobian>
+  %0 = stablehlo.constant dense<[[1, 2, 1], [3, 4, 1]]> : tensor<2x!g1_jacobian>
   return %0 : tensor<2x!g1_jacobian>
 }
 
-// CHECK: @constant_with_g1_jacobian_1d
+// CHECK-LABEL: @constant_with_g1_jacobian_1d
+// CHECK: stablehlo.constant dense<{{\[}}[1, 2, 1], [3, 4, 1]]> : tensor<2x!jacobian>
 
 // -----
 
@@ -165,11 +177,12 @@ func.func @constant_with_g1_jacobian_1d() -> tensor<2x!g1_jacobian> {
 !g1_xyzz = !elliptic_curve.xyzz<#g1_curve>
 
 func.func @constant_with_g1_xyzz_1d() -> tensor<2x!g1_xyzz> {
-  %0 = "stablehlo.constant"() <{value = dense<[[1, 2, 1, 1], [3, 4, 1, 1]]> : tensor<2x4xi256>}> : () -> tensor<2x!g1_xyzz>
+  %0 = stablehlo.constant dense<[[1, 2, 1, 1], [3, 4, 1, 1]]> : tensor<2x!g1_xyzz>
   return %0 : tensor<2x!g1_xyzz>
 }
 
-// CHECK: @constant_with_g1_xyzz_1d
+// CHECK-LABEL: @constant_with_g1_xyzz_1d
+// CHECK: stablehlo.constant dense<{{\[}}[1, 2, 1, 1], [3, 4, 1, 1]]> : tensor<2x!xyzz>
 
 // -----
 
@@ -185,8 +198,25 @@ func.func @constant_with_g1_xyzz_1d() -> tensor<2x!g1_xyzz> {
 !g2_jacobian = !elliptic_curve.jacobian<#g2_curve>
 
 func.func @constant_with_g2_jacobian() -> tensor<!g2_jacobian> {
-  %0 = "stablehlo.constant"() <{value = dense<[[1, 0], [2, 0], [1, 0]]> : tensor<3x2xi256>}> : () -> tensor<!g2_jacobian>
+  %0 = stablehlo.constant dense<[[1, 0], [2, 0], [1, 0]]> : tensor<!g2_jacobian>
   return %0 : tensor<!g2_jacobian>
 }
 
-// CHECK: @constant_with_g2_jacobian
+// CHECK-LABEL: @constant_with_g2_jacobian
+// CHECK: stablehlo.constant dense<{{\[}}[1, 0], [2, 0], [1, 0]]> : tensor<!jacobian>
+
+// -----
+
+// EC point constant over a Montgomery base field — the printer must undo
+// Montgomery so the literal it emits is the one the parser converts back.
+!PF_MONT = !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256, true>
+#g1_curve_mont = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !PF_MONT
+!g1_affine_mont = !elliptic_curve.affine<#g1_curve_mont>
+
+func.func @constant_with_g1_affine_montgomery() -> tensor<!g1_affine_mont> {
+  %0 = stablehlo.constant dense<[1, 2]> : tensor<!g1_affine_mont>
+  return %0 : tensor<!g1_affine_mont>
+}
+
+// CHECK-LABEL: @constant_with_g1_affine_montgomery
+// CHECK: stablehlo.constant dense<[1, 2]> : tensor<!affine>
