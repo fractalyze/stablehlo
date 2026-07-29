@@ -518,9 +518,18 @@ def MulOp_FoldToZero
         [(MergeDiscardableAttributes $mul_op, $zero)]>;
 
 // Pattern: multiply(X, 1i) -> X
+//
+// `AnyOne` matches the constant's ATTRIBUTE, which for a field element holds
+// its internal storage form. A Montgomery field stores `logical * R`, so the
+// element whose storage is 1 is R⁻¹, not the field's one (that stores R).
+// Matching on storage therefore replaces a genuine `x * R⁻¹` with `x`. Guard on
+// the op's element type; the field-aware prime_ir folders still collapse a
+// multiply by the real field one once this lowers to field.mul, so the fold is
+// deferred to the layer that knows R rather than lost.
 def MulOp_RemoveNoop
   : Pat<(StableHLO_MulOp:$mul_op $lhs, (StableHLO_ConstantOp AnyOne:$value)),
-        (replaceWithValue $lhs), [],
+        (replaceWithValue $lhs),
+        [(NotPrimeIrFieldOrEcType $mul_op)],
         [(MergeDiscardableAttributes $mul_op, $lhs)]>;
 
 ////////

@@ -988,6 +988,35 @@ func.func @multiply_by_one(%arg0: tensor<i32>) -> tensor<i32> {
   return %0 : tensor<i32>
 }
 
+// A Montgomery field constant whose STORAGE is 1 is the element R⁻¹, not the
+// field's one (which stores R), so these multiplies must survive. Poseidon2's
+// internal J scale is exactly such a constant; folding it away drops the
+// off-diagonal term of every internal round and corrupts the digest.
+//
+// Both spellings reach `AnyOne` as a storage-1 integer attribute: the generic
+// form the frontend emits, and the human-readable form that prints the
+// canonical value on a field-typed tensor.
+// CHECK-LABEL: @multiply_by_montgomery_storage_one_generic
+func.func @multiply_by_montgomery_storage_one_generic(
+    %arg0: tensor<!field.pf<2130706433 : i32, true>>)
+    -> tensor<!field.pf<2130706433 : i32, true>> {
+  %cst = stablehlo.constant() <{value = dense<1> : tensor<i32>}>
+      : () -> tensor<!field.pf<2130706433 : i32, true>>
+  // CHECK: stablehlo.multiply
+  %0 = stablehlo.multiply %cst, %arg0 : tensor<!field.pf<2130706433 : i32, true>>
+  return %0 : tensor<!field.pf<2130706433 : i32, true>>
+}
+
+// CHECK-LABEL: @multiply_by_montgomery_storage_one_pretty
+func.func @multiply_by_montgomery_storage_one_pretty(
+    %arg0: tensor<!field.pf<2130706433 : i32, true>>)
+    -> tensor<!field.pf<2130706433 : i32, true>> {
+  %cst = stablehlo.constant dense<1057030144> : tensor<!field.pf<2130706433 : i32, true>>
+  // CHECK: stablehlo.multiply
+  %0 = stablehlo.multiply %cst, %arg0 : tensor<!field.pf<2130706433 : i32, true>>
+  return %0 : tensor<!field.pf<2130706433 : i32, true>>
+}
+
 // CHECK-LABEL: @multiply_by_zero_float
 func.func @multiply_by_zero_float(%arg0: tensor<f32>) -> tensor<f32> {
   %cst = stablehlo.constant dense<0.0> : tensor<f32>
