@@ -8,8 +8,8 @@ Override with a local checkout via `--override_repository=prime_ir=<path>`.
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-PRIME_IR_COMMIT = "8bb8d6e637408e47fe9de5388dc47608362d6569"
-PRIME_IR_SHA256 = "b6eab9a0a136a6b72f795bb27485263a07192b7306fd3e505e3845f28ece25b8"
+PRIME_IR_COMMIT = "a4aa28b92433fb670235221c50d446930b7904d7"
+PRIME_IR_SHA256 = "fe0a662530616332aa97a5422a28b994f60ebc5898758be5700a5622cf6a1e05"
 
 def repo():
     http_archive(
