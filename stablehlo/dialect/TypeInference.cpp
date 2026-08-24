@@ -680,21 +680,23 @@ LogicalResult verifyAddOp(std::optional<Location> location, Operation* op,
     if (rhsPt.getCurveAttr() != curve || resPt.getCurveAttr() != curve)
       return emitOptionalError(
           location, "EC operands and result must be on the same curve");
-    using namespace prime_ir::elliptic_curve;
+    using prime_ir::elliptic_curve::isAffine;
     // Accept exactly the coordinate combinations elliptic_curve.add/sub can
-    // lower to (prime_ir's verifyBinaryOp contract):
-    //   affine+affine -> jacobian|xyzz   (only affine inputs choose the
-    //                                     output system; the group law lands
-    //                                     in projective/extended coordinates)
-    //   affine+T      -> T               (mixed addition; T non-affine, the
-    //                                     result must equal the non-affine
-    //                                     operand)
-    //   T+T           -> T               (same non-affine system in and out)
-    bool lhsAffine = isa<AffineType>(lhsPt);
-    bool rhsAffine = isa<AffineType>(rhsPt);
-    if (lhsAffine && rhsAffine && isa<JacobianType, XYZZType>(resPt))
-      return success();
-    if (!isa<AffineType>(resPt)) {
+    // lower to (prime_ir's verifyBinaryOp contract). The result is never
+    // affine -- the group law lands in the family's projective form, and the
+    // curve-attribute check above already forces one family, so "not affine"
+    // identifies that form by construction:
+    //   affine+affine -> projective  (only affine inputs choose the system)
+    //   affine+T      -> T           (mixed addition, T non-affine)
+    //   T+T           -> T           (same non-affine system in and out)
+    //
+    // Affineness comes from the point kind: isa<AffineType> names only the
+    // short Weierstrass type, which left the widening arm unreachable for
+    // twisted Edwards.
+    bool lhsAffine = isAffine(lhsPt.getPointKind());
+    bool rhsAffine = isAffine(rhsPt.getPointKind());
+    if (!isAffine(resPt.getPointKind())) {
+      if (lhsAffine && rhsAffine) return success();
       if (lhsAffine && Type(rhsPt) == Type(resPt)) return success();
       if (rhsAffine && Type(lhsPt) == Type(resPt)) return success();
       if (!lhsAffine && !rhsAffine && Type(lhsPt) == Type(rhsPt) &&

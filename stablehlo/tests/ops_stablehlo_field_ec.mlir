@@ -585,3 +585,67 @@ func.func @constant_field_garbage_literal() -> tensor<!field.pf<7681:i32>> {
   %0 = stablehlo.constant dense<not_a_number> : tensor<!field.pf<7681:i32>>
   func.return %0 : tensor<!field.pf<7681:i32>>
 }
+
+// -----
+// affine+affine widens: affine coordinates are not closed under the group law,
+// so the result takes the family's projective form. Short Weierstrass may pick
+// either projective system.
+
+#curve = #elliptic_curve.sw<0:i256, 3:i256, (1:i256, 2:i256)> : !field.pf<21888242871839275222246405745257275088696311157297823662689037894645226208583:i256>
+!aff = !elliptic_curve.affine<#curve>
+!jac = !elliptic_curve.jacobian<#curve>
+!xyzz = !elliptic_curve.xyzz<#curve>
+
+// CHECK-LABEL: func @ec_add_affine_widens_to_jacobian
+func.func @ec_add_affine_widens_to_jacobian(%a: tensor<!aff>, %b: tensor<!aff>)
+    -> tensor<!jac> {
+  %0 = stablehlo.add %a, %b : (tensor<!aff>, tensor<!aff>) -> tensor<!jac>
+  func.return %0 : tensor<!jac>
+}
+
+// CHECK-LABEL: func @ec_add_affine_widens_to_xyzz
+func.func @ec_add_affine_widens_to_xyzz(%a: tensor<!aff>, %b: tensor<!aff>)
+    -> tensor<!xyzz> {
+  %0 = stablehlo.add %a, %b : (tensor<!aff>, tensor<!aff>) -> tensor<!xyzz>
+  func.return %0 : tensor<!xyzz>
+}
+
+// -----
+// The same widening for twisted Edwards. Affineness is a property of the point
+// kind, not of the short Weierstrass affine type, so ed_affine has to reach the
+// widening arm too -- its projective form is extended.
+
+#ed = #elliptic_curve.te<57896044618658097711785492504343953926634992332820282019728792003956564819948:i256, 37095705934669439343138083508754565189542113879843219016388785533085940283555:i256, (15112221349535400772501151409588531511454012693041857206046113283949847762202:i256, 46316835694926478169428394003475163141307993866256225615783033603165251855960:i256)> : !field.pf<57896044618658097711785492504343953926634992332820282019728792003956564819949:i256>
+!ed_aff = !elliptic_curve.ed_affine<#ed>
+!ed_ext = !elliptic_curve.ed_extended<#ed>
+
+// CHECK-LABEL: func @ec_add_ed_affine_widens_to_extended
+func.func @ec_add_ed_affine_widens_to_extended(%a: tensor<!ed_aff>,
+                                               %b: tensor<!ed_aff>)
+    -> tensor<!ed_ext> {
+  %0 = stablehlo.add %a, %b : (tensor<!ed_aff>, tensor<!ed_aff>) -> tensor<!ed_ext>
+  func.return %0 : tensor<!ed_ext>
+}
+
+// CHECK-LABEL: func @ec_add_ed_extended_same_system
+func.func @ec_add_ed_extended_same_system(%a: tensor<!ed_ext>,
+                                          %b: tensor<!ed_ext>)
+    -> tensor<!ed_ext> {
+  %0 = stablehlo.add %a, %b : (tensor<!ed_ext>, tensor<!ed_ext>) -> tensor<!ed_ext>
+  func.return %0 : tensor<!ed_ext>
+}
+
+// -----
+// An affine result is still rejected in either family: the group law cannot
+// land back in affine coordinates without an inversion the op does not model.
+
+#ed = #elliptic_curve.te<57896044618658097711785492504343953926634992332820282019728792003956564819948:i256, 37095705934669439343138083508754565189542113879843219016388785533085940283555:i256, (15112221349535400772501151409588531511454012693041857206046113283949847762202:i256, 46316835694926478169428394003475163141307993866256225615783033603165251855960:i256)> : !field.pf<57896044618658097711785492504343953926634992332820282019728792003956564819949:i256>
+!ed_aff = !elliptic_curve.ed_affine<#ed>
+
+func.func @ec_add_ed_affine_result_rejected(%a: tensor<!ed_aff>,
+                                            %b: tensor<!ed_aff>)
+    -> tensor<!ed_aff> {
+  // expected-error@+1 {{invalid EC point type combination for binary operation}}
+  %0 = stablehlo.add %a, %b : (tensor<!ed_aff>, tensor<!ed_aff>) -> tensor<!ed_aff>
+  func.return %0 : tensor<!ed_aff>
+}
