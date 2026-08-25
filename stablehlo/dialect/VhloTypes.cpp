@@ -220,6 +220,12 @@ void VhloTypeConverter::addBuiltinToVhloConversions() {
   addConversion([&](prime_ir::elliptic_curve::XYZZType type) -> Type {
     return XYZZV1Type::get(type.getContext(), type.getCurve());
   });
+  addConversion([&](prime_ir::elliptic_curve::EdAffineType type) -> Type {
+    return EdAffineV1Type::get(type.getContext(), type.getCurve());
+  });
+  addConversion([&](prime_ir::elliptic_curve::EdExtendedType type) -> Type {
+    return EdExtendedV1Type::get(type.getContext(), type.getCurve());
+  });
 }
 
 void VhloTypeConverter::addVhloToBuiltinConversions() {
@@ -417,6 +423,23 @@ void VhloTypeConverter::addVhloToBuiltinConversions() {
         type.getCurve());
     if (!curve) return {};
     return prime_ir::elliptic_curve::XYZZType::get(type.getContext(), curve);
+  });
+  // The Edwards types carry a TwistedEdwardsAttr, not a ShortWeierstrassAttr:
+  // the two curve attributes share no interface, and the point type is what
+  // says which one to expect.
+  addConversion([&](EdAffineV1Type type) -> Type {
+    auto curve =
+        dyn_cast<prime_ir::elliptic_curve::TwistedEdwardsAttr>(type.getCurve());
+    if (!curve) return {};
+    return prime_ir::elliptic_curve::EdAffineType::get(type.getContext(),
+                                                       curve);
+  });
+  addConversion([&](EdExtendedV1Type type) -> Type {
+    auto curve =
+        dyn_cast<prime_ir::elliptic_curve::TwistedEdwardsAttr>(type.getCurve());
+    if (!curve) return {};
+    return prime_ir::elliptic_curve::EdExtendedType::get(type.getContext(),
+                                                         curve);
   });
 }
 

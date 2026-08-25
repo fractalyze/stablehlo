@@ -421,4 +421,19 @@ def VHLO_XYZZV1 : VHLO_TypeDef<"XYZZV1", "xyzz_v1", "1.13.0", "current"> {
   let assemblyFormat = "`<` $curve `>`";
 }
 
+// Corresponds to elliptic_curve::EdAffineType from the prime_ir dialect.
+// Declared at 1.13.0 like the other fork-added ZK twins so it stays legal at
+// JAX's WEEK_4 anchor (1.13.9, patch dropped): jax.export always downgrades to
+// that target, so a type introduced later could never be serialized by it.
+def VHLO_EdAffineV1 : VHLO_TypeDef<"EdAffineV1", "ed_affine_v1", "1.13.0", "current"> {
+  let parameters = (ins "::mlir::Attribute":$curve);
+  let assemblyFormat = "`<` $curve `>`";
+}
+
+// Corresponds to elliptic_curve::EdExtendedType from the prime_ir dialect.
+def VHLO_EdExtendedV1 : VHLO_TypeDef<"EdExtendedV1", "ed_extended_v1", "1.13.0", "current"> {
+  let parameters = (ins "::mlir::Attribute":$curve);
+  let assemblyFormat = "`<` $curve `>`";
+}
+
 #endif  // STABLEHLO_DIALECT_VHLO_TYPES

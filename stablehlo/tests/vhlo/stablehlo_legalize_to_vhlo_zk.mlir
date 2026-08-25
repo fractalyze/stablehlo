@@ -179,3 +179,40 @@ func.func @op_bf_ghash_passthrough(
   %0 = stablehlo.add %arg0, %arg0 : tensor<4x!field.bf<7, ghash>>
   func.return %0 : tensor<4x!field.bf<7, ghash>>
 }
+
+// The twisted Edwards point types, which had no VHLO twin at all: they
+// verified and lowered but could not cross the serialization boundary, so
+// jax.export of any ed25519 computation failed here. Like the other ZK twins
+// they are declared at 1.13.0, which is what keeps them legal at the WEEK_4
+// anchor the RUN lines target.
+#ed25519 = #elliptic_curve.te<57896044618658097711785492504343953926634992332820282019728792003956564819948:i256, 37095705934669439343138083508754565189542113879843219016388785533085940283555:i256, (15112221349535400772501151409588531511454012693041857206046113283949847762202:i256, 46316835694926478169428394003475163141307993866256225615783033603165251855960:i256)> : !field.pf<57896044618658097711785492504343953926634992332820282019728792003956564819949:i256>
+!ed_affine = !elliptic_curve.ed_affine<#ed25519>
+!ed_extended = !elliptic_curve.ed_extended<#ed25519>
+
+// LEGALIZE-LABEL: "op_negate_ed_affine"
+// LEGALIZE: "vhlo.negate_v1"
+// LEGALIZE-SAME: !vhlo.ed_affine_v1
+// DOWNGRADE-LABEL: vhlo.func_v1 @op_negate_ed_affine
+// DOWNGRADE: vhlo.negate_v1
+// DOWNGRADE-SAME: !vhlo.ed_affine_v1
+// ROUNDTRIP-LABEL: @op_negate_ed_affine
+// ROUNDTRIP: stablehlo.negate
+// ROUNDTRIP-SAME: !elliptic_curve.ed_affine
+func.func @op_negate_ed_affine(%arg0: tensor<4x!ed_affine>) -> tensor<4x!ed_affine> {
+  %0 = stablehlo.negate %arg0 : tensor<4x!ed_affine>
+  func.return %0 : tensor<4x!ed_affine>
+}
+
+// LEGALIZE-LABEL: "op_add_ed_extended"
+// LEGALIZE: "vhlo.add_v1"
+// LEGALIZE-SAME: !vhlo.ed_extended_v1
+// DOWNGRADE-LABEL: vhlo.func_v1 @op_add_ed_extended
+// DOWNGRADE: vhlo.add_v1
+// DOWNGRADE-SAME: !vhlo.ed_extended_v1
+// ROUNDTRIP-LABEL: @op_add_ed_extended
+// ROUNDTRIP: stablehlo.add
+// ROUNDTRIP-SAME: !elliptic_curve.ed_extended
+func.func @op_add_ed_extended(%arg0: tensor<4x!ed_extended>) -> tensor<4x!ed_extended> {
+  %0 = stablehlo.add %arg0, %arg0 : tensor<4x!ed_extended>
+  func.return %0 : tensor<4x!ed_extended>
+}
