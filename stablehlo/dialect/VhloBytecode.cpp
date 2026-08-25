@@ -488,6 +488,16 @@ enum TypeCode {
   ///     curve: Attribute
   ///   }
   kXYZZV1Type = 51,
+
+  ///   EdAffineV1Type {
+  ///     curve: Attribute
+  ///   }
+  kEdAffineV1Type = 53,
+
+  ///   EdExtendedV1Type {
+  ///     curve: Attribute
+  ///   }
+  kEdExtendedV1Type = 54,
 };
 
 }  // namespace vhlo_encoding
@@ -621,6 +631,8 @@ class VhloBytecodeInterface : public BytecodeDialectInterface {
   AffineV1Type readAffineV1Type(DialectBytecodeReader& reader) const;
   JacobianV1Type readJacobianV1Type(DialectBytecodeReader& reader) const;
   XYZZV1Type readXYZZV1Type(DialectBytecodeReader& reader) const;
+  EdAffineV1Type readEdAffineV1Type(DialectBytecodeReader& reader) const;
+  EdExtendedV1Type readEdExtendedV1Type(DialectBytecodeReader& reader) const;
 
   // TO ADD TYPE: Include a write method for each type in VHLO
   // Ex: void write(SomeType attr, DialectBytecodeWriter &writer) const;
@@ -641,6 +653,8 @@ class VhloBytecodeInterface : public BytecodeDialectInterface {
   void write(AffineV1Type type, DialectBytecodeWriter& writer) const;
   void write(JacobianV1Type type, DialectBytecodeWriter& writer) const;
   void write(XYZZV1Type type, DialectBytecodeWriter& writer) const;
+  void write(EdAffineV1Type type, DialectBytecodeWriter& writer) const;
+  void write(EdExtendedV1Type type, DialectBytecodeWriter& writer) const;
 };
 
 //===----------------------------------------------------------------------===//
@@ -1359,6 +1373,10 @@ Type VhloBytecodeInterface::readType(DialectBytecodeReader& reader) const {
       return readJacobianV1Type(reader);
     case vhlo_encoding::kXYZZV1Type:
       return readXYZZV1Type(reader);
+    case vhlo_encoding::kEdAffineV1Type:
+      return readEdAffineV1Type(reader);
+    case vhlo_encoding::kEdExtendedV1Type:
+      return readEdExtendedV1Type(reader);
     default:
       reader.emitError() << "unknown vhlo type code: " << code;
       return Type();
@@ -1373,11 +1391,11 @@ LogicalResult VhloBytecodeInterface::writeType(
             FutureV1Type, TupleV1Type, UnrankedTensorV1Type,
             UniformQuantizedPerAxisV1Type, UniformQuantizedV1Type,
             RankedBufferV1Type, PrimeFieldV1Type, BinaryFieldV1Type,
-            ExtensionFieldV1Type, AffineV1Type, JacobianV1Type, XYZZV1Type>(
-          [&](auto type) {
-            LOG_WRITE_CALL;
-            return write(type, writer), success();
-          })
+            ExtensionFieldV1Type, AffineV1Type, JacobianV1Type, XYZZV1Type,
+            EdAffineV1Type, EdExtendedV1Type>([&](auto type) {
+        LOG_WRITE_CALL;
+        return write(type, writer), success();
+      })
       .Case([&](BooleanV1Type) {
         LOG_WRITE_CALL;
         return writer.writeVarInt(vhlo_encoding::kBooleanV1Type), success();
@@ -1921,6 +1939,34 @@ XYZZV1Type VhloBytecodeInterface::readXYZZV1Type(
 void VhloBytecodeInterface::write(XYZZV1Type type,
                                   DialectBytecodeWriter& writer) const {
   writer.writeVarInt(vhlo_encoding::kXYZZV1Type);
+  writer.writeAttribute(type.getCurve());
+}
+
+EdAffineV1Type VhloBytecodeInterface::readEdAffineV1Type(
+    DialectBytecodeReader& reader) const {
+  LOG_READ_CALL;
+  Attribute curve;
+  if (failed(reader.readAttribute(curve))) return EdAffineV1Type();
+  return EdAffineV1Type::get(getContext(), curve);
+}
+
+void VhloBytecodeInterface::write(EdAffineV1Type type,
+                                  DialectBytecodeWriter& writer) const {
+  writer.writeVarInt(vhlo_encoding::kEdAffineV1Type);
+  writer.writeAttribute(type.getCurve());
+}
+
+EdExtendedV1Type VhloBytecodeInterface::readEdExtendedV1Type(
+    DialectBytecodeReader& reader) const {
+  LOG_READ_CALL;
+  Attribute curve;
+  if (failed(reader.readAttribute(curve))) return EdExtendedV1Type();
+  return EdExtendedV1Type::get(getContext(), curve);
+}
+
+void VhloBytecodeInterface::write(EdExtendedV1Type type,
+                                  DialectBytecodeWriter& writer) const {
+  writer.writeVarInt(vhlo_encoding::kEdExtendedV1Type);
   writer.writeAttribute(type.getCurve());
 }
 

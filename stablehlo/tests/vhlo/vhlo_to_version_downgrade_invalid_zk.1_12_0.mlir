@@ -124,6 +124,32 @@ func.func @xyzz_type(%arg0: tensor<4x!ec_xyzz>) -> tensor<4x!ec_xyzz> {
 
 // -----
 
+// !vhlo.ed_affine_v1 (twisted Edwards affine point) floor 1.13.0.
+#ed25519_a = #elliptic_curve.te<57896044618658097711785492504343953926634992332820282019728792003956564819948:i256, 37095705934669439343138083508754565189542113879843219016388785533085940283555:i256, (15112221349535400772501151409588531511454012693041857206046113283949847762202:i256, 46316835694926478169428394003475163141307993866256225615783033603165251855960:i256)> : !field.pf<57896044618658097711785492504343953926634992332820282019728792003956564819949:i256>
+!ed_affine = !elliptic_curve.ed_affine<#ed25519_a>
+// expected-error @+1 {{failed to convert VHLO to v1.12.0}}
+module {
+// expected-error @+1 {{failed to legalize operation 'vhlo.func_v1' that was explicitly marked illegal}}
+func.func @ed_affine_type(%arg0: tensor<4x!ed_affine>) -> tensor<4x!ed_affine> {
+  func.return %arg0 : tensor<4x!ed_affine>
+}
+}
+
+// -----
+
+// !vhlo.ed_extended_v1 (twisted Edwards extended point) floor 1.13.0.
+#ed25519_e = #elliptic_curve.te<57896044618658097711785492504343953926634992332820282019728792003956564819948:i256, 37095705934669439343138083508754565189542113879843219016388785533085940283555:i256, (15112221349535400772501151409588531511454012693041857206046113283949847762202:i256, 46316835694926478169428394003475163141307993866256225615783033603165251855960:i256)> : !field.pf<57896044618658097711785492504343953926634992332820282019728792003956564819949:i256>
+!ed_extended = !elliptic_curve.ed_extended<#ed25519_e>
+// expected-error @+1 {{failed to convert VHLO to v1.12.0}}
+module {
+// expected-error @+1 {{failed to legalize operation 'vhlo.func_v1' that was explicitly marked illegal}}
+func.func @ed_extended_type(%arg0: tensor<4x!ed_extended>) -> tensor<4x!ed_extended> {
+  func.return %arg0 : tensor<4x!ed_extended>
+}
+}
+
+// -----
+
 // !vhlo.i128_v1 (extended-width integer) floor 1.13.0.
 // expected-error @+1 {{failed to convert VHLO to v1.12.0}}
 module {
