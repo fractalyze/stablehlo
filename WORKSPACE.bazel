@@ -66,35 +66,13 @@ load("@toolchains_llvm//toolchain:deps.bzl", "bazel_toolchain_dependencies")
 bazel_toolchain_dependencies()
 
 # Pin an explicit Chromium sysroot (debian bullseye amd64) so worker glibc/libtinfo
-# never leaks into action outputs — the LLVM 20.x generic tarball otherwise resolves
-# the non-hermetic host /usr. The filegroup name + extraction layout match
-# toolchains_llvm's `sysroot` repo rule convention, reproduced via
-# http_archive to avoid its aspect_bazel_lib/bsdtar dep chain — but with
-# glob(["**"]) where the convention uses srcs ["."]: the latter feeds the
-# repo ROOT into every compile action as a single directory artifact,
-# which bazel flags ("dependency checking of directories is unsound") once
-# per consuming target and cannot hash incrementally. Per-file artifacts
-# are tracked soundly and keep logs quiet.
-http_archive(
-    name = "org_chromium_sysroot_linux_x64",
-    build_file_content = """filegroup(
-    name = "sysroot",
-    srcs = glob(
-        ["**"],
-        # systemd unit filenames contain literal backslash escapes, which
-        # are invalid in bazel labels — and nothing in a compile or link
-        # ever reads them.
-        exclude = ["lib/systemd/**"],
-    ),
-    visibility = ["//visibility:public"],
-)
-""",
-    sha256 = "52d61d4446ffebfaa3dda2cd02da4ab4876ff237853f46d273e7f9b666652e1d",
-    # The chromium sysroot URL is sha256-keyed with no file extension, so Bazel
-    # cannot infer the archive format — declare it explicitly.
-    type = "tar.xz",
-    urls = ["https://commondatastorage.googleapis.com/chrome-linux-sysroot/52d61d4446ffebfaa3dda2cd02da4ab4876ff237853f46d273e7f9b666652e1d"],
-)
+# never leaks into action outputs. The archive is declared in
+# //third_party/sysroot so the bzlmod lane's module extension can fetch the same
+# pin; see that file for why it is an http_archive and not toolchains_llvm's own
+# sysroot rule.
+load("//third_party/sysroot:workspace.bzl", sysroot = "repo")
+
+sysroot()
 
 load("@toolchains_llvm//toolchain:rules.bzl", "llvm_toolchain")
 

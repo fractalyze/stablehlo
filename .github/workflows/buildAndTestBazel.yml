@@ -106,3 +106,61 @@ jobs:
       run: |
         ./build_tools/github_actions/ci_build_bazel.sh
 
+  # The same suite, resolved through MODULE.bazel instead of WORKSPACE.bazel.
+  # Always the full set: bazel-diff hashes the WORKSPACE lane's targets, and the
+  # two lanes' repository names differ, so its impacted-target set does not
+  # carry over. Fork-only — the lane resolves the fractalyze prime-ir and
+  # zk_dtypes forks, which upstream does not depend on.
+  bazel-build-bzlmod:
+    if: github.repository != 'openxla/stablehlo'
+    runs-on: [self-hosted, cpu]
+
+    steps:
+    - name: Checkout StableHLO
+      uses: actions/checkout@v4
+
+    - name: Setup Bazelisk
+      uses: bazelbuild/setup-bazelisk@v3
+
+    - name: Use host bazel-remote disk cache
+      shell: bash
+      run: cp .bazelrc.ci .bazelrc.user
+
+    # `--lockfile_mode=error` as the WORKSPACE lane's ci_build_bazel.sh passes
+    # it: the committed MODULE.bazel.lock is checked rather than rewritten in
+    # place, so a pin edit that never regenerated it fails here.
+    - name: Build and Test StableHLO (bzlmod)
+      shell: bash
+      run: bazel test --config=bzlmod --lockfile_mode=error //...
+
+  # StableHLO's own bzlmod lane builds it as the *root* module, where
+  # `archive_override`, `dev_dependency` declarations and patches all still
+  # apply; a consumer resolves it as a non-root module, where none of them do.
+  # Only a separate module can tell the two apart, so this lane builds one, and
+  # proves that a project can `bazel_dep` on StableHLO and resolve every target
+  # it references.
+  bzlmod-consumer:
+    if: github.repository != 'openxla/stablehlo'
+    runs-on: [self-hosted, cpu]
+
+    steps:
+    - name: Checkout StableHLO
+      uses: actions/checkout@v4
+
+    - name: Setup Bazelisk
+      uses: bazelbuild/setup-bazelisk@v3
+
+    - name: Run `bazel test` in the consumer module
+      shell: bash
+      working-directory: bazel/bzlmod_consumer
+      run: bazel --bazelrc=.bazelrc.ci test --config=ci //...
+
+    # `@stablehlo//...` would descend into this fixture, whose own BUILD file
+    # names repositories only its module maps; `.bazelignore` keeps the root
+    # lane out of it but does not apply to a repository consumed as a
+    # dependency. The root package is where every target a consumer reaches
+    # lives.
+    - name: Resolve every StableHLO target a consumer reaches
+      shell: bash
+      working-directory: bazel/bzlmod_consumer
+      run: bazel --bazelrc=.bazelrc.ci build --config=ci @stablehlo//:all

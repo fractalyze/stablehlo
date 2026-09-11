@@ -1,0 +1,38 @@
+# Copyright 2025 The StableHLO Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+load("@rules_python//python:py_test.bzl", "py_test")
+
+# Paths arrive as flags rather than being opened relative to the test's working
+# directory: an external repository's runfiles directory is named after the
+# resolution lane (`prime_ir` under WORKSPACE, `+...+prime_ir` under bzlmod),
+# and $(rootpath) spells whichever one is in force.
+py_test(
+    name = "pin_sync_test",
+    size = "small",
+    srcs = ["pin_sync_test.py"],
+    args = [
+        "--module_bazel=$(rootpath //:MODULE.bazel)",
+        "--workspace_bzl=$(rootpath workspace.bzl)",
+        "--prime_ir_module_bazel=$(rootpath @prime_ir//:MODULE.bazel)",
+        "--consumer_module_bazel=$(rootpath //bazel:bzlmod_consumer/MODULE.bazel)",
+    ],
+    data = [
+        "workspace.bzl",
+        "//:MODULE.bazel",
+        "//bazel:bzlmod_consumer/MODULE.bazel",
+        "@prime_ir//:MODULE.bazel",
+    ],
+    deps = ["@pypi//absl_py"],
+)

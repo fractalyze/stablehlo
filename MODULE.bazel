@@ -12,15 +12,190 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-###############################################################################
-# Bazel now uses Bzlmod by default to manage external dependencies.
-# Please consider migrating your external dependencies from WORKSPACE to MODULE.bazel.
-#
-# For more details, please check https://github.com/bazelbuild/bazel/issues/18958
-###############################################################################
-module(name = "stablehlo")
+"""StableHLO as a Bazel module.
 
+The WORKSPACE build stays the default; `--config=bzlmod` builds through this
+file, which is also what a consumer gets when it declares a `bazel_dep` on
+stablehlo. `WORKSPACE.bazel` is the other half of that pairing and has to be
+kept in step: every repository named here is declared either as a `bazel_dep` or
+by a module extension wrapping the same `.bzl` the WORKSPACE build calls, so a
+dependency added to one lane has one obvious home in the other.
+
+Nothing outside the dev-dependency section may carry a patch or a
+`single_version_override`: Bazel applies both only for the root module, so a
+consumer would silently resolve the unpatched dependency. The patched LLVM is
+safe because it arrives through prime_ir's module extensions, which run
+identically whoever the root module is.
+
+`archive_override` is root-only for the same reason. Neither prime_ir nor
+zk_dtypes is in a registry, so a consumer of stablehlo has to restate *both*
+overrides below alongside its own override of stablehlo — a non-root module
+cannot pull a dependency in from outside a registry. `//bazel/bzlmod_consumer`
+is a worked example.
+"""
+
+module(
+    # Tracks `Version::getCurrentVersion()` in //stablehlo/dialect/Version.h;
+    # bump both together.
+    name = "stablehlo",
+    version = "1.16.0",
+    compatibility_level = 1,
+)
+
+# Repo names match the WORKSPACE build so that first-party BUILD files read the
+# same under both. Versions are the WORKSPACE pins where the registry carries
+# them; every deviation is noted at the dependency.
 bazel_dep(name = "bazel_skylib", version = "1.8.2")
-# rules_cc and rules_python are pinned in WORKSPACE.bazel via prime_ir's
-# setup (rules_cc 0.2.13, rules_python 1.6.0) to keep the toolchain
-# pin aligned with prime_ir.
+bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "rules_python", version = "1.6.0")
+
+# The WORKSPACE lane pins 0.2.17 as the floor toolchains_llvm v1.7.0 needs (it
+# calls cc_toolchain_config with extra_{known,enabled}_features, added there).
+# The bzlmod lane reaches the same floor through toolchains_llvm's own
+# `bazel_dep`, but stablehlo's BUILD files load `@rules_cc//cc:defs.bzl`
+# themselves, so it is declared here rather than inherited.
+bazel_dep(name = "rules_cc", version = "0.2.17")
+
+# The builder unit tests link this rather than LLVM's vendored googletest; see
+# //BUILD.bazel at `mlir_builder_test` for why. On the WORKSPACE lane the same
+# repository arrives through zk_dtypes' setup macros, at whatever version
+# zk_dtypes pins.
+bazel_dep(name = "googletest", version = "1.17.0", repo_name = "com_google_googletest")
+
+# Not in any registry, so a `bazel_dep` alone cannot resolve either fork. The
+# overrides pin the same archives the WORKSPACE lane fetches. MODULE.bazel
+# cannot `load()`, so the prime_ir pin cannot be shared with
+# `//third_party/prime_ir:workspace.bzl` and is spelled out again here; the pair
+# is held together from both ends — `//third_party/prime_ir:pin_sync_test` fails
+# if they drift, and `.github/workflows/pin-bump.yml` lists both files so an
+# automated bump moves them in one commit. The prefixed variable names are what
+# let that substitution find the pin in either file, so keep this shape.
+#
+# `archive_override` takes `integrity` and not the `sha256` the WORKSPACE lane's
+# `http_archive` takes: the same digest, base64 rather than hex.
+# `pin_sync_test` converts between the two before comparing.
+PRIME_IR_COMMIT = "fb5e80427342eed7acee6bbfe3ad6d7f5d0a38ff"
+
+PRIME_IR_INTEGRITY = "sha256-yasEtENxjn7uB9U8m1Ydche12UWO5dzzs/TgYe4k1PQ="
+
+bazel_dep(name = "prime_ir", version = "2.0.0")
+archive_override(
+    module_name = "prime_ir",
+    integrity = PRIME_IR_INTEGRITY,
+    strip_prefix = "prime-ir-" + PRIME_IR_COMMIT,
+    urls = ["https://github.com/fractalyze/prime-ir/archive/{commit}.tar.gz".format(commit = PRIME_IR_COMMIT)],
+)
+
+# zk_dtypes reaches the WORKSPACE lane transitively, through prime_ir's own
+# `workspace.bzl`. The bzlmod lane cannot inherit it that way, because prime_ir's
+# `archive_override` stops applying the moment prime_ir is not the root module —
+# so the pin is restated here and has to track whatever prime_ir pins.
+# `pin_sync_test` reads it back out of `@prime_ir//:MODULE.bazel` and fails if
+# the two disagree, which is what makes a prime_ir bump that moves zk_dtypes a
+# red test rather than two lanes quietly building different revisions.
+ZK_DTYPES_COMMIT = "7a42ac4f9c3213925ac523c6871b580db96f9b8d"
+
+ZK_DTYPES_INTEGRITY = "sha256-8pEUJbq+GJCpyE/VGRcU6cMJUxgyUTO1dpOWiVY7yRw="
+
+bazel_dep(name = "zk_dtypes", version = "0.0.17")
+archive_override(
+    module_name = "zk_dtypes",
+    integrity = ZK_DTYPES_INTEGRITY,
+    strip_prefix = "zk_dtypes-" + ZK_DTYPES_COMMIT,
+    urls = ["https://github.com/fractalyze/zk_dtypes/archive/{commit}/zk_dtypes-{commit}.tar.gz".format(commit = ZK_DTYPES_COMMIT)],
+)
+
+# LLVM comes from prime_ir's extensions rather than a stablehlo-local pair of
+# them, and that is the whole point: an extension's repositories are shared by
+# every module that uses the same extension, so this yields the single
+# `@llvm-project` that `WORKSPACE.bazel` gets from first-wins resolution. Two
+# copies would compile, then fail at run time — MLIR's TypeID identity is the
+# address of a static, so a dialect registered against one copy is invisible to
+# the other.
+#
+# The cost of sharing is that `//third_party/llvm`'s stablehlo-only patches do
+# not apply on this lane; prime_ir's do, since they hang off the `http_archive`
+# inside its extension. Anything stablehlo comes to need from that patch set
+# belongs in prime_ir's list, where both lanes and every consumer see it.
+llvm_deps = use_extension("@prime_ir//bazel:llvm_deps.bzl", "llvm_deps")
+use_repo(llvm_deps, "llvm-raw", "llvm_zlib", "llvm_zstd")
+
+# Second, and after the `use_repo` above: this extension's `.bzl` loads out of
+# `@llvm-raw`, so that repository has to be in this module's mapping first.
+llvm_project = use_extension("@prime_ir//bazel:llvm_configure.bzl", "llvm_project")
+use_repo(llvm_project, "llvm-project")
+
+# The WORKSPACE build reaches Python through zk_dtypes' `python_init_*` macros,
+# which wrap these same rules_python extensions and build `@pypi` from prime_ir's
+# lock file. Declaring the lock from there keeps one requirements set across both
+# lanes rather than growing a second one here for the sake of the single test
+# that needs it.
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(
+    is_default = True,
+    python_version = "3.11",
+)
+
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+pip.parse(
+    hub_name = "stablehlo_pypi",
+    python_version = "3.11",
+    requirements_lock = "@prime_ir//:requirements_lock_3_11.txt",
+)
+
+# The hub cannot be named `pypi` outright: rules_python keys hubs across the
+# whole module graph and rejects a second one by the same name ("Duplicate
+# cross-module pip hub named 'pypi'"), which zk_dtypes already declares.
+# Aliasing here keeps the `@pypi` labels in first-party BUILD files reading the
+# same on both lanes.
+use_repo(pip, pypi = "stablehlo_pypi")
+
+# ---------------------------------------------------------------------------
+# Dev dependencies: the build environment, not the dependency contract.
+#
+# toolchains_llvm's extension `fail`s for any module that is not the root, so
+# declaring the hermetic clang non-dev would break every consumer of stablehlo
+# outright. It is the right classification anyway — which compiler builds this
+# repository is the root module's choice, and a consumer registers its own.
+# ---------------------------------------------------------------------------
+
+bazel_dep(name = "toolchains_llvm", version = "1.7.0", dev_dependency = True)
+
+# Above toolchains_llvm's own floor of 1.38.0: its generated @llvm_toolchain
+# BUILD reads bazel_features.rules.merkle_cache_v2, absent before 1.43.0. On
+# Bazel 7 that field evaluates False, selecting toolchains_llvm's legacy code
+# paths — it merely has to exist.
+bazel_dep(name = "bazel_features", version = "1.43.0", dev_dependency = True)
+
+toolchain_deps = use_extension(
+    "//bazel:toolchain_deps.bzl",
+    "toolchain_deps",
+    dev_dependency = True,
+)
+use_repo(toolchain_deps, "org_chromium_sysroot_linux_x64")
+
+llvm = use_extension(
+    "@toolchains_llvm//toolchain/extensions:llvm.bzl",
+    "llvm",
+    dev_dependency = True,
+)
+
+# Hermetic clang so action keys don't depend on whatever clang sits on the
+# worker PATH. The version is `WORKSPACE.bazel`'s `llvm_version`, written twice
+# because MODULE.bazel cannot `load()`; bump both together.
+#
+# `--config=asan` is a WORKSPACE-lane build. WORKSPACE.bazel passes
+# `extra_compiler_files` to declare the asan_ignorelist clang reads under
+# `-fsanitize=address`; the label for that file names a repository this same
+# extension creates, which a tag here cannot refer to.
+llvm.toolchain(llvm_version = "20.1.7")
+llvm.sysroot(
+    label = "@org_chromium_sysroot_linux_x64//:sysroot",
+    targets = ["linux-x86_64"],
+)
+use_repo(llvm, "llvm_toolchain")
+
+register_toolchains(
+    "@llvm_toolchain//:all",
+    dev_dependency = True,
+)

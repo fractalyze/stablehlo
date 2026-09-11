@@ -1,4 +1,4 @@
-# Copyright 2023 The StableHLO Authors. All Rights Reserved.
+# Copyright 2026 The StableHLO Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,10 +11,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-llvm-project
-
-# A standalone Bazel module used to verify that stablehlo resolves as a non-root
-# dependency. It has its own MODULE.bazel and is built by its own CI lane, so
-# the repository's own `//...` must not descend into it.
-bazel/bzlmod_consumer
