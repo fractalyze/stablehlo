@@ -1,0 +1,101 @@
+# Copyright 2026 The StableHLO Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""A standalone module that depends on stablehlo, exactly as a consumer does.
+
+StableHLO's own `--config=bzlmod` lane builds it as the *root* module, where
+`archive_override`, `dev_dependency` declarations and patches all still apply. A
+consumer resolves it as a non-root module, where none of them do — so only a
+separate module like this one can show that `//MODULE.bazel` stands on its own,
+which is what this fixture exists to prove: that a project can `bazel_dep` on
+stablehlo and resolve every target it references.
+
+`local_path_override` stands in for the `archive_override` / `git_override` a
+real consumer writes: it pins no revision, but resolution treats stablehlo as a
+non-root dependency either way, which is the property under test.
+
+The two fork overrides are the part worth copying. Overrides are honoured only in
+the root module, so stablehlo's own overrides are ignored the moment stablehlo
+stops being root — every consumer has to restate them, for prime_ir and for
+zk_dtypes underneath it. What stablehlo does carry across that boundary are its
+module extensions: `@llvm-project`, patched by prime_ir, arrives without the
+consumer naming it.
+"""
+
+module(name = "stablehlo_bzlmod_consumer")
+
+bazel_dep(name = "stablehlo")
+local_path_override(
+    module_name = "stablehlo",
+    path = "../..",
+)
+
+# A fourth and fifth copy of the two pins — this module is root here, so its
+# overrides are the ones that apply and a stale one would quietly build
+# stablehlo against an old prime_ir. They carry the same `PRIME_IR_` /
+# `ZK_DTYPES_` prefixes as `//MODULE.bazel` so that
+# `.github/workflows/pin-bump.yml` rewrites this file too, and
+# `//third_party/prime_ir:pin_sync_test` fails if it is left behind.
+PRIME_IR_COMMIT = "fb5e80427342eed7acee6bbfe3ad6d7f5d0a38ff"
+
+PRIME_IR_INTEGRITY = "sha256-yasEtENxjn7uB9U8m1Ydche12UWO5dzzs/TgYe4k1PQ="
+
+bazel_dep(name = "prime_ir", version = "2.0.0")
+archive_override(
+    module_name = "prime_ir",
+    integrity = PRIME_IR_INTEGRITY,
+    strip_prefix = "prime-ir-" + PRIME_IR_COMMIT,
+    urls = ["https://github.com/fractalyze/prime-ir/archive/{commit}.tar.gz".format(commit = PRIME_IR_COMMIT)],
+)
+
+ZK_DTYPES_COMMIT = "7a42ac4f9c3213925ac523c6871b580db96f9b8d"
+
+ZK_DTYPES_INTEGRITY = "sha256-8pEUJbq+GJCpyE/VGRcU6cMJUxgyUTO1dpOWiVY7yRw="
+
+bazel_dep(name = "zk_dtypes", version = "0.0.17")
+archive_override(
+    module_name = "zk_dtypes",
+    integrity = ZK_DTYPES_INTEGRITY,
+    strip_prefix = "zk_dtypes-" + ZK_DTYPES_COMMIT,
+    urls = ["https://github.com/fractalyze/zk_dtypes/archive/{commit}/zk_dtypes-{commit}.tar.gz".format(commit = ZK_DTYPES_COMMIT)],
+)
+
+# A consumer declares the rules and test framework it uses itself; neither is
+# inherited from stablehlo.
+bazel_dep(name = "rules_cc", version = "0.2.17")
+bazel_dep(name = "googletest", version = "1.17.0", repo_name = "com_google_googletest")
+
+# The same hermetic clang stablehlo builds itself with, declared here because
+# stablehlo's declaration is a `dev_dependency` and so does not reach a
+# consumer. Registering it is what a real consumer does; matching stablehlo's
+# version is what keeps this lane reading the shared cache rather than
+# rebuilding LLVM from source.
+bazel_dep(name = "toolchains_llvm", version = "1.7.0")
+bazel_dep(name = "bazel_features", version = "1.43.0")
+
+# The sysroot comes from stablehlo's own extension: a module extension's
+# repositories are shared by every module that uses it, so this is the same
+# archive, pinned once.
+toolchain_deps = use_extension("@stablehlo//bazel:toolchain_deps.bzl", "toolchain_deps")
+use_repo(toolchain_deps, "org_chromium_sysroot_linux_x64")
+
+llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
+llvm.toolchain(llvm_version = "20.1.7")
+llvm.sysroot(
+    label = "@org_chromium_sysroot_linux_x64//:sysroot",
+    targets = ["linux-x86_64"],
+)
+use_repo(llvm, "llvm_toolchain")
+
+register_toolchains("@llvm_toolchain//:all")

@@ -1,0 +1,38 @@
+# Copyright 2026 The StableHLO Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# The fixture's own copy of the repository root's .bazelrc.ci, which cannot be
+# reused verbatim: it is scoped to a workspace this module is not part of, and
+# its execution platform is a root-relative label. Passed as `--bazelrc`, as the
+# sibling lanes pass the root's.
+build:ci --remote_executor=grpcs://43.201.213.94:8980
+build:ci --remote_cache=grpcs://43.201.213.94:8980
+build:ci --tls_certificate=/etc/rbe-certs/ca.pem
+build:ci --tls_client_certificate=/etc/rbe-certs/client.pem
+build:ci --tls_client_key=/etc/rbe-certs/client.key
+# Root REAPI instance name: a non-empty one forks the AC/CAS namespace and pays
+# every action twice.
+build:ci --remote_instance_name=
+build:ci --remote_retries=8
+build:ci --remote_local_fallback
+build:ci --experimental_remote_cache_eviction_retries=5
+build:ci --remote_download_minimal
+build:ci --jobs=256
+# stablehlo's own platform, reachable because stablehlo is a `bazel_dep` here.
+build:ci --extra_execution_platforms=@stablehlo//build_tools/rbe:linux_remote
+# The hermetic toolchain that carries the strict-input carve-out is a
+# `dev_dependency` of stablehlo and so is absent here; gtest's modular headers
+# trip layering_check under the remote input tree either way.
+build:ci --features=-layering_check
+test:ci --test_output=errors

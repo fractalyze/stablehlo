@@ -21,6 +21,9 @@ package(
 
 exports_files([
     "LICENSE",
+    # Read by //third_party/prime_ir:pin_sync_test, which compares the pins
+    # declared here against the ones the WORKSPACE lane uses.
+    "MODULE.bazel",
     # Export to be used by MLIR-free python binding impls
     "stablehlo/integrations/python/StablehloApi.cpp",
     "stablehlo/integrations/python/StablehloApi.h",
@@ -1956,6 +1959,14 @@ cc_library(
     ],
 )
 
+# The builder tests below take gtest from @com_google_googletest rather than
+# LLVM's vendored copy. zk_dtypes puts the former's include directory on the
+# compile line of anything that reaches its field types (through
+# @com_google_googletest//:gtest_prod, for FRIEND_TEST), so `gtest/gtest.h`
+# resolves there whether or not a test asks for it. Naming LLVM's copy as well
+# compiles against one googletest and links the other, which the two spellings
+# of MakeAndRegisterTestInfo turn into an undefined symbol as soon as the
+# versions diverge.
 cc_test(
     name = "mlir_builder_test",
     srcs = ["stablehlo/integrations/cpp/builder/MlirBuilderTest.cpp"],
@@ -1967,13 +1978,12 @@ cc_test(
         ":register",
         ":stablehlo_builder",
         ":stablehlo_ops",
+        "@com_google_googletest//:gtest_main",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Support",
         "@llvm-project//mlir:TosaDialect",
-        "@llvm-project//third-party/unittest:gmock",
-        "@llvm-project//third-party/unittest:gtest",
     ],
 )
 
@@ -1998,11 +2008,10 @@ cc_test(
     srcs = ["stablehlo/integrations/cpp/builder/AttrTypeBuilderUtilTest.cpp"],
     deps = [
         ":attr_type_builder_util",
+        "@com_google_googletest//:gtest_main",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Support",
-        "@llvm-project//third-party/unittest:gmock",
-        "@llvm-project//third-party/unittest:gtest",
     ],
 )
 
@@ -2053,10 +2062,9 @@ cc_test(
         ":register",
         ":stablehlo_builder",
         ":stablehlo_ops",
+        "@com_google_googletest//:gtest_main",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Support",
-        "@llvm-project//third-party/unittest:gmock",
-        "@llvm-project//third-party/unittest:gtest",
     ],
 )
 
@@ -2140,9 +2148,8 @@ cc_test(
         ":register",
         ":stablehlo_builder",
         ":stablehlo_ops",
+        "@com_google_googletest//:gtest_main",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Support",
-        "@llvm-project//third-party/unittest:gmock",
-        "@llvm-project//third-party/unittest:gtest",
     ],
 )

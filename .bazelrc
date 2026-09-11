@@ -81,6 +81,14 @@ common --incompatible_disallow_empty_glob
 # diverge.
 common --noenable_bzlmod --enable_workspace
 
+# The opt-in bzlmod lane. Ignores WORKSPACE.bazel entirely and resolves through
+# MODULE.bazel instead. Bazel expands a command-line --config after every rc
+# file, so these win over the WORKSPACE pin above. The lane builds stablehlo as
+# the *root* module, where `archive_override` still applies, so it does not by
+# itself prove what a consumer gets — //bazel/bzlmod_consumer covers that.
+common:bzlmod --enable_bzlmod
+common:bzlmod --noenable_workspace
+
 # Hermetic action environment: PATH/env churn must not change action keys.
 # Checked in (not left to user rc files) so CI and local builds produce the
 # same keys and can share the bazel-remote cache.

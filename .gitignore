@@ -1,8 +1,6 @@
-bazel-bin
-bazel-out
-bazel-stablehlo
-bazel-stablehlo_fork
-bazel-testlogs
+# Bazel's convenience symlinks, named after the output tree and the workspace
+# directory — which is the checkout's own name, so match the prefix.
+bazel-*
 .bazelrc.user
 build
 cmake-build
@@ -14,3 +12,7 @@ llvm-build
 **/__pycache__
 *.whl
 **/*.egg-info/
+
+# The bzlmod consumer fixture resolves from scratch on every CI run; its lock
+# would be one more file to keep current for no check it performs.
+bazel/bzlmod_consumer/MODULE.bazel.lock
