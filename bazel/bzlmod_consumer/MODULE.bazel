@@ -47,9 +47,9 @@ local_path_override(
 # `ZK_DTYPES_` prefixes as `//MODULE.bazel` so that
 # `.github/workflows/pin-bump.yml` rewrites this file too, and
 # `//third_party/prime_ir:pin_sync_test` fails if it is left behind.
-PRIME_IR_COMMIT = "fb5e80427342eed7acee6bbfe3ad6d7f5d0a38ff"
+PRIME_IR_COMMIT = "f2b32567dceb66700d25d5c541187ce75811b153"
 
-PRIME_IR_INTEGRITY = "sha256-yasEtENxjn7uB9U8m1Ydche12UWO5dzzs/TgYe4k1PQ="
+PRIME_IR_INTEGRITY = "sha256-27pkFgO5R4XZp+oVqPuuhjOnZvqkB+vlRjUPn6dCfJk="
 
 bazel_dep(name = "prime_ir", version = "2.0.0")
 archive_override(
@@ -59,9 +59,9 @@ archive_override(
     urls = ["https://github.com/fractalyze/prime-ir/archive/{commit}.tar.gz".format(commit = PRIME_IR_COMMIT)],
 )
 
-ZK_DTYPES_COMMIT = "7a42ac4f9c3213925ac523c6871b580db96f9b8d"
+ZK_DTYPES_COMMIT = "a45ddd0782891028191f429614912c314811acaa"
 
-ZK_DTYPES_INTEGRITY = "sha256-8pEUJbq+GJCpyE/VGRcU6cMJUxgyUTO1dpOWiVY7yRw="
+ZK_DTYPES_INTEGRITY = "sha256-3wm9QGTJBfQcCxoke4mvIZhmPEVG/gcAxXNbHMOfScU="
 
 bazel_dep(name = "zk_dtypes", version = "0.0.17")
 archive_override(

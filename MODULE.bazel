@@ -88,9 +88,9 @@ bazel_dep(name = "googletest", version = "1.18.0.bcr.1", repo_name = "com_google
 # `archive_override` takes `integrity` and not the `sha256` that loader's
 # `http_archive` takes: the same digest, base64 rather than hex.
 # `pin_sync_test` converts between the two before comparing.
-PRIME_IR_COMMIT = "fb5e80427342eed7acee6bbfe3ad6d7f5d0a38ff"
+PRIME_IR_COMMIT = "f2b32567dceb66700d25d5c541187ce75811b153"
 
-PRIME_IR_INTEGRITY = "sha256-yasEtENxjn7uB9U8m1Ydche12UWO5dzzs/TgYe4k1PQ="
+PRIME_IR_INTEGRITY = "sha256-27pkFgO5R4XZp+oVqPuuhjOnZvqkB+vlRjUPn6dCfJk="
 
 bazel_dep(name = "prime_ir", version = "2.0.0")
 archive_override(
@@ -106,9 +106,9 @@ archive_override(
 # `pin_sync_test` reads it back out of `@prime_ir//:MODULE.bazel` and fails if
 # the two disagree, which is what makes a prime_ir bump that moves zk_dtypes a
 # red test rather than a silent disagreement about which revision to build.
-ZK_DTYPES_COMMIT = "7a42ac4f9c3213925ac523c6871b580db96f9b8d"
+ZK_DTYPES_COMMIT = "a45ddd0782891028191f429614912c314811acaa"
 
-ZK_DTYPES_INTEGRITY = "sha256-8pEUJbq+GJCpyE/VGRcU6cMJUxgyUTO1dpOWiVY7yRw="
+ZK_DTYPES_INTEGRITY = "sha256-3wm9QGTJBfQcCxoke4mvIZhmPEVG/gcAxXNbHMOfScU="
 
 bazel_dep(name = "zk_dtypes", version = "0.0.17")
 archive_override(

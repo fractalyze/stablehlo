@@ -284,7 +284,7 @@
     },
     "@@prime_ir+//bazel:llvm_deps.bzl%llvm_deps": {
       "general": {
-        "bzlTransitiveDigest": "r1pl8uP6OSWsIivucPOYjydMKpc7qjI0zfdyGjKsa9A=",
+        "bzlTransitiveDigest": "y85Ljl9Wij6HDl38syr7zELip8tN0/VqqdTLGzXJCWU=",
         "usagesDigest": "xrHs4y4K2NKCKtbKi2xoFojIBv3vaSMXftnBhgiP7qA=",
         "recordedInputs": [
           "REPO_MAPPING:prime_ir+,bazel_tools bazel_tools"
@@ -342,7 +342,7 @@
     },
     "@@prime_ir+//bazel:non_module_deps.bzl%non_module_deps": {
       "general": {
-        "bzlTransitiveDigest": "C2d414/UreTCxkK6So4x+tN7kpGo5GwbeJ2JnRT9NJM=",
+        "bzlTransitiveDigest": "O4bvcJ5sDwjXlHPaiznJimv2PK9hh586Ku2XOMQKDGU=",
         "usagesDigest": "j4OdiFUnhKNKfdmXCb+CfiyonxAgkqWJ1GkomTskSEU=",
         "recordedInputs": [
           "REPO_MAPPING:prime_ir+,bazel_tools bazel_tools"
