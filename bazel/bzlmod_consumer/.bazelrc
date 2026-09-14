@@ -15,9 +15,7 @@
 # Standalone module: this file is not the repository root's .bazelrc, and the
 # root's does not reach a separate workspace. The build flags below are the
 # root's, repeated so that the actions this lane runs hash the same as the ones
-# stablehlo's own lanes run and hit the shared cache instead of rebuilding LLVM.
-common --enable_bzlmod
-common --noenable_workspace
+# stablehlo's own lane runs and hit the shared cache instead of rebuilding LLVM.
 
 build --cxxopt=-std=c++17
 build --host_cxxopt=-std=c++17

@@ -14,7 +14,7 @@
 
 """A standalone module that depends on stablehlo, exactly as a consumer does.
 
-StableHLO's own `--config=bzlmod` lane builds it as the *root* module, where
+StableHLO's own build resolves it as the *root* module, where
 `archive_override`, `dev_dependency` declarations and patches all still apply. A
 consumer resolves it as a non-root module, where none of them do — so only a
 separate module like this one can show that `//MODULE.bazel` stands on its own,
@@ -71,10 +71,12 @@ archive_override(
     urls = ["https://github.com/fractalyze/zk_dtypes/archive/{commit}/zk_dtypes-{commit}.tar.gz".format(commit = ZK_DTYPES_COMMIT)],
 )
 
-# A consumer declares the rules and test framework it uses itself; neither is
-# inherited from stablehlo.
-bazel_dep(name = "rules_cc", version = "0.2.17")
-bazel_dep(name = "googletest", version = "1.17.0", repo_name = "com_google_googletest")
+# A consumer declares the rules and test framework it uses itself rather than
+# reaching for stablehlo's. Held at stablehlo's versions all the same: both are
+# non-dev `bazel_dep`s there, so a lower number here is only a floor that
+# resolution lifts, and `--check_direct_dependencies` would warn every run.
+bazel_dep(name = "rules_cc", version = "0.2.22")
+bazel_dep(name = "googletest", version = "1.18.0.bcr.1", repo_name = "com_google_googletest")
 
 # The same hermetic clang stablehlo builds itself with, declared here because
 # stablehlo's declaration is a `dev_dependency` and so does not reach a
@@ -82,7 +84,7 @@ bazel_dep(name = "googletest", version = "1.17.0", repo_name = "com_google_googl
 # version is what keeps this lane reading the shared cache rather than
 # rebuilding LLVM from source.
 bazel_dep(name = "toolchains_llvm", version = "1.7.0")
-bazel_dep(name = "bazel_features", version = "1.43.0")
+bazel_dep(name = "bazel_features", version = "1.50.0")
 
 # The sysroot comes from stablehlo's own extension: a module extension's
 # repositories are shared by every module that uses it, so this is the same

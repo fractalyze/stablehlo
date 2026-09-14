@@ -14,8 +14,8 @@
 
 """The bzlmod half of the hermetic toolchain's sysroot declaration.
 
-`WORKSPACE.bazel` calls `//third_party/sysroot:workspace.bzl`'s `repo()`
-directly; this extension calls the same function, so both lanes fetch one
+Wraps `//third_party/sysroot:workspace.bzl`'s `repo()` so that this build and a
+WORKSPACE-mode consumer, which calls the same function directly, fetch one
 archive pinned in one place. It is a dev dependency of MODULE.bazel, like the
 toolchain it feeds: which compiler builds StableHLO is the root module's choice,
 not part of what a consumer resolves.

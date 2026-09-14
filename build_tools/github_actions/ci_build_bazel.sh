@@ -88,11 +88,13 @@ bazel-test-diff() {
   # Remove external and duplicate targets.
   sort "$IMPACTED_TARGETS_PATH" | uniq | grep -v '//external' > "$FILTERED_TARGETS_PATH" || true
 
-  # Build and Test impacted targets
+  # Build and Test impacted targets. `--lockfile_mode=error` checks the
+  # committed MODULE.bazel.lock rather than rewriting it in place, so a pin edit
+  # that never regenerated it fails here instead of landing.
   if [[ -s "$FILTERED_TARGETS_PATH" ]]; then
     echo "Building and Testing Impacted (Non-External) Targets..."
-    bazel build --target_pattern_file="$FILTERED_TARGETS_PATH"
-    bazel test --target_pattern_file="$FILTERED_TARGETS_PATH"
+    bazel build --lockfile_mode=error --target_pattern_file="$FILTERED_TARGETS_PATH"
+    bazel test --lockfile_mode=error --target_pattern_file="$FILTERED_TARGETS_PATH"
   else
     echo "No non-external impacted targets to build and test."
   fi
