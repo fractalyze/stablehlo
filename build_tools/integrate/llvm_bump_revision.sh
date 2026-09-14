@@ -34,7 +34,8 @@ bump_to_xla_llvm_version() {
   echo "Extracting LLVM folder..."
   THIRD_PARTY_PATH="$REPO_ROOT/third_party"
   rm -rfv "$THIRD_PARTY_PATH"/llvm/*
-  unzip -jo "$ZIP_FILE" "xla-main/.bazelversion" -d "$REPO_ROOT"
+  # Only the LLVM pin is taken from upstream. This fork owns its .bazelversion
+  # and its dependency mode; upstream's are not ours to adopt.
   unzip -jo "$ZIP_FILE" "xla-main/third_party/repo.bzl" -d "$THIRD_PARTY_PATH"
   unzip -j "$ZIP_FILE" "xla-main/third_party/llvm/*" -d "$THIRD_PARTY_PATH/llvm"
 

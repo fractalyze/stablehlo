@@ -63,7 +63,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: "~/.cache/bazel"
-        key: ${{ runner.os }}-stablehlo_bazelbuild-${{ hashFiles('.bazelversion', '.bazelrc', 'WORKSPACE', 'WORKSPACE.bazel', 'MODULE.bazel') }}
+        key: ${{ runner.os }}-stablehlo_bazelbuild-${{ hashFiles('.bazelversion', '.bazelrc', 'MODULE.bazel', 'MODULE.bazel.lock') }}
         restore-keys: |
           ${{ runner.os }}-stablehlo_bazelbuild-
 
@@ -106,34 +106,7 @@ jobs:
       run: |
         ./build_tools/github_actions/ci_build_bazel.sh
 
-  # The same suite, resolved through MODULE.bazel instead of WORKSPACE.bazel.
-  # Always the full set: bazel-diff hashes the WORKSPACE lane's targets, and the
-  # two lanes' repository names differ, so its impacted-target set does not
-  # carry over. Fork-only — the lane resolves the fractalyze prime-ir and
-  # zk_dtypes forks, which upstream does not depend on.
-  bazel-build-bzlmod:
-    if: github.repository != 'openxla/stablehlo'
-    runs-on: [self-hosted, cpu]
-
-    steps:
-    - name: Checkout StableHLO
-      uses: actions/checkout@v4
-
-    - name: Setup Bazelisk
-      uses: bazelbuild/setup-bazelisk@v3
-
-    - name: Use host bazel-remote disk cache
-      shell: bash
-      run: cp .bazelrc.ci .bazelrc.user
-
-    # `--lockfile_mode=error` as the WORKSPACE lane's ci_build_bazel.sh passes
-    # it: the committed MODULE.bazel.lock is checked rather than rewritten in
-    # place, so a pin edit that never regenerated it fails here.
-    - name: Build and Test StableHLO (bzlmod)
-      shell: bash
-      run: bazel test --config=bzlmod --lockfile_mode=error //...
-
-  # StableHLO's own bzlmod lane builds it as the *root* module, where
+  # StableHLO's own build resolves it as the *root* module, where
   # `archive_override`, `dev_dependency` declarations and patches all still
   # apply; a consumer resolves it as a non-root module, where none of them do.
   # Only a separate module can tell the two apart, so this lane builds one, and

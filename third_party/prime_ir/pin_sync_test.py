@@ -14,24 +14,25 @@
 
 """Checks that every module in the repository pins the same forks.
 
-Neither prime_ir nor zk_dtypes is in a registry, so the bzlmod lane reaches them
-through `archive_override`s in MODULE.bazel while the WORKSPACE lane reaches
-prime_ir through an `http_archive` in `workspace.bzl` and zk_dtypes through
-prime_ir's own. MODULE.bazel cannot `load()`, so no pin can be single-sourced
-and the copies can drift — leaving the lanes building different revisions of the
-dependencies the rest of the chain hangs on.
+Neither prime_ir nor zk_dtypes is in a registry, so this repository reaches them
+through `archive_override`s in MODULE.bazel, while a WORKSPACE-mode consumer
+reaches prime_ir through the `http_archive` in `workspace.bzl` and zk_dtypes
+through prime_ir's own. MODULE.bazel cannot `load()`, so no pin can be
+single-sourced and the copies can drift — leaving them building different
+revisions of the dependencies the rest of the chain hangs on.
 
-Three files carry a copy. `//third_party/prime_ir:workspace.bzl` and
-`//MODULE.bazel` are the two lanes. `//bazel/bzlmod_consumer/MODULE.bazel` is
-the third and the easiest to forget: overrides apply only in the root module,
-and that fixture is root in its own lane, so its stale pin would not be
-corrected by either of the others — it would just build stablehlo against an old
-prime_ir. All three spell the pin behind `PRIME_IR_`- and
-`ZK_DTYPES_`-prefixed variables so that one substitution finds it in any of
-them, which is what lets `.github/workflows/pin-bump.yml` hand every path to the
-same bump action. This test is the other half of that arrangement.
+Three files carry a copy. `//MODULE.bazel` is what this repository builds from
+and `//third_party/prime_ir:workspace.bzl` is what it hands a WORKSPACE-mode
+consumer. `//bazel/bzlmod_consumer/MODULE.bazel` is the third and the easiest to
+forget: overrides apply only in the root module, and that fixture is root in its
+own lane, so its stale pin would not be corrected by either of the others — it
+would just build stablehlo against an old prime_ir. All three spell the pin
+behind `PRIME_IR_`- and `ZK_DTYPES_`-prefixed variables so that one substitution
+finds it in any of them, which is what lets `.github/workflows/pin-bump.yml`
+hand every path to the same bump action. This test is the other half of that
+arrangement.
 
-The zk_dtypes pin has no WORKSPACE-lane copy in this repository: the authority
+The zk_dtypes pin has no `workspace.bzl` copy in this repository: the authority
 is whatever prime_ir itself declares, which is read here out of
 `@prime_ir//:MODULE.bazel`. A prime_ir bump that also moves zk_dtypes therefore
 fails this test until the two MODULE.bazel files follow.

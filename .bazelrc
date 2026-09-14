@@ -23,9 +23,9 @@ build --host_cxxopt=-fno-rtti
 # this only works for Clang toolchain AFAIK
 # https://github.com/bazelbuild/bazel/pull/11440
 build --features=layering_check
-# Use the hermetic toolchains_llvm clang registered in WORKSPACE.bazel via
-# C++ toolchain resolution (default-on in Bazel 7; set explicitly for clarity)
-# instead of whatever `clang` sits on the worker PATH.
+# Use the hermetic toolchains_llvm clang registered in MODULE.bazel via C++
+# toolchain resolution (the default; set explicitly for clarity) instead of
+# whatever `clang` sits on the worker PATH.
 build --incompatible_enable_cc_toolchain_resolution
 
 # turn on fission https://gcc.gnu.org/wiki/DebugFission
@@ -75,20 +75,6 @@ test --nolegacy_external_runfiles
 # Disallow empty globs unless explicitly declared using `allow_empty=True`
 common --incompatible_disallow_empty_glob
 
-# The prime-ir bridge is wired through WORKSPACE (shared @llvm-raw patch set),
-# so pin WORKSPACE mode for every build — CI and local checkouts must agree on
-# the mode or their action keys (and the shared bazel-remote cache entries)
-# diverge.
-common --noenable_bzlmod --enable_workspace
-
-# The opt-in bzlmod lane. Ignores WORKSPACE.bazel entirely and resolves through
-# MODULE.bazel instead. Bazel expands a command-line --config after every rc
-# file, so these win over the WORKSPACE pin above. The lane builds stablehlo as
-# the *root* module, where `archive_override` still applies, so it does not by
-# itself prove what a consumer gets — //bazel/bzlmod_consumer covers that.
-common:bzlmod --enable_bzlmod
-common:bzlmod --noenable_workspace
-
 # Hermetic action environment: PATH/env churn must not change action keys.
 # Checked in (not left to user rc files) so CI and local builds produce the
 # same keys and can share the bazel-remote cache.
@@ -123,9 +109,9 @@ build:remote --remote_cache=grpcs://rbe.fractalyze.internal:8980
 build:remote --remote_instance_name=
 build:remote --remote_download_minimal
 build:remote --jobs=256
-# --digest_function is a STARTUP option (Bazel 7.x), so it cannot be scoped to
-# config=remote. SHA256 is already Bazel 7.7's default; Buildbarn's CAS is
-# SHA256 content-addressed, so the client digest matches the CAS without an
+# --digest_function is a STARTUP option, so it cannot be scoped to
+# config=remote. SHA256 is already the default; Buildbarn's CAS is SHA256
+# content-addressed, so the client digest matches the CAS without an
 # explicit pin. Left comment-only: a `startup --digest_function` flag forces a
 # server restart and applies to every invocation, not just remote. Add one only
 # if a future default change requires it.

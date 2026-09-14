@@ -14,9 +14,9 @@
 
 """Provides the repo macro to import the Chromium sysroot the clang toolchain uses.
 
-Both dependency lanes go through `repo()`: `WORKSPACE.bazel` calls it directly
-and `//bazel:toolchain_deps.bzl` wraps it in a module extension, so the archive
-and its digest have one home.
+Everything goes through `repo()`: `//bazel:toolchain_deps.bzl` wraps it in a
+module extension, and a WORKSPACE-mode consumer calls it directly, so the
+archive and its digest have one home.
 """
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")

@@ -22,7 +22,8 @@ package(
 exports_files([
     "LICENSE",
     # Read by //third_party/prime_ir:pin_sync_test, which compares the pins
-    # declared here against the ones the WORKSPACE lane uses.
+    # declared here against the ones //third_party/prime_ir:workspace.bzl
+    # hands a WORKSPACE-mode consumer.
     "MODULE.bazel",
     # Export to be used by MLIR-free python binding impls
     "stablehlo/integrations/python/StablehloApi.cpp",
