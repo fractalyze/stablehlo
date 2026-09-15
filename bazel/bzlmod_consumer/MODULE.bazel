@@ -47,9 +47,9 @@ local_path_override(
 # `ZK_DTYPES_` prefixes as `//MODULE.bazel` so that
 # `.github/workflows/pin-bump.yml` rewrites this file too, and
 # `//third_party/prime_ir:pin_sync_test` fails if it is left behind.
-PRIME_IR_COMMIT = "f2b32567dceb66700d25d5c541187ce75811b153"
+PRIME_IR_COMMIT = "fc426188794f8fe54300535011424c27868610d3"
 
-PRIME_IR_INTEGRITY = "sha256-27pkFgO5R4XZp+oVqPuuhjOnZvqkB+vlRjUPn6dCfJk="
+PRIME_IR_INTEGRITY = "sha256-2Biiy+YzaFUNoxEviePShHe88AqpAA9o9k5Ba/IVI5E="
 
 bazel_dep(name = "prime_ir", version = "2.0.0")
 archive_override(
