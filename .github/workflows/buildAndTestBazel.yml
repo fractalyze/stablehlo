@@ -106,6 +106,24 @@ jobs:
       run: |
         ./build_tools/github_actions/ci_build_bazel.sh
 
+    # Bazel rewrites MODULE.bazel.lock in place whenever it does not match
+    # MODULE.bazel, so a lock the steps above left dirty was stale in git.
+    # Checking the tree afterwards, rather than gating the build on
+    # `--lockfile_mode=error`, is what makes this fire: in the pull_request lane
+    # bazel-diff's hash passes run before the gated command and refresh the lock
+    # themselves, and they ignore a `--lockfile_mode` threaded through
+    # `--bazelCommandOptions`, so the gate reads an already-fresh lock and
+    # passes a stale one (fractalyze/ci-infra#9). Reading the tree catches every
+    # writer, whichever one it was. The bzlmod-consumer lane is excluded by
+    # construction: its own lock is deliberately unpinned and gitignored.
+    - name: Check MODULE.bazel.lock is current
+      shell: bash
+      run: |
+        git diff --exit-code -- MODULE.bazel.lock || {
+          echo "::error file=MODULE.bazel.lock::Stale: CI regenerated it. Run a default-config 'bazel build //...' and commit the resulting MODULE.bazel.lock."
+          exit 1
+        }
+
   # StableHLO's own build resolves it as the *root* module, where
   # `archive_override`, `dev_dependency` declarations and patches all still
   # apply; a consumer resolves it as a non-root module, where none of them do.

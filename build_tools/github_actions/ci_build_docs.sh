@@ -58,7 +58,11 @@ bazel build --remote_download_outputs=all "${!targets[@]}"
 
 cp "${targets[@]}" docs/generated
 
-DOC_DIFF="$(git diff)"
+# Scoped to what this script generates. The bazel build above also rewrites
+# MODULE.bazel.lock when it is stale, and an unscoped `git diff` would blame
+# that on the documentation and exit before the workflow's lock-freshness step
+# can name it.
+DOC_DIFF="$(git diff -- docs/generated)"
 [[ "$CHECK" ]] && [[ "$DOC_DIFF" ]] && {
   echo "$DOC_DIFF"
   echo
