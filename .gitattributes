@@ -1,0 +1,40 @@
+# Copyright 2026 The StableHLO Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# A tracked lock makes a build's resolution reproducible and a dependency change
+# reviewable. `linguist-generated` keeps a diff nobody edits by hand from
+# burying the rest of a review. CI fails when the lock does not describe the
+# build; `.github/workflows/buildAndTestBazel.yml` has the check and why it is
+# shaped that way.
+#
+# To regenerate: run a default-config `bazel build //...` and keep the result
+# only if a second build leaves it byte-identical. `bazel mod deps` is not a
+# substitute -- it records only the extensions that command evaluates.
+#
+# The merge attribute names a driver rather than defining one — git only ever
+# takes a driver from git config, never from a clone — so two branches that both
+# regenerated the lock merge structurally where the driver is registered, and
+# fall back to git's three-way merge where it is not. The driver is Bazel's own,
+# at
+# https://github.com/bazelbuild/bazel/blob/8220c6198837d5c13d53fea211cf3282aa12408a/scripts/bazel-lockfile-merge.jq
+# and is registered once per machine (it needs jq >= 1.5) with:
+#   git config merge.bazel-lockfile-merge.name "Bazel lockfile merge"
+#   git config merge.bazel-lockfile-merge.driver \
+#     "jq -s -f /path/to/bazel-lockfile-merge.jq -- %O %A %B > %A.tmp && mv %A.tmp %A"
+#
+# The pattern is unanchored, so it covers the bzlmod consumer fixture's lock
+# too. That one is gitignored and never tracked, so the attributes are inert
+# there, and the freshness check reads only the root lock.
+MODULE.bazel.lock linguist-generated=true
+MODULE.bazel.lock merge=bazel-lockfile-merge

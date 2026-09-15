@@ -29,9 +29,12 @@ if [[ $# -ne 0 && $# -ne 3 ]] ; then
 fi
 
 bazel-test-all() {
-  # Build and Test StableHLO
-  bazel build --lockfile_mode=error //... --config=asan --config=ubsan
-  bazel test //... --config=asan --config=ubsan
+  # Build and Test StableHLO. `--lockfile_mode=update` is Bazel's default, and
+  # is spelled out so the workflow's lock-freshness check does not depend on a
+  # runner default: it rewrites a stale lock in place, and that rewrite is what
+  # the check reads.
+  bazel build --lockfile_mode=update //... --config=asan --config=ubsan
+  bazel test --lockfile_mode=update //... --config=asan --config=ubsan
 }
 
 bazel-test-diff() {
@@ -88,13 +91,12 @@ bazel-test-diff() {
   # Remove external and duplicate targets.
   sort "$IMPACTED_TARGETS_PATH" | uniq | grep -v '//external' > "$FILTERED_TARGETS_PATH" || true
 
-  # Build and Test impacted targets. `--lockfile_mode=error` checks the
-  # committed MODULE.bazel.lock rather than rewriting it in place, so a pin edit
-  # that never regenerated it fails here instead of landing.
+  # Build and Test impacted targets. `--lockfile_mode=update` is Bazel's default,
+  # and is spelled out for the same reason as in bazel-test-all above.
   if [[ -s "$FILTERED_TARGETS_PATH" ]]; then
     echo "Building and Testing Impacted (Non-External) Targets..."
-    bazel build --lockfile_mode=error --target_pattern_file="$FILTERED_TARGETS_PATH"
-    bazel test --lockfile_mode=error --target_pattern_file="$FILTERED_TARGETS_PATH"
+    bazel build --lockfile_mode=update --target_pattern_file="$FILTERED_TARGETS_PATH"
+    bazel test --lockfile_mode=update --target_pattern_file="$FILTERED_TARGETS_PATH"
   else
     echo "No non-external impacted targets to build and test."
   fi
